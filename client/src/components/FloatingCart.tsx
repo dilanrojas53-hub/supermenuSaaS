@@ -1,7 +1,7 @@
 /*
- * Design: "Warm Craft" — Carrito flotante sticky en la parte inferior.
- * Bounce suave al recibir items. Muestra total y cantidad.
- * Placeholder para Fase 4 (checkout).
+ * Neuro-Ventas: Carrito flotante con bounce al agregar items,
+ * pulso en el badge de cantidad, y total actualizado en tiempo real.
+ * Sesgo: Compromiso progresivo (ver el total crecer motiva a completar).
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, ChevronUp } from 'lucide-react';
@@ -28,9 +28,9 @@ export default function FloatingCart({ theme, onOpen }: FloatingCartProps) {
           className="fixed bottom-0 left-0 right-0 z-40 p-4 pb-6"
         >
           <motion.button
-            key={totalItems}
-            animate={{ scale: [1, 1.03, 1] }}
-            transition={{ duration: 0.3 }}
+            key={`cart-${totalItems}`}
+            animate={{ scale: [1, 1.04, 1] }}
+            transition={{ duration: 0.35 }}
             onClick={onOpen}
             className="w-full flex items-center justify-between px-6 py-4 rounded-2xl shadow-xl transition-all active:scale-[0.98]"
             style={{
@@ -42,18 +42,28 @@ export default function FloatingCart({ theme, onOpen }: FloatingCartProps) {
             <div className="flex items-center gap-3">
               <div className="relative">
                 <ShoppingBag size={22} />
-                <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center"
+                <motion.span
+                  key={totalItems}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.3, 1] }}
+                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center"
                   style={{ backgroundColor: theme.accent_color, color: theme.text_color }}
                 >
                   {totalItems}
-                </span>
+                </motion.span>
               </div>
               <span className="font-semibold text-sm">Ver pedido</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>
+              <motion.span
+                key={totalPrice}
+                initial={{ y: -5, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="text-lg font-bold"
+                style={{ fontFamily: "'Lora', serif" }}
+              >
                 {formatPrice(totalPrice)}
-              </span>
+              </motion.span>
               <ChevronUp size={18} />
             </div>
           </motion.button>

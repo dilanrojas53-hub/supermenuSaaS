@@ -1,23 +1,23 @@
 /*
- * Design: "Warm Craft" — Página principal del menú del cliente.
- * Theming dinámico completo basado en theme_settings del tenant.
- * Mobile-first, scroll vertical con categorías como tabs horizontales.
- * Hero section con imagen del restaurante, sección "Platillo de la Semana",
- * grid/list de platillos por categoría, carrito flotante.
+ * Design: "Warm Craft" + Neuro-Ventas completo.
+ * Theming dinámico, scroll spy, platillo de la semana,
+ * social proof toasts, upsell condicionado con delay,
+ * carrito flotante con checkout SINPE/WhatsApp.
  */
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from 'wouter';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Loader2 } from 'lucide-react';
+import { MapPin, Loader2 } from 'lucide-react';
 import { useTenantData } from '@/hooks/useTenantData';
 import { CartProvider } from '@/contexts/CartContext';
 import { TENANT_HERO_IMAGES, getFontFamily, isColorDark } from '@/lib/types';
-import type { MenuItem, ThemeSettings } from '@/lib/types';
+import type { MenuItem } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
 import UpsellModal from '@/components/UpsellModal';
 import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
+import SocialProofToast from '@/components/SocialProofToast';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -57,17 +57,16 @@ function MenuContent() {
     setActiveCategory(categoryId);
     const el = categoryRefs.current[categoryId];
     if (el) {
-      const offset = 140; // account for sticky header
+      const offset = 140;
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: 'smooth' });
     }
   };
 
-  const handleUpsell = (item: MenuItem) => {
-    // Find the original item that triggered the upsell to get the upsell_text
-    const triggerItem = data?.menuItems.find(mi => mi.upsell_item_id === item.id);
+  // Updated upsell handler — receives text directly from MenuItemCard
+  const handleUpsell = (item: MenuItem, text: string | null) => {
     setUpsellItem(item);
-    setUpsellText(triggerItem?.upsell_text || null);
+    setUpsellText(text);
     setUpsellOpen(true);
   };
 
@@ -124,7 +123,6 @@ function MenuContent() {
 
   const { tenant, theme, categories } = data;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
-  const isDarkBg = isColorDark(theme.background_color);
   const bodyFont = getFontFamily(theme.font_family);
 
   return (
@@ -136,6 +134,9 @@ function MenuContent() {
         color: theme.text_color,
       }}
     >
+      {/* Social Proof Toast (Neuro-Ventas) */}
+      <SocialProofToast items={data.menuItems} theme={theme} />
+
       {/* Hero Section */}
       <div className="relative h-56 overflow-hidden">
         {heroImage && (
