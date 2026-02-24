@@ -19,6 +19,7 @@ import UpsellModal from '@/components/UpsellModal';
 import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
+import PoweredByFooter from '@/components/PoweredByFooter';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -344,12 +345,8 @@ function MenuContent() {
         theme={theme}
       />
 
-      {/* Footer */}
-      <div className="text-center py-6 px-4 opacity-40">
-        <p className="text-xs" style={{ color: theme.text_color }}>
-          Powered by Smart Menu
-        </p>
-      </div>
+      {/* Powered by Digital Atlas Footer */}
+      <PoweredByFooter variant={theme.background_color === '#1A1A2E' || theme.background_color === '#0F0F0F' ? 'dark' : 'light'} />
     </div>
   );
 }

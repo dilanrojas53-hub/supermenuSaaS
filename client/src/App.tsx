@@ -10,11 +10,13 @@ import MenuPage from "./pages/MenuPage";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import Pricing from "./pages/Pricing";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/pricing" component={Pricing} />
       {/* Super Admin routes */}
       <Route path="/super-admin/login">
         <AdminLogin mode="superadmin" />
