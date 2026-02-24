@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { Lock, Eye, EyeOff, ArrowLeft, Mail } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 interface AdminLoginProps {
@@ -41,15 +41,6 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Back button */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-8 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          <span className="text-sm">Volver al inicio</span>
-        </button>
-
         <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
           {/* Header */}
           <div className="text-center mb-8">

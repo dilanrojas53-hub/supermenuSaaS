@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS } from '@/lib/types';
+import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures } from '@/lib/types';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
@@ -849,7 +849,7 @@ export default function AdminDashboard() {
   const slug = params.slug;
   const { isAuthenticated, role, logout } = useAdminAuth();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabKey>('orders');
+  const [activeTab, setActiveTab] = useState<TabKey>('menu');
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -906,7 +906,9 @@ export default function AdminDashboard() {
     );
   }
 
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  const planFeatures = getPlanFeatures(tenant.plan_tier || 'premium');
+
+  const allTabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: 'orders', label: 'Pedidos', icon: <ClipboardList size={16} /> },
     { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={16} /> },
     { key: 'categories', label: 'Categorías', icon: <Tag size={16} /> },
@@ -915,6 +917,13 @@ export default function AdminDashboard() {
     { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={16} /> },
     { key: 'qr', label: 'QR', icon: <QrCode size={16} /> },
   ];
+
+  // Feature flagging: filter tabs based on plan tier
+  const tabs = allTabs.filter(tab => {
+    if (tab.key === 'orders' && !planFeatures.kds) return false;
+    if (tab.key === 'analytics' && !planFeatures.analytics) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-900">

@@ -18,9 +18,10 @@ interface MenuItemCardProps {
   viewMode: 'grid' | 'list';
   onUpsell?: (item: MenuItem, text: string | null) => void;
   allItems: MenuItem[];
+  showBadges?: boolean;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems, showBadges = true }: MenuItemCardProps) {
   const { addItem } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -55,7 +56,7 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
         }}
       >
         {/* Badge */}
-        {item.badge && (
+        {showBadges && item.badge && (
           <div className="absolute -top-3 left-3 z-10">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
           </div>
@@ -93,8 +94,8 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
           )}
 
           {/* Social proof counter (non-compact) */}
-          {item.badge && (
-            <div className="mb-2">
+          {showBadges && item.badge && (
+            <div className="mb-1">
               <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} />
             </div>
           )}
@@ -161,11 +162,11 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
       }}
     >
       {/* Badge */}
-      {item.badge && (
-        <div className="absolute top-3 left-3 z-10">
-          <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-        </div>
-      )}
+        {showBadges && item.badge && (
+          <div className="absolute top-2 left-2 z-10">
+            <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+          </div>
+        )}
 
       {/* Image area */}
       <div
@@ -199,7 +200,7 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
         )}
 
         {/* Social proof counter */}
-        {item.badge && (
+        {showBadges && item.badge && (
           <div className="mb-2">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} />
           </div>

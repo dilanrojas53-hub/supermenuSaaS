@@ -11,8 +11,8 @@ import { MapPin, Loader2, Globe } from 'lucide-react';
 import { useTenantData } from '@/hooks/useTenantData';
 import { CartProvider } from '@/contexts/CartContext';
 import { I18nProvider, useI18n } from '@/contexts/I18nContext';
-import { TENANT_HERO_IMAGES, getFontFamily } from '@/lib/types';
-import type { MenuItem } from '@/lib/types';
+import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
+import type { MenuItem, PlanFeatures } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
 import UpsellModal from '@/components/UpsellModal';
@@ -32,6 +32,11 @@ function MenuContent() {
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
+
+  // Feature flags based on plan tier
+  const features: PlanFeatures = useMemo(() => {
+    return data ? getPlanFeatures(data.tenant.plan_tier || 'premium') : getPlanFeatures('premium');
+  }, [data]);
 
   // Set first category as active
   useEffect(() => {
@@ -156,8 +161,8 @@ function MenuContent() {
         color: theme.text_color,
       }}
     >
-      {/* Social Proof Toast (Neuro-Ventas) */}
-      <SocialProofToast tenantId={tenant.id} theme={theme} />
+      {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
+      {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
       <div className="relative h-56 overflow-hidden">
@@ -175,21 +180,31 @@ function MenuContent() {
           }}
         />
 
-        {/* i18n Toggle — top right of hero */}
-        <button
-          onClick={toggleLang}
-          className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95"
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.25)',
-          }}
-        >
-          <Globe size={13} />
-          {lang === 'es' ? 'EN' : 'ES'}
-        </button>
+        {/* i18n Toggle — only for pro/premium */}
+        {features.i18n && (
+          <button
+            onClick={toggleLang}
+            className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.25)',
+            }}
+          >
+            <Globe size={13} />
+            {lang === 'es' ? 'EN' : 'ES'}
+          </button>
+        )}
 
         <div className="absolute bottom-0 left-0 right-0 p-5">
+          {/* Restaurant Logo */}
+          {tenant.logo_url && (
+            <img
+              src={tenant.logo_url}
+              alt={`${tenant.name} logo`}
+              className="w-14 h-14 rounded-xl object-cover mb-2 border-2 border-white/30 shadow-lg bg-white/10"
+            />
+          )}
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -242,8 +257,8 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Featured Dish (Platillo de la Semana) */}
-      {featuredItem && (
+      {/* Featured Dish (Platillo de la Semana) — only for pro/premium */}
+      {features.featuredDish && featuredItem && (
         <div className="mt-4">
           <FeaturedDish item={featuredItem} theme={theme} />
         </div>
@@ -298,8 +313,9 @@ function MenuContent() {
                     item={item}
                     theme={theme}
                     viewMode={theme.view_mode}
-                    onUpsell={handleUpsell}
+                    onUpsell={features.upsell ? handleUpsell : undefined}
                     allItems={data.menuItems}
+                    showBadges={features.neuroBadges}
                   />
                 ))}
               </div>

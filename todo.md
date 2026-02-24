@@ -1,14 +1,18 @@
-# Smart Menu v1.0 — 7 Correcciones Críticas
+# Smart Menu — SaaS Tiers + Bug Fixes
 
-## Fase 1: Ética y Lógica de Negocio
-- [ ] 1. Prueba Social Real: Eliminar nombres aleatorios de SocialProofToast, conectar a tabla orders (últimas 2h)
-- [ ] 2. Estado SINPE: Si receipt_url no es nulo, estado inicial = 'pago_en_revision' en vez de 'pendiente'
-- [ ] 3. KDS con Botones: Agregar botones [Aprobar] [A Cocina] [Listo] dentro de cada tarjeta de pedido
+## Correcciones de Interfaz
+- [ ] Eliminar botón "Volver al inicio" de AdminLogin.tsx
+- [ ] Renderizar logo del restaurante en hero section de MenuPage.tsx
+- [ ] Eliminar atributo capture del input file SINPE en CartDrawer.tsx
 
-## Fase 2: Seguridad y Operación
-- [ ] 4. Supabase Auth: Eliminar credenciales hardcoded, implementar login real por tenant
-- [ ] 5. Alerta Sonora: Web Audio API 'ding' en KDS cuando llega pedido nuevo
+## Lógica de Suscripciones (SaaS Tiers)
+- [ ] Migrar BD: añadir columna plan_tier ('basic','pro','premium') a tenants
+- [ ] Actualizar types.ts con plan_tier
+- [ ] Feature flagging en AdminDashboard: ocultar tabs según plan
+- [ ] Feature flagging en MenuPage: ocultar badges y i18n según plan
+- [ ] Super Admin: selector de plan y fecha de vencimiento por tenant
 
-## Fase 3: Expansión y Control
-- [ ] 6. i18n ES/EN: Toggle de idioma en menú público para textos de interfaz
-- [ ] 7. Control de Suscripción: Campo subscription_expires_at en tenants, visible en Super Admin
+## Feature Flagging Rules
+- Basic: Sin KDS, sin Analítica, sin badges Neuro-Ventas. Todo por WhatsApp.
+- Pro: KDS + badges Neuro-Ventas + i18n. Sin Analítica.
+- Premium: Todo habilitado.

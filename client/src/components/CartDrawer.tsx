@@ -507,7 +507,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                       ref={receiptInputRef}
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={handleReceiptSelect}
                       className="hidden"
                     />

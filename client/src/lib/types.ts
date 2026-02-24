@@ -1,3 +1,5 @@
+export type PlanTier = 'basic' | 'pro' | 'premium';
+
 export interface Tenant {
   id: string;
   slug: string;
@@ -15,9 +17,43 @@ export interface Tenant {
   admin_email: string | null;
   admin_password_hash: string | null;
   subscription_expires_at: string | null;
+  plan_tier: PlanTier;
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Feature flags per plan tier.
+ * Basic:   WhatsApp only. No KDS, no analytics, no badges, no i18n.
+ * Pro:     KDS + badges + i18n. No analytics.
+ * Premium: Everything enabled.
+ */
+export interface PlanFeatures {
+  kds: boolean;
+  analytics: boolean;
+  neuroBadges: boolean;
+  i18n: boolean;
+  featuredDish: boolean;
+  socialProof: boolean;
+  upsell: boolean;
+}
+
+export function getPlanFeatures(tier: PlanTier): PlanFeatures {
+  switch (tier) {
+    case 'basic':
+      return { kds: false, analytics: false, neuroBadges: false, i18n: false, featuredDish: false, socialProof: false, upsell: false };
+    case 'pro':
+      return { kds: true, analytics: false, neuroBadges: true, i18n: true, featuredDish: true, socialProof: true, upsell: true };
+    case 'premium':
+      return { kds: true, analytics: true, neuroBadges: true, i18n: true, featuredDish: true, socialProof: true, upsell: true };
+  }
+}
+
+export const PLAN_LABELS: Record<PlanTier, { label: string; color: string; bgColor: string }> = {
+  basic: { label: 'Básico', color: '#6B7280', bgColor: '#F3F4F6' },
+  pro: { label: 'Pro', color: '#3B82F6', bgColor: '#DBEAFE' },
+  premium: { label: 'Premium', color: '#F59E0B', bgColor: '#FEF3C7' },
+};
 
 export interface ThemeSettings {
   id: string;

@@ -43,6 +43,7 @@ export default function SuperAdminDashboard() {
   const [form, setForm] = useState({
     name: '', slug: '', description: '', phone: '', whatsapp_number: '',
     address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
+    plan_tier: 'basic' as 'basic' | 'pro' | 'premium',
     subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
     background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid' as 'grid' | 'list'
@@ -138,6 +139,7 @@ export default function SuperAdminDashboard() {
       phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
       address: form.address || null, sinpe_number: form.sinpe_number || null,
       sinpe_owner: form.sinpe_owner || null, admin_email: form.admin_email || null,
+      plan_tier: form.plan_tier,
       subscription_expires_at: form.subscription_expires_at ? `${form.subscription_expires_at}T23:59:59Z` : null,
       is_active: true
     }).select().single();
@@ -157,6 +159,7 @@ export default function SuperAdminDashboard() {
     setForm({
       name: '', slug: '', description: '', phone: '', whatsapp_number: '',
       address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
+      plan_tier: 'basic',
       subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
       background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid'
@@ -418,6 +421,15 @@ export default function SuperAdminDashboard() {
                       placeholder="admin@restaurante.com" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
                   </div>
                   <div>
+                    <label className="block text-xs text-slate-400 mb-1">Plan</label>
+                    <select value={form.plan_tier} onChange={e => setForm({ ...form, plan_tier: e.target.value as 'basic' | 'pro' | 'premium' })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none">
+                      <option value="basic">Basic — Solo WhatsApp</option>
+                      <option value="pro">Pro — KDS + Neuro-Ventas + i18n</option>
+                      <option value="premium">Premium — Todo incluido</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-xs text-slate-400 mb-1">Vencimiento Suscripción</label>
                     <input type="date" value={form.subscription_expires_at} onChange={e => setForm({ ...form, subscription_expires_at: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
@@ -487,6 +499,13 @@ export default function SuperAdminDashboard() {
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tenant.is_open ? 'bg-green-500/10 text-green-300' : 'bg-slate-500/20 text-slate-400'}`}>
                             {tenant.is_open ? 'Abierto' : 'Cerrado'}
                           </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                            tenant.plan_tier === 'premium' ? 'bg-purple-500/20 text-purple-300' :
+                            tenant.plan_tier === 'pro' ? 'bg-blue-500/20 text-blue-300' :
+                            'bg-slate-500/20 text-slate-400'
+                          }`}>
+                            {(tenant.plan_tier || 'basic').toUpperCase()}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500">
                           <button onClick={() => copySlug(tenant.slug)} className="flex items-center gap-1 hover:text-slate-300 transition-colors font-mono">
@@ -507,6 +526,36 @@ export default function SuperAdminDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Plan selector inline */}
+                        <select
+                          value={tenant.plan_tier || 'basic'}
+                          onChange={async (e) => {
+                            const newPlan = e.target.value;
+                            const { error } = await supabase.from('tenants').update({ plan_tier: newPlan, updated_at: new Date().toISOString() }).eq('id', tenant.id);
+                            if (error) { toast.error('Error: ' + error.message); return; }
+                            toast.success(`Plan de ${tenant.name} cambiado a ${newPlan.toUpperCase()}`);
+                            fetchData();
+                          }}
+                          className="px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-white text-[10px] focus:ring-2 focus:ring-purple-500/50 focus:outline-none cursor-pointer"
+                          title="Cambiar plan">
+                          <option value="basic">Basic</option>
+                          <option value="pro">Pro</option>
+                          <option value="premium">Premium</option>
+                        </select>
+                        {/* Subscription date editor */}
+                        <input
+                          type="date"
+                          value={tenant.subscription_expires_at ? new Date(tenant.subscription_expires_at).toISOString().split('T')[0] : ''}
+                          onChange={async (e) => {
+                            const newDate = e.target.value;
+                            if (!newDate) return;
+                            const { error } = await supabase.from('tenants').update({ subscription_expires_at: `${newDate}T23:59:59Z`, updated_at: new Date().toISOString() }).eq('id', tenant.id);
+                            if (error) { toast.error('Error: ' + error.message); return; }
+                            toast.success(`Fecha de vencimiento de ${tenant.name} actualizada`);
+                            fetchData();
+                          }}
+                          className="px-1.5 py-1 bg-slate-700 border border-slate-600 rounded-lg text-white text-[10px] focus:ring-2 focus:ring-purple-500/50 focus:outline-none cursor-pointer w-28"
+                          title="Fecha de vencimiento" />
                         <a href={`/${tenant.slug}`} target="_blank" rel="noopener noreferrer"
                           className="p-2 hover:bg-slate-700 rounded-lg transition-colors" title="Ver menú público">
                           <ExternalLink size={14} className="text-slate-400" />
