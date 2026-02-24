@@ -8,8 +8,8 @@ import { Check, ArrowLeft, Crown, Star, Zap } from 'lucide-react';
 import { Link } from 'wouter';
 import PoweredByFooter from '@/components/PoweredByFooter';
 
-const DIGITAL_ATLAS_LOGO = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/JpWMbxFFjqBmTDvA.webp";
-const WHATSAPP_NUMBER = '50600000000';
+const LOGO_WHITE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/OmbbPNnVFlwOoZKI.png";
+const WHATSAPP_NUMBER = '50662014922';
 
 interface Plan {
   name: string;
@@ -126,10 +126,10 @@ export default function Pricing() {
               </span>
             </Link>
             <img
-              src={DIGITAL_ATLAS_LOGO}
+              src={LOGO_WHITE}
               alt="Digital Atlas"
-              className="h-7 w-auto"
-              style={{ filter: 'brightness(0) invert(1)' }}
+              className="w-auto"
+              style={{ height: '28px' }}
             />
           </div>
 

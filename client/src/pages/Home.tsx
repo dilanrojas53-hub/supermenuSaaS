@@ -14,7 +14,7 @@ import { useAllTenants } from '@/hooks/useTenantData';
 import { TENANT_HERO_IMAGES } from '@/lib/types';
 import PoweredByFooter from '@/components/PoweredByFooter';
 
-const DIGITAL_ATLAS_LOGO = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/JpWMbxFFjqBmTDvA.webp";
+const LOGO_WHITE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/OmbbPNnVFlwOoZKI.png";
 
 const BENEFITS = [
   {
@@ -91,10 +91,10 @@ export default function Home() {
             className="flex items-center gap-3 mb-12"
           >
             <img
-              src={DIGITAL_ATLAS_LOGO}
+              src={LOGO_WHITE}
               alt="Digital Atlas"
-              className="h-8 w-auto"
-              style={{ filter: 'brightness(0) invert(1)' }}
+              className="w-auto"
+              style={{ height: '32px' }}
             />
           </motion.div>
 
@@ -148,7 +148,7 @@ export default function Home() {
               </button>
             </Link>
             <a
-              href="https://wa.me/50600000000?text=Hola%2C%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20quiero%20una%20demo%20de%20Smart%20Menu"
+              href="https://wa.me/50662014922?text=Hola%2C%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20quiero%20una%20demo%20de%20Smart%20Menu"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto"
