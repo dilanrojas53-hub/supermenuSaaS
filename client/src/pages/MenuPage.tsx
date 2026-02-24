@@ -346,7 +346,7 @@ function MenuContent() {
       />
 
       {/* Powered by Digital Atlas Footer */}
-      <PoweredByFooter variant={theme.background_color === '#1A1A2E' || theme.background_color === '#0F0F0F' ? 'dark' : 'light'} />
+      <PoweredByFooter bgColor={theme.background_color} textColor={`${theme.text_color}70`} />
     </div>
   );
 }
