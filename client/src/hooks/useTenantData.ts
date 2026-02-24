@@ -35,6 +35,9 @@ export function useTenantData(slug: string | undefined) {
 
         const tenant = tenantData as Tenant;
 
+        // Increment visit counter (fire and forget)
+        supabase.from('tenants').update({ visit_count: (tenant.visit_count || 0) + 1 }).eq('id', tenant.id).then(() => {});
+
         // Fetch theme settings
         const { data: themeData } = await supabase
           .from('theme_settings')

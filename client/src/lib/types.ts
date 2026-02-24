@@ -10,6 +10,8 @@ export interface Tenant {
   sinpe_number: string | null;
   sinpe_owner: string | null;
   is_active: boolean;
+  is_open: boolean;
+  visit_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +56,31 @@ export interface MenuItem {
   upsell_item_id: string | null;
   upsell_text: string | null;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  order_number: number;
+  tenant_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_table: string;
+  items: OrderItem[];
+  subtotal: number;
+  total: number;
+  status: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+  payment_method: string;
+  sinpe_receipt_url: string;
+  notes: string;
   created_at: string;
   updated_at: string;
 }
@@ -112,3 +139,17 @@ export function getFontFamily(fontName: string): string {
   };
   return fontMap[fontName] || `'${fontName}', sans-serif`;
 }
+
+// Supabase Storage URL helper
+export function getStorageUrl(bucket: string, path: string): string {
+  return `https://zddytyncmnivfbvehrth.supabase.co/storage/v1/object/public/${bucket}/${path}`;
+}
+
+// Order status labels in Spanish
+export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+  pendiente: { label: 'Pendiente', color: '#F59E0B', bgColor: '#FEF3C7' },
+  en_cocina: { label: 'En cocina', color: '#3B82F6', bgColor: '#DBEAFE' },
+  listo: { label: 'Listo', color: '#10B981', bgColor: '#D1FAE5' },
+  entregado: { label: 'Entregado', color: '#6B7280', bgColor: '#F3F4F6' },
+  cancelado: { label: 'Cancelado', color: '#EF4444', bgColor: '#FEE2E2' },
+};

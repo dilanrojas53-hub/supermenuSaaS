@@ -1,31 +1,23 @@
-# Smart Menu - Admin Panels & Deployment
+# Smart Menu v1.0 — Auditoría y Completar Fases
 
-## Phase 1: Upgrade to Full-Stack
-- [ ] Add web-db-user feature for backend + auth
-- [ ] Configure Supabase connection in backend
-- [ ] Set up admin auth middleware
+## Fase 2 — Verificar/Arreglar
+- [ ] Upload de imágenes a Supabase Storage (NO campos de URL de texto)
+- [ ] Color Picker visual (NO códigos HEX manuales)
+- [ ] Toda la interfaz en español (cero inglés)
+- [ ] Switch Abierto/Cerrado para el local (tenant.is_open)
+- [ ] Switch Disponible/Agotado para cada platillo (menu_item.is_available)
+- [ ] Verificar que CartDrawer tiene flujo de checkout completo
 
-## Phase 2: Dashboard del Propietario (/admin)
-- [ ] Admin login page with credentials
-- [ ] Menu items CRUD (create, edit, delete)
-- [ ] Image URL field for menu items
-- [ ] Restaurant settings (name, logo, SINPE, titular)
-- [ ] Theme control (colors, fonts, layout grid/list)
-- [ ] Categories management
+## Fase 3 — Admin Panel (Implementar)
+- [ ] Pestaña Pedidos en Vivo (KDS) con estados
+- [ ] Dashboard Analítica (ventas, platillo estrella, gráficos)
+- [ ] Botón Descargar QR en configuración
 
-## Phase 3: Panel Super-Admin (/super-admin)
-- [ ] Super-admin login with master credentials
-- [ ] View all tenants list
-- [ ] Activate/deactivate tenants
-- [ ] Create new tenant with slug generation
-- [ ] Quick tenant stats overview
+## Fase 4 — Super Admin (Implementar)
+- [ ] Dashboard GMV real con datos de orders
+- [ ] Ranking de restaurantes por ventas
+- [ ] Métricas de plataforma
 
-## Phase 4: Verification
-- [ ] Test admin panel CRUD operations
-- [ ] Test super-admin tenant management
-- [ ] Test theme changes reflect on public menu
-
-## Phase 5: Deployment
-- [ ] Push code to GitHub repository
-- [ ] Deploy on Vercel
-- [ ] Provide public URL and credentials
+## Fase 5 — Despliegue
+- [ ] Push a GitHub
+- [ ] Verificar en navegador
