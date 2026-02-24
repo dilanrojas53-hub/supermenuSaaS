@@ -1,9 +1,11 @@
 /*
  * Página de Precios — Smart Menu by Digital Atlas
  * 3 planes: Básico, Pro (destacado), Premium en Colones (₡).
- * CTAs abren WhatsApp con mensaje predefinido.
+ * Toggle Mensual / Anual con 20% de descuento.
+ * CTAs abren WhatsApp con mensaje dinámico (plan + período).
  */
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ArrowLeft, Crown, Star, Zap } from 'lucide-react';
 import { Link } from 'wouter';
 import PoweredByFooter from '@/components/PoweredByFooter';
@@ -11,11 +13,12 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 const LOGO_WHITE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/OmbbPNnVFlwOoZKI.png";
 const WHATSAPP_NUMBER = '50662014922';
 
-interface Plan {
+interface PlanData {
   name: string;
   tier: string;
-  price: string;
-  period: string;
+  monthlyPrice: string;
+  annualPrice: string;
+  annualSavings: string;
   description: string;
   icon: typeof Zap;
   features: string[];
@@ -24,12 +27,13 @@ interface Plan {
   bgGradient: string;
 }
 
-const PLANS: Plan[] = [
+const PLANS: PlanData[] = [
   {
     name: 'Básico',
     tier: 'basic',
-    price: '₡9.900',
-    period: '/mes',
+    monthlyPrice: '₡9.900',
+    annualPrice: '₡95.040',
+    annualSavings: 'Ahorra ₡23.760',
     description: 'Ideal para empezar a digitalizar tu menú y recibir pedidos por WhatsApp.',
     icon: Zap,
     features: [
@@ -47,8 +51,9 @@ const PLANS: Plan[] = [
   {
     name: 'Pro',
     tier: 'pro',
-    price: '₡19.900',
-    period: '/mes',
+    monthlyPrice: '₡19.900',
+    annualPrice: '₡191.040',
+    annualSavings: 'Ahorra ₡47.760',
     description: 'Para restaurantes que quieren vender más con inteligencia y control total.',
     icon: Star,
     features: [
@@ -68,8 +73,9 @@ const PLANS: Plan[] = [
   {
     name: 'Premium',
     tier: 'premium',
-    price: '₡29.900',
-    period: '/mes',
+    monthlyPrice: '₡29.900',
+    annualPrice: '₡287.040',
+    annualSavings: 'Ahorra ₡71.760',
     description: 'Control total con datos y analítica para tomar decisiones basadas en números.',
     icon: Crown,
     features: [
@@ -88,14 +94,17 @@ const PLANS: Plan[] = [
   },
 ];
 
-function buildWhatsAppUrl(planName: string): string {
+function buildWhatsAppUrl(planName: string, isAnnual: boolean): string {
+  const periodo = isAnnual ? 'Anual' : 'Mensual';
   const message = encodeURIComponent(
-    `Hola, vengo de la página web y quiero contratar el Plan ${planName}`
+    `Hola, vengo de la página web y quiero contratar el Plan ${planName} en pago ${periodo}`
   );
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 }
 
 export default function Pricing() {
+  const [isAnnual, setIsAnnual] = useState(false);
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FFF8F0' }}>
 
@@ -146,9 +155,64 @@ export default function Pricing() {
             >
               Planes y Precios
             </h1>
-            <p className="text-gray-300 max-w-md mx-auto" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            <p className="text-gray-300 max-w-md mx-auto mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>
               Elegí el plan que mejor se adapte a tu restaurante. Sin contratos, cancelá cuando quieras.
             </p>
+
+            {/* ═══════════════ BILLING TOGGLE ═══════════════ */}
+            <div className="flex items-center justify-center gap-4">
+              <span
+                className={`text-sm font-semibold transition-colors ${
+                  !isAnnual ? 'text-white' : 'text-gray-400'
+                }`}
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                Mensual
+              </span>
+
+              <button
+                onClick={() => setIsAnnual(!isAnnual)}
+                className="relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-transparent"
+                style={{
+                  backgroundColor: isAnnual ? '#D97706' : 'rgba(255,255,255,0.2)',
+                }}
+                aria-label="Toggle facturación anual"
+              >
+                <motion.div
+                  className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md"
+                  animate={{ left: isAnnual ? '30px' : '2px' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </button>
+
+              <span
+                className={`text-sm font-semibold transition-colors ${
+                  isAnnual ? 'text-white' : 'text-gray-400'
+                }`}
+                style={{ fontFamily: "'Nunito', sans-serif" }}
+              >
+                Anual
+              </span>
+
+              <AnimatePresence>
+                {isAnnual && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8, x: -10 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, x: -10 }}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
+                    style={{
+                      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                      color: '#34D399',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      fontFamily: "'Nunito', sans-serif",
+                    }}
+                  >
+                    20% OFF
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -159,6 +223,8 @@ export default function Pricing() {
           {PLANS.map((plan, i) => {
             const Icon = plan.icon;
             const isHighlighted = plan.highlighted;
+            const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+            const displayPeriod = isAnnual ? '/año' : '/mes';
 
             return (
               <motion.div
@@ -209,30 +275,59 @@ export default function Pricing() {
                   </div>
 
                   {/* Price */}
-                  <div className="mb-4">
+                  <div className="mb-2">
                     <span
-                      className={`text-4xl font-bold ${isHighlighted ? 'text-white' : ''}`}
+                      className={`text-4xl font-bold inline-block ${isHighlighted ? 'text-white' : ''}`}
                       style={{
                         fontFamily: "'Lora', serif",
                         color: isHighlighted ? '#fff' : '#1a1a2e',
                       }}
                     >
-                      {plan.price}
+                      {displayPrice}
                     </span>
                     <span
                       className={`text-sm ml-1 ${isHighlighted ? 'text-gray-300' : 'text-gray-500'}`}
                       style={{ fontFamily: "'Nunito', sans-serif" }}
                     >
-                      {plan.period}
+                      {displayPeriod}
                     </span>
                   </div>
+
+                  {/* Savings Badge (annual only) */}
+                  <AnimatePresence>
+                    {isAnnual && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <span
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
+                          style={{
+                            backgroundColor: isHighlighted
+                              ? 'rgba(16, 185, 129, 0.2)'
+                              : 'rgba(16, 185, 129, 0.1)',
+                            color: isHighlighted ? '#34D399' : '#059669',
+                            border: `1px solid ${isHighlighted ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)'}`,
+                            fontFamily: "'Nunito', sans-serif",
+                          }}
+                        >
+                          {plan.annualSavings}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Description */}
                   <p
                     className={`text-sm mb-6 leading-relaxed ${
                       isHighlighted ? 'text-gray-300' : 'text-gray-500'
                     }`}
-                    style={{ fontFamily: "'Nunito', sans-serif" }}
+                    style={{
+                      fontFamily: "'Nunito', sans-serif",
+                      marginTop: isAnnual ? 0 : 16,
+                    }}
                   >
                     {plan.description}
                   </p>
@@ -265,7 +360,7 @@ export default function Pricing() {
 
                   {/* CTA */}
                   <a
-                    href={buildWhatsAppUrl(plan.name)}
+                    href={buildWhatsAppUrl(plan.name, isAnnual)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
