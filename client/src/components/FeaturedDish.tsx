@@ -1,21 +1,21 @@
 /*
  * Neuro-Ventas: "Platillo de la Semana" con countdown de disponibilidad,
  * spotlight shimmer, copy persuasivo, y contador de pedidos.
- * Sesgos: Novedad, Escasez temporal, Autoridad del Chef.
+ * i18n: traduce strings de interfaz dura.
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Plus, Check, Users, Clock, Star } from 'lucide-react';
+import { Plus, Check, Users, Clock, Star } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { useI18n } from '@/contexts/I18nContext';
 
 interface FeaturedDishProps {
   item: MenuItem;
   theme: ThemeSettings;
 }
 
-// Get remaining hours until end of week (Sunday midnight)
 function getHoursUntilEndOfWeek(): number {
   const now = new Date();
   const daysUntilSunday = 7 - now.getDay();
@@ -34,6 +34,7 @@ function hashCode(str: string): number {
 
 export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
   const { addItem } = useCart();
+  const { lang, t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
   const [hoursLeft] = useState(getHoursUntilEndOfWeek);
 
@@ -48,6 +49,9 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
 
   const days = Math.floor(hoursLeft / 24);
   const hours = hoursLeft % 24;
+
+  const remainingText = lang === 'es' ? `${days}d ${hours}h restantes` : `${days}d ${hours}h left`;
+  const ordersText = lang === 'es' ? `${ordersThisWeek} pedidos esta semana` : `${ordersThisWeek} orders this week`;
 
   return (
     <motion.div
@@ -87,7 +91,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
             className="text-xs font-bold uppercase tracking-wider"
             style={{ color: theme.primary_color }}
           >
-            Platillo de la Semana
+            {t('menu.featured')}
           </span>
         </div>
         {/* Countdown */}
@@ -96,7 +100,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
           style={{ backgroundColor: `${theme.primary_color}15`, color: theme.primary_color }}
         >
           <Clock size={10} />
-          <span>{days}d {hours}h restantes</span>
+          <span>{remainingText}</span>
         </div>
       </div>
 
@@ -111,7 +115,6 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
           ) : (
             <div className="w-full h-full flex items-center justify-center text-4xl">👨‍🍳</div>
           )}
-          {/* Chef badge overlay */}
           <div
             className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
             style={{ backgroundColor: theme.accent_color, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
@@ -146,7 +149,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
             style={{ color: theme.text_color }}
           >
             <Users size={11} />
-            <span>{ordersThisWeek} pedidos esta semana</span>
+            <span>{ordersText}</span>
           </motion.div>
 
           <div className="flex items-center justify-between">
@@ -176,7 +179,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
                     className="flex items-center gap-1"
                   >
                     <Check size={16} />
-                    Agregado
+                    {t('menu.added')}
                   </motion.span>
                 ) : (
                   <motion.span
@@ -187,7 +190,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
                     className="flex items-center gap-1"
                   >
                     <Plus size={16} />
-                    Agregar
+                    {t('menu.add')}
                   </motion.span>
                 )}
               </AnimatePresence>

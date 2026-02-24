@@ -12,6 +12,9 @@ export interface Tenant {
   is_active: boolean;
   is_open: boolean;
   visit_count: number;
+  admin_email: string | null;
+  admin_password_hash: string | null;
+  subscription_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +70,8 @@ export interface OrderItem {
   quantity: number;
 }
 
+export type OrderStatus = 'pendiente' | 'pago_en_revision' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+
 export interface Order {
   id: string;
   order_number: number;
@@ -77,7 +82,7 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   total: number;
-  status: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+  status: OrderStatus;
   payment_method: string;
   sinpe_receipt_url: string;
   notes: string;
@@ -145,11 +150,33 @@ export function getStorageUrl(bucket: string, path: string): string {
   return `https://zddytyncmnivfbvehrth.supabase.co/storage/v1/object/public/${bucket}/${path}`;
 }
 
-// Order status labels in Spanish
+// Order status labels in Spanish with action buttons
 export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   pendiente: { label: 'Pendiente', color: '#F59E0B', bgColor: '#FEF3C7' },
+  pago_en_revision: { label: 'Pago en Revisión', color: '#8B5CF6', bgColor: '#EDE9FE' },
   en_cocina: { label: 'En cocina', color: '#3B82F6', bgColor: '#DBEAFE' },
   listo: { label: 'Listo', color: '#10B981', bgColor: '#D1FAE5' },
   entregado: { label: 'Entregado', color: '#6B7280', bgColor: '#F3F4F6' },
   cancelado: { label: 'Cancelado', color: '#EF4444', bgColor: '#FEE2E2' },
+};
+
+// Order status flow — what actions are available from each status
+export const ORDER_STATUS_ACTIONS: Record<string, { label: string; nextStatus: OrderStatus; icon: string; color: string }[]> = {
+  pendiente: [
+    { label: 'A Cocina', nextStatus: 'en_cocina', icon: '🍳', color: '#3B82F6' },
+    { label: 'Cancelar', nextStatus: 'cancelado', icon: '✕', color: '#EF4444' },
+  ],
+  pago_en_revision: [
+    { label: 'Aprobar Pago', nextStatus: 'en_cocina', icon: '✓', color: '#10B981' },
+    { label: 'Rechazar', nextStatus: 'cancelado', icon: '✕', color: '#EF4444' },
+  ],
+  en_cocina: [
+    { label: 'Listo', nextStatus: 'listo', icon: '🔔', color: '#10B981' },
+    { label: 'Cancelar', nextStatus: 'cancelado', icon: '✕', color: '#EF4444' },
+  ],
+  listo: [
+    { label: 'Entregado', nextStatus: 'entregado', icon: '✅', color: '#6B7280' },
+  ],
+  entregado: [],
+  cancelado: [],
 };

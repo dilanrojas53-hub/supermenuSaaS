@@ -42,7 +42,8 @@ export default function SuperAdminDashboard() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-    address: '', sinpe_number: '', sinpe_owner: '',
+    address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
+    subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
     background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid' as 'grid' | 'list'
   });
@@ -136,7 +137,9 @@ export default function SuperAdminDashboard() {
       name: form.name, slug: form.slug, description: form.description || null,
       phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
       address: form.address || null, sinpe_number: form.sinpe_number || null,
-      sinpe_owner: form.sinpe_owner || null, is_active: true
+      sinpe_owner: form.sinpe_owner || null, admin_email: form.admin_email || null,
+      subscription_expires_at: form.subscription_expires_at ? `${form.subscription_expires_at}T23:59:59Z` : null,
+      is_active: true
     }).select().single();
 
     if (tenantError || !newTenant) { toast.error('Error al crear: ' + (tenantError?.message || 'Unknown')); return; }
@@ -153,7 +156,8 @@ export default function SuperAdminDashboard() {
     setIsCreating(false);
     setForm({
       name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-      address: '', sinpe_number: '', sinpe_owner: '',
+      address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
+      subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
       background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid'
     });
@@ -408,6 +412,16 @@ export default function SuperAdminDashboard() {
                     <input value={form.sinpe_owner} onChange={e => setForm({ ...form, sinpe_owner: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
                   </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Email del Admin</label>
+                    <input type="email" value={form.admin_email} onChange={e => setForm({ ...form, admin_email: e.target.value })}
+                      placeholder="admin@restaurante.com" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Vencimiento Suscripción</label>
+                    <input type="date" value={form.subscription_expires_at} onChange={e => setForm({ ...form, subscription_expires_at: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
+                  </div>
 
                   {/* Theme quick setup */}
                   <div className="md:col-span-2 mt-2">
@@ -482,6 +496,14 @@ export default function SuperAdminDashboard() {
                           <span>{tenant.itemCount || 0} platillos</span>
                           <span className="text-amber-400 font-semibold">{formatPrice(tenantRevenue)}</span>
                           <span>{tenantOrders.length} pedidos</span>
+                          {tenant.subscription_expires_at && (
+                            <span className={`font-medium ${
+                              new Date(tenant.subscription_expires_at) < new Date() ? 'text-red-400' :
+                              new Date(tenant.subscription_expires_at) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) ? 'text-yellow-400' : 'text-green-400'
+                            }`}>
+                              Vence: {new Date(tenant.subscription_expires_at).toLocaleDateString('es-CR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">

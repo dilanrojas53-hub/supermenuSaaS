@@ -1,5 +1,5 @@
 /*
- * Design: "Warm Craft" + Neuro-Ventas completo.
+ * Design: "Warm Craft" + Neuro-Ventas completo + i18n ES/EN.
  * Theming dinámico, scroll spy, platillo de la semana,
  * social proof toasts, upsell condicionado con delay,
  * carrito flotante con checkout SINPE/WhatsApp.
@@ -7,10 +7,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from 'wouter';
 import { motion } from 'framer-motion';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Globe } from 'lucide-react';
 import { useTenantData } from '@/hooks/useTenantData';
 import { CartProvider } from '@/contexts/CartContext';
-import { TENANT_HERO_IMAGES, getFontFamily, isColorDark } from '@/lib/types';
+import { I18nProvider, useI18n } from '@/contexts/I18nContext';
+import { TENANT_HERO_IMAGES, getFontFamily } from '@/lib/types';
 import type { MenuItem } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
@@ -30,6 +31,7 @@ function MenuContent() {
   const [upsellText, setUpsellText] = useState<string | null>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
+  const { lang, toggleLang, t } = useI18n();
 
   // Set first category as active
   useEffect(() => {
@@ -111,10 +113,10 @@ function MenuContent() {
         <div className="text-center">
           <p className="text-5xl mb-4">🍽️</p>
           <h1 className="text-2xl font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
-            Restaurante no encontrado
+            {t('menu.closed')}
           </h1>
           <p className="text-amber-700 opacity-70">
-            Verifica el enlace e intenta de nuevo.
+            {lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.'}
           </p>
         </div>
       </div>
@@ -124,6 +126,26 @@ function MenuContent() {
   const { tenant, theme, categories } = data;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
+
+  // Check if restaurant is closed
+  if (!tenant.is_open) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ backgroundColor: theme.background_color, fontFamily: bodyFont }}
+      >
+        <div className="text-center">
+          <p className="text-5xl mb-4">🔒</p>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: theme.text_color, fontFamily: "'Lora', serif" }}>
+            {tenant.name}
+          </h1>
+          <p className="opacity-70" style={{ color: theme.text_color }}>
+            {t('menu.closed')}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -135,7 +157,7 @@ function MenuContent() {
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) */}
-      <SocialProofToast items={data.menuItems} theme={theme} />
+      <SocialProofToast tenantId={tenant.id} theme={theme} />
 
       {/* Hero Section */}
       <div className="relative h-56 overflow-hidden">
@@ -152,6 +174,21 @@ function MenuContent() {
             background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)',
           }}
         />
+
+        {/* i18n Toggle — top right of hero */}
+        <button
+          onClick={toggleLang}
+          className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95"
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.25)',
+          }}
+        >
+          <Globe size={13} />
+          {lang === 'es' ? 'EN' : 'ES'}
+        </button>
+
         <div className="absolute bottom-0 left-0 right-0 p-5">
           <motion.h1
             initial={{ opacity: 0, y: 10 }}
@@ -303,8 +340,10 @@ function MenuContent() {
 
 export default function MenuPage() {
   return (
-    <CartProvider>
-      <MenuContent />
-    </CartProvider>
+    <I18nProvider>
+      <CartProvider>
+        <MenuContent />
+      </CartProvider>
+    </I18nProvider>
   );
 }

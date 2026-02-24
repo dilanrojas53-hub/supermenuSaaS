@@ -1,5 +1,5 @@
 /*
- * Design: "Warm Craft" + Neuro-Ventas
+ * Design: "Warm Craft" + Neuro-Ventas + i18n
  * Cards con sombra sepia, tipografía Lora, badges de prueba social animados,
  * feedback visual al agregar (scale + checkmark flash), upsell con delay de 600ms.
  */
@@ -9,6 +9,7 @@ import { Plus, Check } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
 
 interface MenuItemCardProps {
@@ -21,6 +22,7 @@ interface MenuItemCardProps {
 
 export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems }: MenuItemCardProps) {
   const { addItem } = useCart();
+  const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
 
   const handleAdd = useCallback(() => {
@@ -123,7 +125,7 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
                     className="flex items-center gap-1"
                   >
                     <Check size={16} />
-                    Listo
+                    {t('menu.added')}
                   </motion.span>
                 ) : (
                   <motion.span
@@ -134,7 +136,7 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
                     className="flex items-center gap-1"
                   >
                     <Plus size={16} />
-                    Agregar
+                    {t('menu.add')}
                   </motion.span>
                 )}
               </AnimatePresence>

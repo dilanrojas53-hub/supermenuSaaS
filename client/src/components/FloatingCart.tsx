@@ -1,13 +1,14 @@
 /*
  * Neuro-Ventas: Carrito flotante con bounce al agregar items,
  * pulso en el badge de cantidad, y total actualizado en tiempo real.
- * Sesgo: Compromiso progresivo (ver el total crecer motiva a completar).
+ * i18n: traduce "Ver pedido" / "View order".
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, ChevronUp } from 'lucide-react';
 import type { ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { useI18n } from '@/contexts/I18nContext';
 
 interface FloatingCartProps {
   theme: ThemeSettings;
@@ -16,6 +17,9 @@ interface FloatingCartProps {
 
 export default function FloatingCart({ theme, onOpen }: FloatingCartProps) {
   const { totalItems, totalPrice } = useCart();
+  const { lang } = useI18n();
+
+  const viewOrderText = lang === 'es' ? 'Ver pedido' : 'View order';
 
   return (
     <AnimatePresence>
@@ -52,7 +56,7 @@ export default function FloatingCart({ theme, onOpen }: FloatingCartProps) {
                   {totalItems}
                 </motion.span>
               </div>
-              <span className="font-semibold text-sm">Ver pedido</span>
+              <span className="font-semibold text-sm">{viewOrderText}</span>
             </div>
             <div className="flex items-center gap-2">
               <motion.span

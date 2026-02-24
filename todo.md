@@ -1,23 +1,14 @@
-# Smart Menu v1.0 — Auditoría y Completar Fases
+# Smart Menu v1.0 — 7 Correcciones Críticas
 
-## Fase 2 — Verificar/Arreglar
-- [ ] Upload de imágenes a Supabase Storage (NO campos de URL de texto)
-- [ ] Color Picker visual (NO códigos HEX manuales)
-- [ ] Toda la interfaz en español (cero inglés)
-- [ ] Switch Abierto/Cerrado para el local (tenant.is_open)
-- [ ] Switch Disponible/Agotado para cada platillo (menu_item.is_available)
-- [ ] Verificar que CartDrawer tiene flujo de checkout completo
+## Fase 1: Ética y Lógica de Negocio
+- [ ] 1. Prueba Social Real: Eliminar nombres aleatorios de SocialProofToast, conectar a tabla orders (últimas 2h)
+- [ ] 2. Estado SINPE: Si receipt_url no es nulo, estado inicial = 'pago_en_revision' en vez de 'pendiente'
+- [ ] 3. KDS con Botones: Agregar botones [Aprobar] [A Cocina] [Listo] dentro de cada tarjeta de pedido
 
-## Fase 3 — Admin Panel (Implementar)
-- [ ] Pestaña Pedidos en Vivo (KDS) con estados
-- [ ] Dashboard Analítica (ventas, platillo estrella, gráficos)
-- [ ] Botón Descargar QR en configuración
+## Fase 2: Seguridad y Operación
+- [ ] 4. Supabase Auth: Eliminar credenciales hardcoded, implementar login real por tenant
+- [ ] 5. Alerta Sonora: Web Audio API 'ding' en KDS cuando llega pedido nuevo
 
-## Fase 4 — Super Admin (Implementar)
-- [ ] Dashboard GMV real con datos de orders
-- [ ] Ranking de restaurantes por ventas
-- [ ] Métricas de plataforma
-
-## Fase 5 — Despliegue
-- [ ] Push a GitHub
-- [ ] Verificar en navegador
+## Fase 3: Expansión y Control
+- [ ] 6. i18n ES/EN: Toggle de idioma en menú público para textos de interfaz
+- [ ] 7. Control de Suscripción: Campo subscription_expires_at en tenants, visible en Super Admin

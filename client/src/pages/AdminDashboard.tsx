@@ -8,11 +8,12 @@
  * - Analítica básica (total vendido, platillo estrella, visitas)
  * - Botón "Descargar mi QR"
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
+import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS } from '@/lib/types';
+import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
 import {
@@ -553,25 +554,36 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   );
 }
 
-// ─── Orders Tab (KDS - Kitchen Display System) ───
+// ─── Orders Tab (KDS - Kitchen Display System) with Kitchen Bell ───
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const prevOrderCountRef = useRef(0);
+  const { playBell } = useKitchenBell();
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from('orders').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: false }).limit(50);
+    const query = supabase.from('orders').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: false }).limit(50);
     const { data } = await query;
-    setOrders((data as Order[]) || []);
+    const newOrders = (data as Order[]) || [];
+
+    // Kitchen Bell: play sound if new orders arrived
+    if (prevOrderCountRef.current > 0 && newOrders.length > prevOrderCountRef.current) {
+      playBell();
+      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 5000 });
+    }
+    prevOrderCountRef.current = newOrders.length;
+
+    setOrders(newOrders);
     setLoading(false);
-  }, [tenant.id]);
+  }, [tenant.id, playBell]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 15 seconds (faster for KDS)
   useEffect(() => {
-    const interval = setInterval(fetchOrders, 30000);
+    const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
@@ -663,50 +675,47 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
-                  <span className="text-base font-bold text-amber-400">{formatPrice(order.total)}</span>
-
-                  {/* Status change buttons */}
-                  <div className="flex gap-2">
-                    {order.status === 'pendiente' && (
-                      <>
-                        <button onClick={() => handleStatusChange(order.id, 'en_cocina')}
-                          className="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-500/30 transition-colors">
-                          En cocina
-                        </button>
-                        <button onClick={() => handleStatusChange(order.id, 'cancelado')}
-                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors">
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-                    {order.status === 'en_cocina' && (
-                      <button onClick={() => handleStatusChange(order.id, 'listo')}
-                        className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-xs font-medium hover:bg-green-500/30 transition-colors">
-                        ¡Listo!
-                      </button>
-                    )}
-                    {order.status === 'listo' && (
-                      <button onClick={() => handleStatusChange(order.id, 'entregado')}
-                        className="px-3 py-1.5 bg-slate-500/20 text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-500/30 transition-colors">
-                        Entregado
-                      </button>
-                    )}
-                  </div>
-                </div>
-
                 {/* Receipt preview */}
                 {order.sinpe_receipt_url && (
-                  <div className="mt-3 pt-3 border-t border-slate-700/50">
-                    <a href={order.sinpe_receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-amber-400 hover:underline flex items-center gap-1">
-                      📎 Ver comprobante SINPE
+                  <div className="mb-3 p-2.5 bg-purple-500/5 border border-purple-500/20 rounded-xl">
+                    <a href={order.sinpe_receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:underline flex items-center gap-1.5 font-medium">
+                      📎 Ver comprobante SINPE adjunto
                     </a>
                   </div>
                 )}
 
                 {order.notes && (
-                  <div className="mt-2 text-xs text-slate-500 italic">📝 {order.notes}</div>
+                  <div className="mb-3 text-xs text-slate-500 italic bg-slate-700/30 rounded-lg px-3 py-2">📝 {order.notes}</div>
                 )}
+
+                {/* Total + BIG Action Buttons */}
+                <div className="pt-3 border-t border-slate-700/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-base font-bold text-amber-400">{formatPrice(order.total)}</span>
+                    <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
+                  </div>
+
+                  {/* BIG Action Buttons inside the card */}
+                  {(ORDER_STATUS_ACTIONS[order.status] || []).length > 0 && (
+                    <div className="flex gap-2">
+                      {(ORDER_STATUS_ACTIONS[order.status] || []).map((action: any) => (
+                        <button
+                          key={action.nextStatus}
+                          onClick={() => handleStatusChange(order.id, action.nextStatus)}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
+                          style={{
+                            backgroundColor: `${action.color}15`,
+                            color: action.color,
+                            border: `1.5px solid ${action.color}30`,
+                          }}
+                        >
+                          <span className="text-base">{action.icon}</span>
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

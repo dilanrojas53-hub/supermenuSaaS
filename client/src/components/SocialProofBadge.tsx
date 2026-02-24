@@ -1,15 +1,12 @@
 /*
- * Neuro-Ventas: Badges de Prueba Social con animaciones.
- * - "Más pedido" → pulso + contador de pedidos hoy
- * - "Se agota rápido" → parpadeo urgente + unidades restantes
- * - "Nuevo" → brillo shimmer
- * - "Chef recomienda" → sello dorado con estrella
+ * Neuro-Ventas: Badges de Prueba Social con animaciones + i18n.
  * Sesgos cognitivos: Prueba Social, Escasez, Novedad, Autoridad.
  */
 import { motion } from 'framer-motion';
 import { Flame, Zap, Sparkles, Award, Users, Clock } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import type { ThemeSettings } from '@/lib/types';
+import { useI18n } from '@/contexts/I18nContext';
 
 interface SocialProofBadgeProps {
   badge: string;
@@ -18,7 +15,6 @@ interface SocialProofBadgeProps {
   compact?: boolean;
 }
 
-// Deterministic pseudo-random based on item ID
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -31,8 +27,8 @@ function hashCode(str: string): number {
 
 export default function SocialProofBadge({ badge, theme, itemId, compact = false }: SocialProofBadgeProps) {
   const [showCounter, setShowCounter] = useState(false);
+  const { t, lang } = useI18n();
 
-  // Deterministic values based on itemId
   const seed = useMemo(() => hashCode(itemId), [itemId]);
   const ordersToday = useMemo(() => 15 + (seed % 35), [seed]);
   const unitsLeft = useMemo(() => 2 + (seed % 5), [seed]);
@@ -44,6 +40,9 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
   }, []);
 
   if (badge === 'mas_pedido') {
+    const counterText = lang === 'es'
+      ? `${ordersToday} personas lo pidieron hoy`
+      : `${ordersToday} people ordered today`;
     return (
       <div className="flex flex-col gap-1">
         <motion.div
@@ -57,7 +56,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           }}
         >
           <Flame size={12} />
-          <span>Más pedido</span>
+          <span>{t('badge.mas_pedido')}</span>
         </motion.div>
         {showCounter && !compact && (
           <motion.div
@@ -67,7 +66,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             style={{ color: theme.text_color }}
           >
             <Users size={10} />
-            <span>{ordersToday} personas lo pidieron hoy</span>
+            <span>{counterText}</span>
           </motion.div>
         )}
       </div>
@@ -75,6 +74,9 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
   }
 
   if (badge === 'se_agota_rapido') {
+    const counterText = lang === 'es'
+      ? `Solo quedan ${unitsLeft} disponibles`
+      : `Only ${unitsLeft} left`;
     return (
       <div className="flex flex-col gap-1">
         <motion.div
@@ -88,7 +90,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           }}
         >
           <Zap size={12} />
-          <span>Se agota rápido</span>
+          <span>{t('badge.se_agota_rapido')}</span>
         </motion.div>
         {showCounter && !compact && (
           <motion.div
@@ -98,7 +100,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             style={{ color: '#E53E3E' }}
           >
             <Clock size={10} />
-            <span>Solo quedan {unitsLeft} disponibles</span>
+            <span>{counterText}</span>
           </motion.div>
         )}
       </div>
@@ -106,6 +108,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
   }
 
   if (badge === 'nuevo') {
+    const counterText = lang === 'es' ? 'Agregado esta semana' : 'Added this week';
     return (
       <div className="flex flex-col gap-1">
         <motion.div
@@ -116,7 +119,6 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             boxShadow: '0 2px 8px rgba(56, 161, 105, 0.35)',
           }}
         >
-          {/* Shimmer effect */}
           <motion.div
             className="absolute inset-0"
             style={{
@@ -126,7 +128,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1 }}
           />
           <Sparkles size={12} />
-          <span className="relative z-10">Nuevo</span>
+          <span className="relative z-10">{t('badge.nuevo')}</span>
         </motion.div>
         {showCounter && !compact && (
           <motion.div
@@ -136,7 +138,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             style={{ color: theme.text_color }}
           >
             <Sparkles size={10} />
-            <span>Agregado esta semana</span>
+            <span>{counterText}</span>
           </motion.div>
         )}
       </div>
@@ -144,6 +146,9 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
   }
 
   if (badge === 'chef_recomienda') {
+    const counterText = lang === 'es'
+      ? `Pedido hace ${minutesAgo} min`
+      : `Ordered ${minutesAgo} min ago`;
     return (
       <div className="flex flex-col gap-1">
         <motion.div
@@ -157,7 +162,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           }}
         >
           <Award size={12} />
-          <span>Chef recomienda</span>
+          <span>{t('badge.chef_recomienda')}</span>
         </motion.div>
         {showCounter && !compact && (
           <motion.div
@@ -167,7 +172,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             style={{ color: theme.text_color }}
           >
             <Users size={10} />
-            <span>Pedido hace {minutesAgo} min</span>
+            <span>{counterText}</span>
           </motion.div>
         )}
       </div>

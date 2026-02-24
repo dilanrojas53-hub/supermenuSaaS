@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowLeft, Mail } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 interface AdminLoginProps {
@@ -8,27 +8,33 @@ interface AdminLoginProps {
 }
 
 export default function AdminLogin({ mode }: AdminLoginProps) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAdminAuth();
   const [, navigate] = useLocation();
   const params = useParams<{ slug: string }>();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
+
     const slug = params.slug || undefined;
-    const success = login(username, password, mode, slug);
-    if (success) {
+    const result = await login(email, password, mode, slug);
+
+    setLoading(false);
+
+    if (result.success) {
       if (mode === 'superadmin') {
         navigate('/super-admin');
       } else {
         navigate(`/admin/${slug}`);
       }
     } else {
-      setError('Credenciales incorrectas. Intenta de nuevo.');
+      setError(result.error || 'Credenciales incorrectas. Intenta de nuevo.');
     }
   };
 
@@ -63,15 +69,19 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Usuario</label>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
-                placeholder="Ingresa tu usuario"
-                autoComplete="off"
-              />
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 pl-11 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                  placeholder="tu@email.com"
+                  autoComplete="email"
+                  required
+                />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              </div>
             </div>
 
             <div>
@@ -82,8 +92,9 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all pr-12"
-                  placeholder="Ingresa tu contraseña"
-                  autoComplete="off"
+                  placeholder="Tu contraseña"
+                  autoComplete="current-password"
+                  required
                 />
                 <button
                   type="button"
@@ -103,15 +114,23 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-lg shadow-amber-500/20 active:scale-[0.98]"
+              disabled={loading}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-lg shadow-amber-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Iniciar Sesión
+              {loading ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  Verificando...
+                </>
+              ) : (
+                'Iniciar Sesión'
+              )}
             </button>
           </form>
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          Smart Menu Platform — Panel Administrativo
+          Smart Menu Platform — Autenticación segura con Supabase
         </p>
       </div>
     </div>

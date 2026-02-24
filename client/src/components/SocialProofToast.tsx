@@ -1,74 +1,93 @@
 /*
- * Neuro-Ventas: Toast de Prueba Social en tiempo real.
- * Simula notificaciones de otros comensales ordenando.
- * "María acaba de pedir Casado con Carne en Salsa"
- * Aparece cada 15-25 segundos, desaparece tras 4 segundos.
- * Sesgo: Prueba Social + Urgencia + Efecto Bandwagon.
+ * Neuro-Ventas: Toast de Prueba Social REAL.
+ * Muestra notificaciones de compras reales de las últimas 2 horas.
+ * Solo aparece si hay pedidos recientes verificados en la tabla orders.
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag } from 'lucide-react';
-import type { MenuItem, ThemeSettings } from '@/lib/types';
+import type { ThemeSettings } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 
 interface SocialProofToastProps {
-  items: MenuItem[];
+  tenantId: string;
   theme: ThemeSettings;
 }
 
-const NAMES = [
-  'María', 'Carlos', 'Ana', 'José', 'Laura',
-  'Diego', 'Sofía', 'Andrés', 'Valeria', 'Luis',
-  'Gabriela', 'Fernando', 'Daniela', 'Roberto', 'Camila',
-  'Alejandro', 'Isabella', 'Marco', 'Paula', 'Esteban',
-];
+interface RecentOrder {
+  customer_name: string;
+  items: { name: string }[];
+  created_at: string;
+}
 
-const TIME_LABELS = [
-  'hace un momento',
-  'hace 2 minutos',
-  'hace 3 minutos',
-  'hace 5 minutos',
-];
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (diff < 1) return 'hace un momento';
+  if (diff < 2) return 'hace 1 minuto';
+  if (diff < 60) return `hace ${diff} minutos`;
+  const hours = Math.floor(diff / 60);
+  return `hace ${hours} hora${hours > 1 ? 's' : ''}`;
+}
 
-export default function SocialProofToast({ items, theme }: SocialProofToastProps) {
+export default function SocialProofToast({ tenantId, theme }: SocialProofToastProps) {
   const [visible, setVisible] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Only use items that have badges (popular items)
-  const popularItems = useMemo(() => {
-    return items.filter(i => i.badge === 'mas_pedido' || i.badge === 'chef_recomienda' || i.is_featured);
-  }, [items]);
+  // Fetch real orders from the last 2 hours
+  const fetchRecentOrders = useCallback(async () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('orders')
+      .select('customer_name, items, created_at')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'cancelado')
+      .gte('created_at', twoHoursAgo)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-  const showToast = useCallback(() => {
-    if (popularItems.length === 0) return;
-    setCurrentIndex(prev => (prev + 1) % popularItems.length);
-    setVisible(true);
-    setTimeout(() => setVisible(false), 4000);
-  }, [popularItems]);
+    if (data && data.length > 0) {
+      setRecentOrders(data as RecentOrder[]);
+    }
+  }, [tenantId]);
 
   useEffect(() => {
-    if (popularItems.length === 0) return;
+    fetchRecentOrders();
+    // Re-fetch every 5 minutes
+    const interval = setInterval(fetchRecentOrders, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchRecentOrders]);
 
-    // First toast after 8 seconds
-    const initialTimer = setTimeout(() => {
-      showToast();
-    }, 8000);
+  const showToast = useCallback(() => {
+    if (recentOrders.length === 0) return;
+    setCurrentIndex(prev => (prev + 1) % recentOrders.length);
+    setVisible(true);
+    setTimeout(() => setVisible(false), 4000);
+  }, [recentOrders]);
 
-    // Subsequent toasts every 18-28 seconds
-    const interval = setInterval(() => {
-      showToast();
-    }, 18000 + Math.random() * 10000);
+  useEffect(() => {
+    if (recentOrders.length === 0) return;
+
+    // First toast after 10 seconds
+    const initialTimer = setTimeout(showToast, 10000);
+
+    // Subsequent toasts every 20-35 seconds
+    const interval = setInterval(showToast, 20000 + Math.random() * 15000);
 
     return () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
     };
-  }, [popularItems, showToast]);
+  }, [recentOrders, showToast]);
 
-  if (popularItems.length === 0) return null;
+  // Don't render anything if no real orders exist
+  if (recentOrders.length === 0) return null;
 
-  const item = popularItems[currentIndex % popularItems.length];
-  const name = NAMES[currentIndex % NAMES.length];
-  const timeLabel = TIME_LABELS[currentIndex % TIME_LABELS.length];
+  const order = recentOrders[currentIndex % recentOrders.length];
+  // Get first name only for privacy
+  const firstName = order.customer_name?.split(' ')[0] || 'Un cliente';
+  // Get the first item name from the order
+  const itemName = (order.items as any[])?.[0]?.name || 'un platillo';
 
   return (
     <AnimatePresence>
@@ -96,11 +115,11 @@ export default function SocialProofToast({ items, theme }: SocialProofToastProps
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold leading-tight" style={{ color: theme.text_color }}>
-                <span style={{ color: theme.primary_color }}>{name}</span> pidió{' '}
-                <span className="font-bold">{item.name}</span>
+                <span style={{ color: theme.primary_color }}>{firstName}</span> pidió{' '}
+                <span className="font-bold">{itemName}</span>
               </p>
               <p className="text-[10px] opacity-50 mt-0.5" style={{ color: theme.text_color }}>
-                {timeLabel}
+                {timeAgo(order.created_at)}
               </p>
             </div>
           </div>

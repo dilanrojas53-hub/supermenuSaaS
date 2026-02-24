@@ -1,18 +1,14 @@
 /*
- * CartDrawer v2: Flujo de checkout completo con:
- * 1. Resumen del carrito
- * 2. Datos del cliente (nombre, teléfono, mesa)
- * 3. Info SINPE Móvil con número copiable
- * 4. Upload de comprobante SINPE a Supabase Storage
- * 5. Creación de orden en tabla orders
- * 6. Generación de mensaje WhatsApp con ID de pedido
+ * CartDrawer v3: Full checkout flow + i18n ES/EN.
+ * 1. Cart summary  2. Customer info  3. SINPE payment  4. Confirmation + WhatsApp
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, CreditCard, Copy, Check, Upload, Loader2, Camera, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/lib/supabase';
 
 interface CartDrawerProps {
@@ -26,6 +22,7 @@ type Step = 'cart' | 'customer_info' | 'payment' | 'confirmation';
 
 export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
+  const { t, lang } = useI18n();
   const [sinpeCopied, setSinpeCopied] = useState(false);
   const [step, setStep] = useState<Step>('cart');
   const [customerName, setCustomerName] = useState('');
@@ -63,7 +60,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
     let receiptUrl = '';
 
-    // Upload receipt if provided
     if (receiptFile) {
       const ext = receiptFile.name.split('.').pop() || 'jpg';
       const fileName = `${tenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -77,7 +73,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
       }
     }
 
-    // Create order in database
     const orderItems = items.map(i => ({
       id: i.menuItem.id,
       name: i.menuItem.name,
@@ -95,7 +90,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         items: orderItems,
         subtotal: totalPrice,
         total: totalPrice,
-        status: 'pendiente',
+        status: receiptUrl ? 'pago_en_revision' : 'pendiente',
         payment_method: 'sinpe',
         sinpe_receipt_url: receiptUrl,
         notes: notes.trim(),
@@ -120,24 +115,27 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
   const handleWhatsApp = useCallback(() => {
     if (items.length === 0) return;
 
-    let message = `🛒 *Pedido #${orderNumber || '---'} — ${tenant.name}*\n\n`;
-    if (customerName) message += `👤 Cliente: ${customerName}\n`;
-    if (customerPhone) message += `📱 Tel: ${customerPhone}\n`;
-    if (customerTable) message += `🪑 Mesa: ${customerTable}\n`;
+    let message = `🛒 *${t('confirm.order_number')} #${orderNumber || '---'} — ${tenant.name}*\n\n`;
+    if (customerName) message += `👤 ${t('checkout.name')}: ${customerName}\n`;
+    if (customerPhone) message += `📱 ${t('checkout.phone')}: ${customerPhone}\n`;
+    if (customerTable) message += `🪑 ${t('checkout.table')}: ${customerTable}\n`;
     message += `\n`;
 
     items.forEach(item => {
       message += `• ${item.quantity}x ${item.menuItem.name} — ${formatPrice(item.menuItem.price * item.quantity)}\n`;
     });
-    message += `\n💰 *Total: ${formatPrice(totalPrice)}*\n`;
-    message += `💳 Pago: SINPE Móvil`;
-    if (notes) message += `\n📝 Notas: ${notes}`;
-    message += `\n\n✅ Comprobante ${receiptFile ? 'adjunto' : 'pendiente'}.`;
+    message += `\n💰 *${t('cart.total')}: ${formatPrice(totalPrice)}*\n`;
+    message += `💳 SINPE Móvil`;
+    if (notes) message += `\n📝 ${lang === 'es' ? 'Notas' : 'Notes'}: ${notes}`;
+    const receiptLabel = lang === 'es'
+      ? (receiptFile ? 'adjunto' : 'pendiente')
+      : (receiptFile ? 'attached' : 'pending');
+    message += `\n\n✅ ${lang === 'es' ? 'Comprobante' : 'Receipt'} ${receiptLabel}.`;
 
     const phone = tenant.whatsapp_number?.replace(/[^0-9]/g, '') || '';
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
-  }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile]);
+  }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile, t, lang]);
 
   const handleFinish = () => {
     clearCart();
@@ -155,11 +153,18 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
   const canProceedToPayment = customerName.trim().length > 0;
 
+  // Step titles
+  const stepTitles: Record<Step, string> = {
+    cart: t('cart.title'),
+    customer_info: t('checkout.customer_info'),
+    payment: t('payment.title'),
+    confirmation: t('confirm.title'),
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -168,7 +173,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
             onClick={onClose}
           />
 
-          {/* Drawer */}
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -193,10 +197,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                   className="text-xl font-bold"
                   style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
                 >
-                  {step === 'cart' && 'Tu pedido'}
-                  {step === 'customer_info' && 'Tus datos'}
-                  {step === 'payment' && 'Pago SINPE'}
-                  {step === 'confirmation' && 'Pedido confirmado'}
+                  {stepTitles[step]}
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -206,7 +207,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                     className="text-xs px-3 py-1.5 rounded-full opacity-50 hover:opacity-100 transition-opacity"
                     style={{ color: theme.text_color, border: `1px solid ${theme.text_color}20` }}
                   >
-                    Vaciar
+                    {lang === 'es' ? 'Vaciar' : 'Clear'}
                   </button>
                 )}
                 <button
@@ -243,9 +244,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                   {items.length === 0 ? (
                     <div className="text-center py-12 opacity-50">
                       <p className="text-4xl mb-3">🛒</p>
-                      <p className="text-sm" style={{ color: theme.text_color }}>Tu carrito está vacío</p>
+                      <p className="text-sm" style={{ color: theme.text_color }}>{t('cart.empty')}</p>
                       <p className="text-xs mt-1 opacity-60" style={{ color: theme.text_color }}>
-                        Agrega platillos del menú para comenzar
+                        {t('cart.empty_desc')}
                       </p>
                     </div>
                   ) : (
@@ -258,39 +259,42 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                         className="flex items-center gap-3 p-3 rounded-xl"
                         style={{ backgroundColor: `${theme.primary_color}05` }}
                       >
-                        {/* Item image */}
                         {cartItem.menuItem.image_url && (
                           <img
                             src={cartItem.menuItem.image_url}
                             alt={cartItem.menuItem.name}
-                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
                           />
                         )}
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
                             {cartItem.menuItem.name}
                           </h4>
-                          <p className="text-sm font-bold mt-0.5" style={{ color: theme.primary_color }}>
+                          <p className="text-sm font-bold" style={{ color: theme.primary_color }}>
                             {formatPrice(cartItem.menuItem.price * cartItem.quantity)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity - 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
-                            style={{ border: `1px solid ${theme.primary_color}30`, color: theme.primary_color }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: `${theme.text_color}08` }}
                           >
-                            {cartItem.quantity === 1 ? <Trash2 size={14} /> : <Minus size={14} />}
+                            {cartItem.quantity === 1 ? (
+                              <Trash2 size={14} style={{ color: '#E53E3E' }} />
+                            ) : (
+                              <Minus size={14} style={{ color: theme.text_color }} />
+                            )}
                           </button>
                           <span className="w-6 text-center text-sm font-bold" style={{ color: theme.text_color }}>
                             {cartItem.quantity}
                           </span>
                           <button
                             onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity + 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
-                            style={{ backgroundColor: theme.primary_color, color: '#fff' }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: `${theme.primary_color}15` }}
                           >
-                            <Plus size={14} />
+                            <Plus size={14} style={{ color: theme.primary_color }} />
                           </button>
                         </div>
                       </motion.div>
@@ -299,42 +303,27 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                 </div>
 
                 {items.length > 0 && (
-                  <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
+                    <div className="flex justify-between items-center">
                       <span className="text-sm opacity-60" style={{ color: theme.text_color }}>
-                        Total ({items.reduce((s, i) => s + i.quantity, 0)} artículos)
+                        {t('cart.subtotal')} ({items.reduce((a, b) => a + b.quantity, 0)} {t('cart.items')})
                       </span>
-                      <motion.span
-                        key={totalPrice}
-                        initial={{ scale: 1.1 }}
-                        animate={{ scale: 1 }}
-                        className="text-2xl font-bold"
-                        style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}
-                      >
+                      <span className="text-xl font-bold" style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}>
                         {formatPrice(totalPrice)}
-                      </motion.span>
+                      </span>
                     </div>
-
-                    {!tenant.is_open ? (
-                      <div className="w-full py-4 rounded-2xl text-center text-sm font-medium"
-                        style={{ backgroundColor: `${theme.text_color}08`, color: theme.text_color }}>
-                        🔒 Restaurante cerrado — No se aceptan pedidos
-                      </div>
-                    ) : (
-                      <motion.button
-                        onClick={() => setStep('customer_info')}
-                        whileTap={{ scale: 0.97 }}
-                        className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
-                        style={{
-                          backgroundColor: theme.primary_color,
-                          color: '#fff',
-                          boxShadow: `0 4px 16px ${theme.primary_color}30`,
-                        }}
-                      >
-                        <CreditCard size={20} />
-                        Continuar al pago
-                      </motion.button>
-                    )}
+                    <motion.button
+                      onClick={() => setStep('customer_info')}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                      style={{
+                        backgroundColor: theme.primary_color,
+                        color: '#fff',
+                        boxShadow: `0 4px 16px ${theme.primary_color}30`,
+                      }}
+                    >
+                      {t('cart.proceed')}
+                    </motion.button>
                   </div>
                 )}
               </>
@@ -345,90 +334,75 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   <div>
-                    <label className="block text-xs font-medium mb-1.5 opacity-70" style={{ color: theme.text_color }}>
-                      Tu nombre *
+                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
+                      {t('checkout.name')} *
                     </label>
                     <input
                       type="text"
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ej: María López"
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
+                      onChange={e => setCustomerName(e.target.value)}
+                      placeholder={t('checkout.name_placeholder')}
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                       style={{
-                        backgroundColor: `${theme.text_color}06`,
-                        color: theme.text_color,
+                        backgroundColor: `${theme.text_color}05`,
                         border: `1.5px solid ${theme.text_color}15`,
+                        color: theme.text_color,
                       }}
                       autoComplete="off"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1.5 opacity-70" style={{ color: theme.text_color }}>
-                      Teléfono (opcional)
+                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
+                      {t('checkout.phone')}
                     </label>
                     <input
                       type="tel"
                       value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Ej: 8888-1234"
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      placeholder="8888-0000"
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                       style={{
-                        backgroundColor: `${theme.text_color}06`,
-                        color: theme.text_color,
+                        backgroundColor: `${theme.text_color}05`,
                         border: `1.5px solid ${theme.text_color}15`,
+                        color: theme.text_color,
                       }}
                       autoComplete="off"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1.5 opacity-70" style={{ color: theme.text_color }}>
-                      Número de mesa (opcional)
+                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
+                      {t('checkout.table')}
                     </label>
                     <input
                       type="text"
                       value={customerTable}
-                      onChange={(e) => setCustomerTable(e.target.value)}
-                      placeholder="Ej: Mesa 5"
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
+                      onChange={e => setCustomerTable(e.target.value)}
+                      placeholder="1, 2, 3..."
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                       style={{
-                        backgroundColor: `${theme.text_color}06`,
-                        color: theme.text_color,
+                        backgroundColor: `${theme.text_color}05`,
                         border: `1.5px solid ${theme.text_color}15`,
+                        color: theme.text_color,
                       }}
                       autoComplete="off"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1.5 opacity-70" style={{ color: theme.text_color }}>
-                      Notas especiales (opcional)
+                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
+                      {t('checkout.notes')}
                     </label>
                     <textarea
                       value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Ej: Sin cebolla, extra picante..."
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder={t('checkout.notes_placeholder')}
                       rows={2}
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all resize-none"
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none"
                       style={{
-                        backgroundColor: `${theme.text_color}06`,
-                        color: theme.text_color,
+                        backgroundColor: `${theme.text_color}05`,
                         border: `1.5px solid ${theme.text_color}15`,
+                        color: theme.text_color,
                       }}
                     />
-                  </div>
-
-                  {/* Order summary mini */}
-                  <div className="rounded-xl p-3" style={{ backgroundColor: `${theme.primary_color}06` }}>
-                    <p className="text-xs opacity-50 mb-2" style={{ color: theme.text_color }}>Resumen</p>
-                    {items.map(ci => (
-                      <div key={ci.menuItem.id} className="flex justify-between text-xs py-0.5" style={{ color: theme.text_color }}>
-                        <span>{ci.quantity}x {ci.menuItem.name}</span>
-                        <span className="font-semibold">{formatPrice(ci.menuItem.price * ci.quantity)}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between pt-2 mt-2 border-t text-sm font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
-                      <span>Total</span>
-                      <span>{formatPrice(totalPrice)}</span>
-                    </div>
                   </div>
                 </div>
 
@@ -441,11 +415,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                     style={{
                       backgroundColor: theme.primary_color,
                       color: '#fff',
-                      boxShadow: canProceedToPayment ? `0 4px 16px ${theme.primary_color}30` : 'none',
+                      boxShadow: `0 4px 16px ${theme.primary_color}30`,
                     }}
                   >
-                    <CreditCard size={20} />
-                    Ir al pago SINPE
+                    {t('checkout.continue')}
                   </motion.button>
                 </div>
               </>
@@ -455,49 +428,48 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
             {step === 'payment' && (
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  {/* SINPE info */}
-                  {tenant.sinpe_number && (
-                    <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <CreditCard size={16} style={{ color: theme.primary_color }} />
-                        <h3 className="text-sm font-bold" style={{ color: theme.text_color }}>
-                          Pago con SINPE Móvil
-                        </h3>
+                  {/* Order summary */}
+                  <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
+                    {items.map(ci => (
+                      <div key={ci.menuItem.id} className="flex justify-between text-sm py-1" style={{ color: theme.text_color }}>
+                        <span className="opacity-70">{ci.quantity}x {ci.menuItem.name}</span>
+                        <span className="font-semibold">{formatPrice(ci.menuItem.price * ci.quantity)}</span>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs opacity-60" style={{ color: theme.text_color }}>Número SINPE</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold font-mono" style={{ color: theme.text_color }}>
-                              {tenant.sinpe_number}
-                            </span>
-                            <button
-                              onClick={handleCopySinpe}
-                              className="w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90"
-                              style={{ backgroundColor: `${theme.primary_color}12` }}
-                            >
-                              {sinpeCopied ? (
-                                <Check size={12} style={{ color: '#38A169' }} />
-                              ) : (
-                                <Copy size={12} style={{ color: theme.primary_color }} />
-                              )}
-                            </button>
-                          </div>
+                    ))}
+                    <div className="flex justify-between pt-3 mt-3 border-t text-lg font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
+                      <span>{t('cart.total')}</span>
+                      <span>{formatPrice(totalPrice)}</span>
+                    </div>
+                  </div>
+
+                  {/* SINPE Info */}
+                  {tenant.sinpe_number && (
+                    <div className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
+                      <h3 className="text-sm font-bold" style={{ color: theme.text_color }}>
+                        💳 {t('payment.send_to')}
+                      </h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-2xl font-bold tracking-wide" style={{ color: theme.primary_color }}>
+                            {tenant.sinpe_number}
+                          </p>
+                          {tenant.sinpe_owner && (
+                            <p className="text-xs opacity-60 mt-1" style={{ color: theme.text_color }}>
+                              {t('payment.owner')} {tenant.sinpe_owner}
+                            </p>
+                          )}
                         </div>
-                        {tenant.sinpe_owner && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs opacity-60" style={{ color: theme.text_color }}>A nombre de</span>
-                            <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
-                              {tenant.sinpe_owner}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs opacity-60" style={{ color: theme.text_color }}>Monto a transferir</span>
-                          <span className="text-lg font-bold" style={{ color: theme.primary_color }}>
-                            {formatPrice(totalPrice)}
-                          </span>
-                        </div>
+                        <button
+                          onClick={handleCopySinpe}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                          style={{
+                            backgroundColor: sinpeCopied ? '#38A16920' : `${theme.primary_color}12`,
+                            color: sinpeCopied ? '#38A169' : theme.primary_color,
+                          }}
+                        >
+                          {sinpeCopied ? <Check size={14} /> : <Copy size={14} />}
+                          {sinpeCopied ? t('payment.copied') : t('payment.copy')}
+                        </button>
                       </div>
                     </div>
                   )}
@@ -505,10 +477,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                   {/* Receipt upload */}
                   <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
                     <h3 className="text-sm font-bold mb-3" style={{ color: theme.text_color }}>
-                      📸 Comprobante SINPE (opcional)
+                      📸 {t('payment.receipt')}
                     </h3>
                     <p className="text-xs opacity-60 mb-3" style={{ color: theme.text_color }}>
-                      Sube una captura de pantalla de tu transferencia para agilizar la confirmación.
+                      {t('payment.receipt_desc')}
                     </p>
 
                     {receiptPreview ? (
@@ -528,7 +500,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                         style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
                       >
                         <Camera size={24} />
-                        <span className="text-sm font-medium">Tomar foto o seleccionar</span>
+                        <span className="text-sm font-medium">{t('payment.take_photo')}</span>
                       </button>
                     )}
                     <input
@@ -539,14 +511,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                       onChange={handleReceiptSelect}
                       className="hidden"
                     />
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="rounded-xl p-3 text-center" style={{ backgroundColor: `${theme.accent_color}10` }}>
-                    <p className="text-xs leading-relaxed opacity-70" style={{ color: theme.text_color }}>
-                      Realiza el SINPE Móvil, sube tu comprobante y confirma el pedido. 
-                      El restaurante lo recibirá al instante por WhatsApp.
-                    </p>
                   </div>
                 </div>
 
@@ -565,12 +529,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                     {uploading ? (
                       <>
                         <Loader2 size={20} className="animate-spin" />
-                        Procesando pedido...
+                        {t('payment.processing')}
                       </>
                     ) : (
                       <>
                         <ShoppingBag size={20} />
-                        Confirmar pedido
+                        {t('payment.confirm')}
                       </>
                     )}
                   </motion.button>
@@ -589,13 +553,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                   >
                     <div className="text-6xl mb-4">🎉</div>
                     <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Lora', serif", color: theme.text_color }}>
-                      Pedido #{orderNumber}
+                      {t('confirm.order_number')} #{orderNumber}
                     </h3>
                     <p className="text-sm opacity-60 mb-6" style={{ color: theme.text_color }}>
-                      Tu pedido fue registrado exitosamente
+                      {lang === 'es' ? 'Tu pedido fue registrado exitosamente' : 'Your order was registered successfully'}
                     </p>
 
-                    {/* Summary */}
                     <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.primary_color}06` }}>
                       {items.map(ci => (
                         <div key={ci.menuItem.id} className="flex justify-between text-sm py-1" style={{ color: theme.text_color }}>
@@ -604,13 +567,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                         </div>
                       ))}
                       <div className="flex justify-between pt-3 mt-3 border-t text-base font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
-                        <span>Total</span>
+                        <span>{t('cart.total')}</span>
                         <span>{formatPrice(totalPrice)}</span>
                       </div>
                     </div>
 
                     <p className="text-xs opacity-50 mb-4" style={{ color: theme.text_color }}>
-                      Envía tu pedido por WhatsApp para que el restaurante lo prepare.
+                      {lang === 'es'
+                        ? 'Envía tu pedido por WhatsApp para que el restaurante lo prepare.'
+                        : 'Send your order via WhatsApp so the restaurant can prepare it.'}
                     </p>
                   </motion.div>
                 </div>
@@ -627,14 +592,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                     }}
                   >
                     <MessageCircle size={20} />
-                    Enviar por WhatsApp
+                    {t('confirm.whatsapp')}
                   </motion.button>
                   <button
                     onClick={handleFinish}
                     className="w-full py-3 rounded-2xl text-sm font-medium transition-all"
                     style={{ color: theme.text_color, backgroundColor: `${theme.text_color}06` }}
                   >
-                    Cerrar
+                    {t('general.close')}
                   </button>
                 </div>
               </>

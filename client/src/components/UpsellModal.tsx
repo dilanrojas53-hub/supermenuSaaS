@@ -1,11 +1,6 @@
 /*
- * Neuro-Ventas: Modal de Upsell Condicionado mejorado.
- * - Copy persuasivo personalizado desde la BD
- * - Indicador de ahorro ("Combo perfecto")
- * - Prueba social ("X personas también lo agregaron")
- * - Animación de entrada suave con spring
- * - Botón de aceptar con urgencia visual
- * Sesgos: Anclaje, Reciprocidad, Prueba Social.
+ * Neuro-Ventas: Modal de Upsell Condicionado + i18n.
+ * Copy persuasivo, indicador de ahorro, prueba social, animación spring.
  */
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +8,7 @@ import { X, Plus, ChevronRight, Users, Sparkles } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { useI18n } from '@/contexts/I18nContext';
 
 interface UpsellModalProps {
   isOpen: boolean;
@@ -33,6 +29,7 @@ function hashCode(str: string): number {
 
 export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, theme }: UpsellModalProps) {
   const { addItem } = useCart();
+  const { lang, t } = useI18n();
 
   const seed = useMemo(() => upsellItem ? hashCode(upsellItem.id) : 0, [upsellItem]);
   const alsoAddedPercent = useMemo(() => 65 + (seed % 25), [seed]);
@@ -43,6 +40,15 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
     addItem(upsellItem);
     onClose();
   };
+
+  const comboText = lang === 'es' ? 'Combo perfecto' : 'Perfect combo';
+  const defaultQuestion = lang === 'es'
+    ? `¿Completamos tu pedido con ${upsellItem.name}?`
+    : `Complete your order with ${upsellItem.name}?`;
+  const socialText = lang === 'es'
+    ? `${alsoAddedPercent}% de los clientes también lo agregan`
+    : `${alsoAddedPercent}% of customers also add this`;
+  const yesAddText = lang === 'es' ? 'Sí, agregar' : 'Yes, add';
 
   return (
     <AnimatePresence>
@@ -85,7 +91,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: theme.primary_color }}
               >
-                Combo perfecto
+                {comboText}
               </span>
               <Sparkles size={18} style={{ color: theme.accent_color }} />
             </div>
@@ -96,7 +102,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
                 className="text-lg font-bold leading-tight px-2"
                 style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
               >
-                {upsellText || `¿Completamos tu pedido con ${upsellItem.name}?`}
+                {upsellText || defaultQuestion}
               </p>
             </div>
 
@@ -148,7 +154,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
               style={{ color: theme.text_color }}
             >
               <Users size={12} />
-              <span>{alsoAddedPercent}% de los clientes también lo agregan</span>
+              <span>{socialText}</span>
             </motion.div>
 
             {/* Buttons */}
@@ -161,7 +167,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
                   color: `${theme.text_color}90`,
                 }}
               >
-                No, gracias
+                {t('upsell.skip')}
               </button>
               <motion.button
                 onClick={handleAccept}
@@ -174,7 +180,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
                 }}
               >
                 <Plus size={16} />
-                Sí, agregar
+                {yesAddText}
                 <ChevronRight size={14} />
               </motion.button>
             </div>
