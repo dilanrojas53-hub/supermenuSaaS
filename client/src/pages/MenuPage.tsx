@@ -1,0 +1,309 @@
+/*
+ * Design: "Warm Craft" — Página principal del menú del cliente.
+ * Theming dinámico completo basado en theme_settings del tenant.
+ * Mobile-first, scroll vertical con categorías como tabs horizontales.
+ * Hero section con imagen del restaurante, sección "Platillo de la Semana",
+ * grid/list de platillos por categoría, carrito flotante.
+ */
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { useParams } from 'wouter';
+import { motion } from 'framer-motion';
+import { MapPin, Clock, Loader2 } from 'lucide-react';
+import { useTenantData } from '@/hooks/useTenantData';
+import { CartProvider } from '@/contexts/CartContext';
+import { TENANT_HERO_IMAGES, getFontFamily, isColorDark } from '@/lib/types';
+import type { MenuItem, ThemeSettings } from '@/lib/types';
+import MenuItemCard from '@/components/MenuItemCard';
+import FeaturedDish from '@/components/FeaturedDish';
+import UpsellModal from '@/components/UpsellModal';
+import FloatingCart from '@/components/FloatingCart';
+import CartDrawer from '@/components/CartDrawer';
+
+function MenuContent() {
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
+  const { data, loading, error } = useTenantData(slug);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [upsellOpen, setUpsellOpen] = useState(false);
+  const [upsellItem, setUpsellItem] = useState<MenuItem | null>(null);
+  const [upsellText, setUpsellText] = useState<string | null>(null);
+  const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  // Set first category as active
+  useEffect(() => {
+    if (data?.categories.length && !activeCategory) {
+      setActiveCategory(data.categories[0].id);
+    }
+  }, [data, activeCategory]);
+
+  // Featured item (is_featured = true)
+  const featuredItem = useMemo(() => {
+    return data?.menuItems.find(item => item.is_featured) || null;
+  }, [data]);
+
+  // Items grouped by category
+  const itemsByCategory = useMemo(() => {
+    if (!data) return {};
+    const grouped: Record<string, MenuItem[]> = {};
+    data.categories.forEach(cat => {
+      grouped[cat.id] = data.menuItems.filter(item => item.category_id === cat.id);
+    });
+    return grouped;
+  }, [data]);
+
+  const handleCategoryClick = (categoryId: string) => {
+    setActiveCategory(categoryId);
+    const el = categoryRefs.current[categoryId];
+    if (el) {
+      const offset = 140; // account for sticky header
+      const top = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
+
+  const handleUpsell = (item: MenuItem) => {
+    // Find the original item that triggered the upsell to get the upsell_text
+    const triggerItem = data?.menuItems.find(mi => mi.upsell_item_id === item.id);
+    setUpsellItem(item);
+    setUpsellText(triggerItem?.upsell_text || null);
+    setUpsellOpen(true);
+  };
+
+  // Scroll spy for categories
+  useEffect(() => {
+    if (!data) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            setActiveCategory(entry.target.getAttribute('data-category-id'));
+          }
+        });
+      },
+      { rootMargin: '-150px 0px -60% 0px', threshold: 0 }
+    );
+
+    Object.values(categoryRefs.current).forEach(el => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF8F0]">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+        >
+          <Loader2 size={32} className="text-amber-700" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF8F0] p-6">
+        <div className="text-center">
+          <p className="text-5xl mb-4">🍽️</p>
+          <h1 className="text-2xl font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
+            Restaurante no encontrado
+          </h1>
+          <p className="text-amber-700 opacity-70">
+            Verifica el enlace e intenta de nuevo.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { tenant, theme, categories } = data;
+  const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
+  const isDarkBg = isColorDark(theme.background_color);
+  const bodyFont = getFontFamily(theme.font_family);
+
+  return (
+    <div
+      className="min-h-screen pb-28"
+      style={{
+        backgroundColor: theme.background_color,
+        fontFamily: bodyFont,
+        color: theme.text_color,
+      }}
+    >
+      {/* Hero Section */}
+      <div className="relative h-56 overflow-hidden">
+        {heroImage && (
+          <img
+            src={heroImage}
+            alt={tenant.name}
+            className="w-full h-full object-cover"
+          />
+        )}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)',
+          }}
+        />
+        <div className="absolute bottom-0 left-0 right-0 p-5">
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-2xl font-bold text-white leading-tight mb-1"
+            style={{ fontFamily: "'Lora', serif" }}
+          >
+            {tenant.name}
+          </motion.h1>
+          {tenant.description && (
+            <p className="text-white/80 text-sm leading-relaxed line-clamp-2">
+              {tenant.description}
+            </p>
+          )}
+          {tenant.address && (
+            <div className="flex items-center gap-1.5 mt-2 text-white/60 text-xs">
+              <MapPin size={12} />
+              <span>{tenant.address}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Category Tabs - Sticky */}
+      <div
+        ref={tabsRef}
+        className="sticky top-0 z-30 overflow-x-auto scrollbar-hide border-b"
+        style={{
+          backgroundColor: theme.background_color,
+          borderColor: `${theme.text_color}10`,
+        }}
+      >
+        <div className="flex gap-1 px-4 py-3 min-w-max">
+          {categories.map(cat => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat.id)}
+                className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all"
+                style={{
+                  backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}08`,
+                  color: isActive ? '#fff' : theme.text_color,
+                  fontWeight: isActive ? 600 : 400,
+                }}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Featured Dish (Platillo de la Semana) */}
+      {featuredItem && (
+        <div className="mt-4">
+          <FeaturedDish item={featuredItem} theme={theme} />
+        </div>
+      )}
+
+      {/* Menu Items by Category */}
+      <div className="px-4 mt-2">
+        {categories.map(cat => {
+          const catItems = itemsByCategory[cat.id] || [];
+          if (catItems.length === 0) return null;
+
+          return (
+            <div
+              key={cat.id}
+              ref={el => { categoryRefs.current[cat.id] = el; }}
+              data-category-id={cat.id}
+              className="mb-8"
+            >
+              {/* Category header */}
+              <div className="mb-4 mt-2">
+                <h2
+                  className="text-xl font-bold"
+                  style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
+                >
+                  {cat.name}
+                </h2>
+                {cat.description && (
+                  <p className="text-sm opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                    {cat.description}
+                  </p>
+                )}
+                {/* Organic divider */}
+                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: theme.primary_color }}>
+                  <path
+                    d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                </svg>
+              </div>
+
+              {/* Items */}
+              <div className={
+                theme.view_mode === 'grid'
+                  ? 'grid grid-cols-2 gap-3'
+                  : 'flex flex-col gap-3'
+              }>
+                {catItems.map(item => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    theme={theme}
+                    viewMode={theme.view_mode}
+                    onUpsell={handleUpsell}
+                    allItems={data.menuItems}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Floating Cart */}
+      <FloatingCart theme={theme} onOpen={() => setCartOpen(true)} />
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        theme={theme}
+        tenant={tenant}
+      />
+
+      {/* Upsell Modal */}
+      <UpsellModal
+        isOpen={upsellOpen}
+        onClose={() => setUpsellOpen(false)}
+        upsellItem={upsellItem}
+        upsellText={upsellText}
+        theme={theme}
+      />
+
+      {/* Footer */}
+      <div className="text-center py-6 px-4 opacity-40">
+        <p className="text-xs" style={{ color: theme.text_color }}>
+          Powered by Smart Menu
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function MenuPage() {
+  return (
+    <CartProvider>
+      <MenuContent />
+    </CartProvider>
+  );
+}
