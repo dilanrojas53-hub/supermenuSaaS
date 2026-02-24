@@ -22,7 +22,7 @@ interface AdminAuth {
 }
 
 // Super admin email — the platform owner
-const SUPER_ADMIN_EMAIL = 'superadmin@smartmenu.cr';
+const SUPER_ADMIN_EMAIL = 'admin@digitalatlas.com';
 
 const AdminAuthContext = createContext<AdminAuth | null>(null);
 
