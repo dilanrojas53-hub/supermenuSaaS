@@ -9,6 +9,7 @@ import { useParams } from 'wouter';
 import { motion } from 'framer-motion';
 import { MapPin, Loader2, Globe } from 'lucide-react';
 import { useTenantData } from '@/hooks/useTenantData';
+import { useMenuTranslation } from '@/hooks/useMenuTranslation';
 import { CartProvider } from '@/contexts/CartContext';
 import { I18nProvider, useI18n } from '@/contexts/I18nContext';
 import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
@@ -34,6 +35,13 @@ function MenuContent() {
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
 
+  // Dynamic translation of DB content (dish names, descriptions, category names)
+  const { translatedData, isTranslating } = useMenuTranslation(
+    data?.categories || [],
+    data?.menuItems || [],
+    lang
+  );
+
   // Feature flags based on plan tier
   const features: PlanFeatures = useMemo(() => {
     return data ? getPlanFeatures(data.tenant.plan_tier || 'premium') : getPlanFeatures('premium');
@@ -51,15 +59,17 @@ function MenuContent() {
     return data?.menuItems.find(item => item.is_featured) || null;
   }, [data]);
 
-  // Items grouped by category
+  // Items grouped by category — uses translated items when EN is active
   const itemsByCategory = useMemo(() => {
     if (!data) return {};
     const grouped: Record<string, MenuItem[]> = {};
-    data.categories.forEach(cat => {
-      grouped[cat.id] = data.menuItems.filter(item => item.category_id === cat.id);
+    const cats = translatedData.categories.length ? translatedData.categories : data.categories;
+    const items = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
+    cats.forEach(cat => {
+      grouped[cat.id] = items.filter(item => item.category_id === cat.id);
     });
     return grouped;
-  }, [data]);
+  }, [data, translatedData]);
 
   const handleCategoryClick = (categoryId: string) => {
     setActiveCategory(categoryId);
@@ -129,7 +139,10 @@ function MenuContent() {
     );
   }
 
-  const { tenant, theme, categories } = data;
+  const { tenant, theme } = data;
+  // Use translated content when EN is active, fallback to original
+  const categories = translatedData.categories.length ? translatedData.categories : data.categories;
+  const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
 
@@ -185,15 +198,19 @@ function MenuContent() {
         {features.i18n && (
           <button
             onClick={toggleLang}
-            className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95"
+            disabled={isTranslating}
+            className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95 disabled:opacity-60"
             style={{
               backgroundColor: 'rgba(255,255,255,0.15)',
               color: '#fff',
               border: '1px solid rgba(255,255,255,0.25)',
             }}
           >
-            <Globe size={13} />
-            {lang === 'es' ? 'EN' : 'ES'}
+            {isTranslating ? (
+              <><Loader2 size={13} className="animate-spin" /> {lang === 'es' ? 'EN' : 'ES'}</>
+            ) : (
+              <><Globe size={13} /> {lang === 'es' ? 'EN' : 'ES'}</>
+            )}
           </button>
         )}
 
@@ -261,7 +278,10 @@ function MenuContent() {
       {/* Featured Dish (Platillo de la Semana) — only for pro/premium */}
       {features.featuredDish && featuredItem && (
         <div className="mt-4">
-          <FeaturedDish item={featuredItem} theme={theme} />
+          <FeaturedDish
+            item={translatedMenuItems.find(i => i.id === featuredItem.id) || featuredItem}
+            theme={theme}
+          />
         </div>
       )}
 
