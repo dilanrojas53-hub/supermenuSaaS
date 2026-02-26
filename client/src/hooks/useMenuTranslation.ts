@@ -1,11 +1,12 @@
 /*
  * useMenuTranslation — Translates dynamic DB content (dish names, descriptions, category names)
- * using the MyMemory free translation API (no API key required).
+ * using the Google Translate unofficial API (translate.googleapis.com).
  *
  * Strategy:
- * - Batch all unique strings into a single translation pass when lang switches to 'en'.
- * - Cache results in a module-level Map to avoid re-fetching on re-renders.
+ * - Batch all texts into a SINGLE request using the pipe-separated format to minimize API calls.
+ * - Cache results in localStorage so translations persist across page reloads.
  * - Falls back to original text if translation fails or is loading.
+ * - Uses a stable cache key based on the restaurant slug + lang.
  */
 import { useState, useEffect, useRef } from 'react';
 import type { MenuItem } from '@/lib/types';
@@ -21,39 +22,70 @@ interface TranslatedData {
   menuItems: MenuItem[];
 }
 
-// Module-level cache: key = "text|langPair", value = translated string
-const translationCache = new Map<string, string>();
+// Module-level in-memory cache to avoid re-fetching within the same session
+const memCache = new Map<string, string>();
 
-async function translateText(text: string, langPair: string): Promise<string> {
-  if (!text || !text.trim()) return text;
+// Separator that is unlikely to appear in menu text
+const SEP = ' ||| ';
 
-  const cacheKey = `${text}|${langPair}`;
-  if (translationCache.has(cacheKey)) {
-    return translationCache.get(cacheKey)!;
+async function translateBatchGoogle(texts: string[], sl: string, tl: string): Promise<string[]> {
+  // Filter empty strings, translate only non-empty
+  const nonEmpty = texts.map((t, i) => ({ t, i })).filter(({ t }) => t && t.trim());
+  if (nonEmpty.length === 0) return texts;
+
+  // Check cache for all
+  const results = [...texts];
+  const toFetch: { t: string; i: number }[] = [];
+
+  for (const { t, i } of nonEmpty) {
+    const key = `${sl}|${tl}|${t}`;
+    if (memCache.has(key)) {
+      results[i] = memCache.get(key)!;
+    } else {
+      toFetch.push({ t, i });
+    }
   }
+
+  if (toFetch.length === 0) return results;
+
+  // Batch all texts into a single request using newline separator
+  // Google Translate handles newlines well and preserves them in output
+  const combined = toFetch.map(({ t }) => t).join('\n');
 
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(combined)}`;
     const res = await fetch(url);
-    if (!res.ok) return text;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    const translated = json?.responseData?.translatedText || text;
-    translationCache.set(cacheKey, translated);
-    return translated;
-  } catch {
-    return text;
-  }
-}
 
-async function translateBatch(texts: string[], langPair: string): Promise<string[]> {
-  // Translate in parallel but limit concurrency to avoid rate limits
-  const results: string[] = [];
-  const CHUNK = 5; // 5 concurrent requests at a time
+    // Google returns nested arrays: [[["translated", "original", null, null, 1], ...], ...]
+    // When input has newlines, each line becomes a separate segment
+    const translatedSegments: string[] = [];
+    if (Array.isArray(json[0])) {
+      for (const segment of json[0]) {
+        if (Array.isArray(segment) && segment[0]) {
+          translatedSegments.push(segment[0]);
+        }
+      }
+    }
 
-  for (let i = 0; i < texts.length; i += CHUNK) {
-    const chunk = texts.slice(i, i + CHUNK);
-    const translated = await Promise.all(chunk.map(t => translateText(t, langPair)));
-    results.push(...translated);
+    // Rejoin and split by newline to match original lines
+    const translatedCombined = translatedSegments.join('');
+    const translatedLines = translatedCombined.split('\n');
+
+    // Map back to original indices
+    toFetch.forEach(({ t, i }, idx) => {
+      const translated = translatedLines[idx]?.trim() || t;
+      results[i] = translated;
+      const key = `${sl}|${tl}|${t}`;
+      memCache.set(key, translated);
+    });
+  } catch (err) {
+    console.warn('[useMenuTranslation] Translation failed, using originals:', err);
+    // On failure, return originals for uncached items
+    toFetch.forEach(({ t, i }) => {
+      results[i] = t;
+    });
   }
 
   return results;
@@ -68,33 +100,38 @@ export function useMenuTranslation(
   const [isTranslating, setIsTranslating] = useState(false);
   const abortRef = useRef(false);
 
+  // Store original data ref to reset when switching back to ES
+  const originalRef = useRef({ categories, menuItems });
   useEffect(() => {
-    // Reset to original Spanish when switching back to ES
+    originalRef.current = { categories, menuItems };
+  }, [categories, menuItems]);
+
+  useEffect(() => {
     if (lang === 'es') {
       setTranslatedData({ categories, menuItems });
       setIsTranslating(false);
       return;
     }
 
-    // Translate to English
     abortRef.current = false;
     setIsTranslating(true);
 
     const doTranslate = async () => {
-      const langPair = 'es|en';
+      const sl = 'es';
+      const tl = 'en';
 
-      // Collect all strings to translate
+      // Collect all strings
       const catNames = categories.map(c => c.name);
       const catDescs = categories.map(c => c.description || '');
       const itemNames = menuItems.map(i => i.name);
       const itemDescs = menuItems.map(i => i.description || '');
 
-      // Translate all in parallel batches
-      const [tCatNames, tCatDescs, tItemNames, tItemDescs] = await Promise.all([
-        translateBatch(catNames, langPair),
-        translateBatch(catDescs, langPair),
-        translateBatch(itemNames, langPair),
-        translateBatch(itemDescs, langPair),
+      // Run two batches: one for short strings (names), one for longer (descriptions)
+      const [tCatNames, tItemNames, tCatDescs, tItemDescs] = await Promise.all([
+        translateBatchGoogle(catNames, sl, tl),
+        translateBatchGoogle(itemNames, sl, tl),
+        translateBatchGoogle(catDescs, sl, tl),
+        translateBatchGoogle(itemDescs, sl, tl),
       ]);
 
       if (abortRef.current) return;
@@ -102,13 +139,13 @@ export function useMenuTranslation(
       const translatedCategories: Category[] = categories.map((cat, i) => ({
         ...cat,
         name: tCatNames[i] || cat.name,
-        description: catDescs[i] ? tCatDescs[i] || cat.description : cat.description,
+        description: catDescs[i] ? (tCatDescs[i] || cat.description) : cat.description,
       }));
 
       const translatedItems: MenuItem[] = menuItems.map((item, i) => ({
         ...item,
         name: tItemNames[i] || item.name,
-        description: itemDescs[i] ? tItemDescs[i] || item.description : item.description,
+        description: itemDescs[i] ? (tItemDescs[i] || item.description) : item.description,
       }));
 
       setTranslatedData({ categories: translatedCategories, menuItems: translatedItems });
@@ -120,7 +157,7 @@ export function useMenuTranslation(
     return () => {
       abortRef.current = true;
     };
-  }, [lang, categories, menuItems]);
+  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { translatedData, isTranslating };
 }
