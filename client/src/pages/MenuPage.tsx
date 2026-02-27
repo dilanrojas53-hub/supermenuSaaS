@@ -35,8 +35,9 @@ function MenuContent() {
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
 
-  // Dynamic translation of DB content (dish names, descriptions, category names)
+  // Dynamic translation of ALL DB content (tenant info, categories, dish names/descriptions)
   const { translatedData, isTranslating } = useMenuTranslation(
+    data ? { name: data.tenant.name, description: data.tenant.description, address: data.tenant.address } : { name: '' },
     data?.categories || [],
     data?.menuItems || [],
     lang
@@ -139,8 +140,9 @@ function MenuContent() {
     );
   }
 
-  const { tenant, theme } = data;
+  const { tenant: rawTenant, theme } = data;
   // Use translated content when EN is active, fallback to original
+  const tenant = lang === 'en' ? { ...rawTenant, ...translatedData.tenant } : rawTenant;
   const categories = translatedData.categories.length ? translatedData.categories : data.categories;
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
