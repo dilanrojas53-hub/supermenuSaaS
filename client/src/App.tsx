@@ -23,9 +23,7 @@ function Router() {
       </Route>
       <Route path="/super-admin" component={SuperAdminDashboard} />
       {/* Admin routes */}
-      <Route path="/admin/:slug/login">
-        {(params) => <AdminLogin mode="admin" />}
-      </Route>
+      <Route path="/admin/:slug/login" component={() => <AdminLogin mode="admin" />} />
       <Route path="/admin/:slug" component={AdminDashboard} />
       {/* Public menu route — must be last dynamic route */}
       <Route path="/:slug" component={MenuPage} />
