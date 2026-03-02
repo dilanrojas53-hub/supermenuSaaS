@@ -3,7 +3,7 @@ import type { MenuItem, CartItem } from '@/lib/types';
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: MenuItem) => void;
+  addItem: (item: MenuItem, isUpsell?: boolean) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -16,7 +16,7 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = useCallback((menuItem: MenuItem) => {
+  const addItem = useCallback((menuItem: MenuItem, isUpsell?: boolean) => {
     setItems(prev => {
       const existing = prev.find(i => i.menuItem.id === menuItem.id);
       if (existing) {
@@ -26,7 +26,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : i
         );
       }
-      return [...prev, { menuItem, quantity: 1 }];
+      return [...prev, { menuItem, quantity: 1, isUpsell: isUpsell || false }];
     });
   }, []);
 

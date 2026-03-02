@@ -1,9 +1,9 @@
 /*
- * CartDrawer v3: Full checkout flow + i18n ES/EN.
- * 1. Cart summary  2. Customer info  3. SINPE payment  4. Confirmation + WhatsApp
+ * CartDrawer v4: Full checkout flow + i18n ES/EN + Payment Method Selection + Upsell Tracking.
+ * 1. Cart summary  2. Customer info  3. Payment method selection  4. SINPE details (if SINPE)  5. Confirmation + WhatsApp
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -18,13 +18,15 @@ interface CartDrawerProps {
   tenant: Tenant;
 }
 
-type Step = 'cart' | 'customer_info' | 'payment' | 'confirmation';
+type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
+type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 
 export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
   const [sinpeCopied, setSinpeCopied] = useState(false);
   const [step, setStep] = useState<Step>('cart');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerTable, setCustomerTable] = useState('');
@@ -54,13 +56,23 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     }
   };
 
-  const handleSubmitOrder = async () => {
+  const handleSelectPaymentMethod = (method: PaymentMethod) => {
+    setPaymentMethod(method);
+    if (method === 'sinpe') {
+      setStep('payment'); // Go to SINPE details step
+    } else {
+      // For efectivo/tarjeta, submit order directly
+      handleSubmitOrderWithMethod(method);
+    }
+  };
+
+  const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
     if (!customerName.trim()) return;
     setUploading(true);
 
     let receiptUrl = '';
 
-    if (receiptFile) {
+    if (receiptFile && method === 'sinpe') {
       const ext = receiptFile.name.split('.').pop() || 'jpg';
       const fileName = `${tenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error: uploadError } = await supabase.storage
@@ -73,12 +85,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
       }
     }
 
+    // BUG 2 FIX: Include isUpsell flag in order items for analytics tracking
     const orderItems = items.map(i => ({
       id: i.menuItem.id,
       name: i.menuItem.name,
       price: i.menuItem.price,
       quantity: i.quantity,
+      isUpsell: i.isUpsell || false,
     }));
+
+    // Calculate upsell revenue for the order
+    const upsellRevenue = items
+      .filter(i => i.isUpsell)
+      .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
+
+    const statusMap: Record<PaymentMethod, string> = {
+      sinpe: receiptUrl ? 'pago_en_revision' : 'pendiente',
+      efectivo: 'pendiente',
+      tarjeta: 'pendiente',
+    };
 
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
@@ -90,10 +115,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         items: orderItems,
         subtotal: totalPrice,
         total: totalPrice,
-        status: receiptUrl ? 'pago_en_revision' : 'pendiente',
-        payment_method: 'sinpe',
-        sinpe_receipt_url: receiptUrl,
+        status: statusMap[method],
+        payment_method: method,
+        sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
         notes: notes.trim(),
+        upsell_revenue: upsellRevenue,
+        upsell_accepted: upsellRevenue > 0,
       })
       .select('id, order_number')
       .single();
@@ -112,6 +139,21 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     }
   };
 
+  const handleSubmitOrder = async () => {
+    if (!paymentMethod) return;
+    await handleSubmitOrderWithMethod(paymentMethod);
+  };
+
+  const paymentMethodLabel = (method: PaymentMethod | null): string => {
+    if (!method) return '';
+    const labels: Record<PaymentMethod, Record<string, string>> = {
+      sinpe: { es: 'SINPE Móvil', en: 'SINPE Mobile' },
+      efectivo: { es: 'Efectivo', en: 'Cash' },
+      tarjeta: { es: 'Tarjeta', en: 'Card' },
+    };
+    return labels[method]?.[lang] || labels[method]?.es || '';
+  };
+
   const handleWhatsApp = useCallback(() => {
     if (items.length === 0) return;
 
@@ -125,21 +167,24 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
       message += `• ${item.quantity}x ${item.menuItem.name} — ${formatPrice(item.menuItem.price * item.quantity)}\n`;
     });
     message += `\n💰 *${t('cart.total')}: ${formatPrice(totalPrice)}*\n`;
-    message += `💳 SINPE Móvil`;
+    message += `💳 ${paymentMethodLabel(paymentMethod)}`;
     if (notes) message += `\n📝 ${lang === 'es' ? 'Notas' : 'Notes'}: ${notes}`;
-    const receiptLabel = lang === 'es'
-      ? (receiptFile ? 'adjunto' : 'pendiente')
-      : (receiptFile ? 'attached' : 'pending');
-    message += `\n\n✅ ${lang === 'es' ? 'Comprobante' : 'Receipt'} ${receiptLabel}.`;
+    if (paymentMethod === 'sinpe') {
+      const receiptLabel = lang === 'es'
+        ? (receiptFile ? 'adjunto' : 'pendiente')
+        : (receiptFile ? 'attached' : 'pending');
+      message += `\n\n✅ ${lang === 'es' ? 'Comprobante' : 'Receipt'} ${receiptLabel}.`;
+    }
 
     const phone = tenant.whatsapp_number?.replace(/[^0-9]/g, '') || '';
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
-  }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile, t, lang]);
+  }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile, t, lang, paymentMethod]);
 
   const handleFinish = () => {
     clearCart();
     setStep('cart');
+    setPaymentMethod(null);
     setCustomerName('');
     setCustomerPhone('');
     setCustomerTable('');
@@ -153,13 +198,24 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
   const canProceedToPayment = customerName.trim().length > 0;
 
+  const handleBack = () => {
+    if (step === 'customer_info') setStep('cart');
+    else if (step === 'select_payment') setStep('customer_info');
+    else if (step === 'payment') setStep('select_payment');
+  };
+
   // Step titles
   const stepTitles: Record<Step, string> = {
     cart: t('cart.title'),
     customer_info: t('checkout.customer_info'),
+    select_payment: lang === 'es' ? '¿Cómo deseas pagar?' : 'How would you like to pay?',
     payment: t('payment.title'),
     confirmation: t('confirm.title'),
   };
+
+  // Step indicator steps (4 steps now)
+  const stepOrder: Step[] = ['customer_info', 'select_payment', 'payment', 'confirmation'];
+  const currentStepIdx = stepOrder.indexOf(step);
 
   return (
     <AnimatePresence>
@@ -186,7 +242,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
               <div className="flex items-center gap-3">
                 {step !== 'cart' && step !== 'confirmation' && (
                   <button
-                    onClick={() => setStep(step === 'payment' ? 'customer_info' : 'cart')}
+                    onClick={handleBack}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                     style={{ backgroundColor: `${theme.text_color}08` }}
                   >
@@ -223,12 +279,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
             {/* Step indicator */}
             {step !== 'cart' && (
               <div className="flex items-center gap-1 px-5 pt-3">
-                {['customer_info', 'payment', 'confirmation'].map((s, i) => (
+                {stepOrder.map((s, i) => (
                   <div
                     key={s}
                     className="h-1 flex-1 rounded-full transition-all"
                     style={{
-                      backgroundColor: ['customer_info', 'payment', 'confirmation'].indexOf(step) >= i
+                      backgroundColor: currentStepIdx >= i
                         ? theme.primary_color
                         : `${theme.text_color}15`,
                     }}
@@ -267,34 +323,41 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
-                            {cartItem.menuItem.name}
-                          </h4>
-                          <p className="text-sm font-bold" style={{ color: theme.primary_color }}>
+                          <div className="flex items-start gap-1">
+                            <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
+                              {cartItem.menuItem.name}
+                            </p>
+                            {cartItem.isUpsell && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
+                                IA
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-bold mt-0.5" style={{ color: theme.primary_color }}>
                             {formatPrice(cartItem.menuItem.price * cartItem.quantity)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity - 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                             style={{ backgroundColor: `${theme.text_color}08` }}
                           >
                             {cartItem.quantity === 1 ? (
-                              <Trash2 size={14} style={{ color: '#E53E3E' }} />
+                              <Trash2 size={14} style={{ color: '#ef4444' }} />
                             ) : (
                               <Minus size={14} style={{ color: theme.text_color }} />
                             )}
                           </button>
-                          <span className="w-6 text-center text-sm font-bold" style={{ color: theme.text_color }}>
+                          <span className="text-sm font-bold w-5 text-center" style={{ color: theme.text_color }}>
                             {cartItem.quantity}
                           </span>
                           <button
                             onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity + 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: `${theme.primary_color}15` }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                            style={{ backgroundColor: `${theme.primary_color}15`, color: theme.primary_color }}
                           >
-                            <Plus size={14} style={{ color: theme.primary_color }} />
+                            <Plus size={14} />
                           </button>
                         </div>
                       </motion.div>
@@ -408,7 +471,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                   <motion.button
-                    onClick={() => setStep('payment')}
+                    onClick={() => setStep('select_payment')}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40"
@@ -424,7 +487,121 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
               </>
             )}
 
-            {/* ─── STEP: PAYMENT ─── */}
+            {/* ─── STEP: SELECT PAYMENT METHOD (BUG 1 FIX) ─── */}
+            {step === 'select_payment' && (
+              <>
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  {/* Order summary mini */}
+                  <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm opacity-70" style={{ color: theme.text_color }}>
+                        {lang === 'es' ? 'Total a pagar' : 'Total to pay'}
+                      </span>
+                      <span className="text-2xl font-bold" style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}>
+                        {formatPrice(totalPrice)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
+                    {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
+                  </p>
+
+                  {/* Payment method buttons */}
+                  <div className="space-y-3">
+                    {/* SINPE Móvil */}
+                    <motion.button
+                      onClick={() => handleSelectPaymentMethod('sinpe')}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={uploading}
+                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
+                      style={{
+                        backgroundColor: `${theme.primary_color}08`,
+                        border: `2px solid ${theme.primary_color}25`,
+                      }}
+                    >
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: '#6C63FF15' }}
+                      >
+                        <Smartphone size={28} style={{ color: '#6C63FF' }} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="text-base font-bold" style={{ color: theme.text_color }}>SINPE Móvil</p>
+                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                          {lang === 'es' ? 'Pago instantáneo desde tu celular' : 'Instant payment from your phone'}
+                        </p>
+                      </div>
+                    </motion.button>
+
+                    {/* Efectivo */}
+                    <motion.button
+                      onClick={() => handleSelectPaymentMethod('efectivo')}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={uploading}
+                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
+                      style={{
+                        backgroundColor: `${theme.primary_color}08`,
+                        border: `2px solid ${theme.primary_color}25`,
+                      }}
+                    >
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: '#38A16915' }}
+                      >
+                        <Banknote size={28} style={{ color: '#38A169' }} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="text-base font-bold" style={{ color: theme.text_color }}>
+                          {lang === 'es' ? 'Efectivo' : 'Cash'}
+                        </p>
+                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                          {lang === 'es' ? 'Paga al recibir tu pedido' : 'Pay when you receive your order'}
+                        </p>
+                      </div>
+                    </motion.button>
+
+                    {/* Tarjeta */}
+                    <motion.button
+                      onClick={() => handleSelectPaymentMethod('tarjeta')}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={uploading}
+                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
+                      style={{
+                        backgroundColor: `${theme.primary_color}08`,
+                        border: `2px solid ${theme.primary_color}25`,
+                      }}
+                    >
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: '#E5393515' }}
+                      >
+                        <CreditCard size={28} style={{ color: '#E53935' }} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="text-base font-bold" style={{ color: theme.text_color }}>
+                          {lang === 'es' ? 'Tarjeta' : 'Card'}
+                        </p>
+                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                          {lang === 'es' ? 'Débito o crédito al entregar' : 'Debit or credit on delivery'}
+                        </p>
+                      </div>
+                    </motion.button>
+                  </div>
+
+                  {uploading && (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <Loader2 size={20} className="animate-spin" style={{ color: theme.primary_color }} />
+                      <span className="text-sm" style={{ color: theme.text_color }}>
+                        {t('payment.processing')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ─── STEP: PAYMENT (SINPE details) ─── */}
             {step === 'payment' && (
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -569,6 +746,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                         <span>{t('cart.total')}</span>
                         <span>{formatPrice(totalPrice)}</span>
                       </div>
+                    </div>
+
+                    {/* Payment method badge */}
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: `${theme.primary_color}10` }}>
+                      {paymentMethod === 'sinpe' && <Smartphone size={16} style={{ color: theme.primary_color }} />}
+                      {paymentMethod === 'efectivo' && <Banknote size={16} style={{ color: theme.primary_color }} />}
+                      {paymentMethod === 'tarjeta' && <CreditCard size={16} style={{ color: theme.primary_color }} />}
+                      <span className="text-sm font-semibold" style={{ color: theme.primary_color }}>
+                        {paymentMethodLabel(paymentMethod)}
+                      </span>
                     </div>
 
                     <p className="text-xs opacity-50 mb-4" style={{ color: theme.text_color }}>

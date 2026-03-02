@@ -37,7 +37,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
   if (!upsellItem) return null;
 
   const handleAccept = () => {
-    addItem(upsellItem);
+    addItem(upsellItem, true);
     onClose();
   };
 

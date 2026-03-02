@@ -134,6 +134,7 @@ export interface Order {
 export interface CartItem {
   menuItem: MenuItem;
   quantity: number;
+  isUpsell?: boolean;
 }
 
 export interface TenantData {
