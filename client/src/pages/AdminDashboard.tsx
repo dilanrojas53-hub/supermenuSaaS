@@ -16,6 +16,7 @@ import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
+import { KeyRound } from 'lucide-react';
 import {
   LogOut, Settings, Palette, UtensilsCrossed, Tag, Plus, Pencil, Trash2,
   Save, X, Eye, GripVertical, Star, Zap,
@@ -455,6 +456,106 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
           <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
+
+      <ChangePasswordCard />
+    </div>
+  );
+}
+
+// ─── Change Password Card ───
+function ChangePasswordCard() {
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' });
+  const [saving, setSaving] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
+
+  const handleChange = (field: 'current' | 'next' | 'confirm', value: string) => {
+    const updated = { ...form, [field]: value };
+    setForm(updated);
+    if (field === 'confirm' || field === 'next') {
+      setMismatch(updated.confirm.length > 0 && updated.next !== updated.confirm);
+    }
+  };
+
+  const isDisabled = !form.current || !form.next || !form.confirm || saving;
+
+  const handleSubmit = async () => {
+    if (form.next !== form.confirm) { setMismatch(true); return; }
+    if (form.next.length < 6) { toast.error('La nueva contraseña debe tener al menos 6 caracteres'); return; }
+    setSaving(true);
+    try {
+      // Re-authenticate by signing in with current password to verify it
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) { toast.error('No se pudo obtener el usuario actual'); setSaving(false); return; }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: form.current,
+      });
+      if (signInError) { toast.error('La contraseña actual es incorrecta'); setSaving(false); return; }
+      // Update password
+      const { error } = await supabase.auth.updateUser({ password: form.next });
+      if (error) { toast.error('Error al actualizar: ' + error.message); setSaving(false); return; }
+      toast.success('Contraseña actualizada correctamente');
+      setForm({ current: '', next: '', confirm: '' });
+      setMismatch(false);
+    } catch (e: any) {
+      toast.error('Error inesperado: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6 mt-6">
+      <div className="flex items-center gap-2 mb-5">
+        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+          <KeyRound size={16} className="text-amber-400" />
+        </div>
+        <h3 className="text-base font-bold text-white">Cambiar Contraseña</h3>
+      </div>
+      <div className="grid grid-cols-1 gap-4 max-w-md">
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Contraseña actual</label>
+          <input
+            type="password"
+            value={form.current}
+            onChange={e => handleChange('current', e.target.value)}
+            autoComplete="current-password"
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Nueva contraseña <span className="text-slate-500">(mín. 6 caracteres)</span></label>
+          <input
+            type="password"
+            value={form.next}
+            onChange={e => handleChange('next', e.target.value)}
+            autoComplete="new-password"
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Confirmar nueva contraseña</label>
+          <input
+            type="password"
+            value={form.confirm}
+            onChange={e => handleChange('confirm', e.target.value)}
+            autoComplete="new-password"
+            className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white text-sm focus:ring-2 focus:outline-none ${
+              mismatch ? 'border-red-500 focus:ring-red-500/50' : 'border-slate-600 focus:ring-amber-500/50'
+            }`}
+          />
+          {mismatch && (
+            <p className="text-xs text-red-400 mt-1">Las contraseñas no coinciden</p>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={isDisabled || mismatch}
+        className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-5 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <KeyRound size={15} /> {saving ? 'Actualizando...' : 'Actualizar Contraseña'}
+      </button>
     </div>
   );
 }
