@@ -124,6 +124,11 @@ export interface Order {
   notes: string;
   created_at: string;
   updated_at: string;
+  accepted_at?: string | null;
+  ready_at?: string | null;
+  completed_at?: string | null;
+  upsell_items?: OrderItem[] | null;
+  upsell_accepted?: boolean | null;
 }
 
 export interface CartItem {

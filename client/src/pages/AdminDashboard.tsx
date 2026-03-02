@@ -16,12 +16,17 @@ import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 import { KeyRound } from 'lucide-react';
 import {
   LogOut, Settings, Palette, UtensilsCrossed, Tag, Plus, Pencil, Trash2,
   Save, X, Eye, GripVertical, Star, Zap,
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
-  Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock
+  Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
+  TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
+  Trophy, AlertCircle, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -655,246 +660,466 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   );
 }
 
-// ─── Orders Tab (KDS - Kitchen Display System) with Kitchen Bell ───
+// ─── Orders Tab — Kanban V2 ───
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
   const prevOrderCountRef = useRef(0);
   const { playBell } = useKitchenBell();
 
   const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    const query = supabase.from('orders').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: false }).limit(50);
-    const { data } = await query;
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .not('status', 'in', '(entregado,cancelado)')
+      .order('created_at', { ascending: true })
+      .limit(60);
     const newOrders = (data as Order[]) || [];
-
-    // Kitchen Bell: play sound if new orders arrived
     if (prevOrderCountRef.current > 0 && newOrders.length > prevOrderCountRef.current) {
       playBell();
-      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 5000 });
+      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
     }
     prevOrderCountRef.current = newOrders.length;
-
     setOrders(newOrders);
     setLoading(false);
   }, [tenant.id, playBell]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  // Auto-refresh every 15 seconds (faster for KDS)
   useEffect(() => {
-    const interval = setInterval(fetchOrders, 15000);
+    const interval = setInterval(fetchOrders, 12000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
-    const { error } = await supabase.from('orders').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', orderId);
+    const now = new Date().toISOString();
+    const extra: Record<string, string> = { updated_at: now };
+    if (newStatus === 'en_cocina') extra.accepted_at = now;
+    if (newStatus === 'listo') extra.ready_at = now;
+    if (newStatus === 'entregado') extra.completed_at = now;
+    const { error } = await supabase.from('orders').update({ status: newStatus, ...extra }).eq('id', orderId);
     if (error) { toast.error('Error: ' + error.message); return; }
-    toast.success(`Estado actualizado a: ${ORDER_STATUS_CONFIG[newStatus]?.label || newStatus}`);
+    const label = ORDER_STATUS_CONFIG[newStatus]?.label || newStatus;
+    toast.success(`✅ ${label}`);
     fetchOrders();
   };
 
-  const filteredOrders = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: orders.length };
-    orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
-    return counts;
-  }, [orders]);
+  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+  const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
 
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+  const nuevos = orders.filter(o => o.status === 'pendiente' || o.status === 'pago_en_revision');
+  const enCocina = orders.filter(o => o.status === 'en_cocina');
+  const listos = orders.filter(o => o.status === 'listo');
+
+  const KanbanCard = ({ order }: { order: Order }) => {
+    const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
+    const isUrgent = elapsed > 20;
+    const actions = ORDER_STATUS_ACTIONS[order.status] || [];
+    return (
+      <div className={`rounded-2xl p-4 border transition-all ${
+        isUrgent ? 'bg-red-500/5 border-red-500/30' : 'bg-slate-800/60 border-slate-700/50'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-base font-bold text-white">#{order.order_number}</span>
+          <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'
+          }`}>
+            <Timer size={10} /> {elapsed}m
+          </div>
+        </div>
+        {(order.customer_name || order.customer_table) && (
+          <div className="text-xs text-slate-400 mb-2 flex gap-2">
+            {order.customer_name && <span>👤 {order.customer_name}</span>}
+            {order.customer_table && <span>🪑 {order.customer_table}</span>}
+          </div>
+        )}
+        <div className="space-y-0.5 mb-3">
+          {(order.items as any[]).map((item: any, i: number) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span className="text-slate-300">{item.quantity}× {item.name}</span>
+              <span className="text-slate-500 text-xs">{formatPrice(item.price * item.quantity)}</span>
+            </div>
+          ))}
+        </div>
+        {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">📝 {order.notes}</div>}
+        {order.sinpe_receipt_url && (
+          <a href={order.sinpe_receipt_url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-purple-400 hover:underline flex items-center gap-1 mb-2">
+            📎 Ver comprobante SINPE
+          </a>
+        )}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 mb-3">
+          <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
+          <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
+        </div>
+        <div className="flex gap-2">
+          {actions.map((action: any) => (
+            <button key={action.nextStatus}
+              onClick={() => handleStatusChange(order.id, action.nextStatus)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
+              style={{ backgroundColor: `${action.color}20`, color: action.color, border: `2px solid ${action.color}40` }}>
+              <span>{action.icon}</span> {action.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
+
+  const KanbanColumn = ({ title, icon, color, orders: colOrders, emptyMsg }: {
+    title: string; icon: React.ReactNode; color: string; orders: Order[]; emptyMsg: string;
+  }) => (
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
+          <span style={{ color }}>{icon}</span>
+        </div>
+        <h3 className="font-bold text-white text-sm">{title}</h3>
+        <span className="ml-auto w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+          style={{ backgroundColor: color }}>{colOrders.length}</span>
+      </div>
+      <div className="space-y-3">
+        {colOrders.length === 0 ? (
+          <div className="text-center py-8 text-slate-600 text-xs border-2 border-dashed border-slate-700/50 rounded-2xl">{emptyMsg}</div>
+        ) : colOrders.map(o => <KanbanCard key={o.id} order={o} />)}
+      </div>
+    </div>
+  );
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
-        <button onClick={fetchOrders} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
+          <p className="text-xs text-slate-500">{orders.length} pedido{orders.length !== 1 ? 's' : ''} activo{orders.length !== 1 ? 's' : ''}</p>
+        </div>
+        <button onClick={fetchOrders}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
           <RefreshCw size={12} /> Actualizar
         </button>
       </div>
 
-      {/* Filter pills */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {[{ key: 'all', label: 'Todos' }, ...Object.entries(ORDER_STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label }))].map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${filter === f.key
-              ? 'bg-amber-500 text-white'
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-            {f.label}
-            {(statusCounts[f.key] || 0) > 0 && (
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${filter === f.key ? 'bg-white/20' : 'bg-slate-700'}`}>
-                {statusCounts[f.key] || 0}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {loading ? (
-        <div className="text-center py-12"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
-      ) : filteredOrders.length === 0 ? (
-        <div className="text-center py-12 opacity-50">
-          <ClipboardList size={40} className="text-slate-600 mx-auto mb-3" />
-          <p className="text-sm text-slate-400">No hay pedidos {filter !== 'all' ? `con estado "${ORDER_STATUS_CONFIG[filter]?.label}"` : 'aún'}</p>
-        </div>
+        <div className="text-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : (
-        <div className="space-y-3">
-          {filteredOrders.map(order => {
-            const statusConf = ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.pendiente;
-            return (
-              <div key={order.id} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-white">#{order.order_number}</span>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: statusConf.bgColor, color: statusConf.color }}>
-                      {statusConf.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <Clock size={12} />
-                    {formatTime(order.created_at)}
-                  </div>
-                </div>
-
-                {/* Customer info */}
-                <div className="flex items-center gap-4 mb-3 text-xs text-slate-400">
-                  {order.customer_name && <span>👤 {order.customer_name}</span>}
-                  {order.customer_phone && <span>📱 {order.customer_phone}</span>}
-                  {order.customer_table && <span>🪑 {order.customer_table}</span>}
-                </div>
-
-                {/* Items */}
-                <div className="space-y-1 mb-3">
-                  {(order.items as any[]).map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-slate-300">{item.quantity}x {item.name}</span>
-                      <span className="text-slate-400">{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Receipt preview */}
-                {order.sinpe_receipt_url && (
-                  <div className="mb-3 p-2.5 bg-purple-500/5 border border-purple-500/20 rounded-xl">
-                    <a href={order.sinpe_receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:underline flex items-center gap-1.5 font-medium">
-                      📎 Ver comprobante SINPE adjunto
-                    </a>
-                  </div>
-                )}
-
-                {order.notes && (
-                  <div className="mb-3 text-xs text-slate-500 italic bg-slate-700/30 rounded-lg px-3 py-2">📝 {order.notes}</div>
-                )}
-
-                {/* Total + BIG Action Buttons */}
-                <div className="pt-3 border-t border-slate-700/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-base font-bold text-amber-400">{formatPrice(order.total)}</span>
-                    <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
-                  </div>
-
-                  {/* BIG Action Buttons inside the card */}
-                  {(ORDER_STATUS_ACTIONS[order.status] || []).length > 0 && (
-                    <div className="flex gap-2">
-                      {(ORDER_STATUS_ACTIONS[order.status] || []).map((action: any) => (
-                        <button
-                          key={action.nextStatus}
-                          onClick={() => handleStatusChange(order.id, action.nextStatus)}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97]"
-                          style={{
-                            backgroundColor: `${action.color}15`,
-                            color: action.color,
-                            border: `1.5px solid ${action.color}30`,
-                          }}
-                        >
-                          <span className="text-base">{action.icon}</span>
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KanbanColumn
+            title="Nuevos"
+            icon={<AlertCircle size={14} />}
+            color="#F59E0B"
+            orders={nuevos}
+            emptyMsg="Sin pedidos nuevos"
+          />
+          <KanbanColumn
+            title="En Preparación"
+            icon={<ChefHat size={14} />}
+            color="#3B82F6"
+            orders={enCocina}
+            emptyMsg="Cocina libre"
+          />
+          <KanbanColumn
+            title="Listos para Entregar"
+            icon={<CheckCircle2 size={14} />}
+            color="#10B981"
+            orders={listos}
+            emptyMsg="Sin pedidos listos"
+          />
         </div>
       )}
     </div>
   );
 }
 
-// ─── Analytics Tab ───
+// ─── Analytics Tab — Dashboard Premium V2 ───
 function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuItem[]; orders: Order[] }) {
-  const stats = useMemo(() => {
-    const totalRevenue = orders.filter(o => o.status !== 'cancelado').reduce((sum, o) => sum + o.total, 0);
-    const totalOrders = orders.filter(o => o.status !== 'cancelado').length;
+  const [corteVisible, setCorteVisible] = useState(false);
 
-    // Best selling item
+  // ── Core stats ──
+  const stats = useMemo(() => {
+    const valid = orders.filter(o => o.status !== 'cancelado');
+    const month = valid.filter(o => {
+      const d = new Date(o.created_at);
+      const now = new Date();
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const totalRevenue = month.reduce((s, o) => s + o.total, 0);
+    const totalOrders = month.length;
+
+    // Upsell tracking: orders that have upsell_revenue > 0
+    const upsellOrders = month.filter(o => (o as any).upsell_revenue && (o as any).upsell_revenue > 0);
+    const upsellRevenue = upsellOrders.reduce((s, o) => s + ((o as any).upsell_revenue || 0), 0);
+    const upsellRate = totalOrders > 0 ? Math.round((upsellOrders.length / totalOrders) * 100) : 0;
+
+    // Item counts
     const itemCounts: Record<string, { name: string; count: number; revenue: number }> = {};
-    orders.filter(o => o.status !== 'cancelado').forEach(o => {
+    valid.forEach(o => {
       (o.items as any[]).forEach((item: any) => {
-        if (!itemCounts[item.id]) itemCounts[item.id] = { name: item.name, count: 0, revenue: 0 };
-        itemCounts[item.id].count += item.quantity;
-        itemCounts[item.id].revenue += item.price * item.quantity;
+        if (!itemCounts[item.id || item.name]) itemCounts[item.id || item.name] = { name: item.name, count: 0, revenue: 0 };
+        itemCounts[item.id || item.name].count += item.quantity;
+        itemCounts[item.id || item.name].revenue += item.price * item.quantity;
       });
     });
-
     const sortedItems = Object.values(itemCounts).sort((a, b) => b.count - a.count);
-    const topItem = sortedItems[0] || null;
-    const bottomItem = sortedItems.length > 1 ? sortedItems[sortedItems.length - 1] : null;
+    const top5 = sortedItems.slice(0, 5);
 
-    return { totalRevenue, totalOrders, topItem, bottomItem, visits: tenant.visit_count || 0 };
+    // Hourly distribution (last 7 days)
+    const hourCounts: Record<number, number> = {};
+    for (let h = 0; h < 24; h++) hourCounts[h] = 0;
+    const week = valid.filter(o => Date.now() - new Date(o.created_at).getTime() < 7 * 86400000);
+    week.forEach(o => { const h = new Date(o.created_at).getHours(); hourCounts[h]++; });
+    const hourlyData = Array.from({ length: 24 }, (_, h) => ({
+      hour: h < 10 ? `0${h}h` : `${h}h`,
+      pedidos: hourCounts[h]
+    })).filter((_, h) => h >= 6 && h <= 23);
+
+    // Revenue trend (last 7 days)
+    const dayRevenue: Record<string, number> = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toLocaleDateString('es-CR', { weekday: 'short' });
+      dayRevenue[key] = 0;
+    }
+    valid.filter(o => Date.now() - new Date(o.created_at).getTime() < 7 * 86400000).forEach(o => {
+      const key = new Date(o.created_at).toLocaleDateString('es-CR', { weekday: 'short' });
+      if (dayRevenue[key] !== undefined) dayRevenue[key] += o.total;
+    });
+    const trendData = Object.entries(dayRevenue).map(([day, total]) => ({ day, total }));
+
+    return { totalRevenue, totalOrders, upsellRevenue, upsellRate, upsellOrders: upsellOrders.length,
+      top5, hourlyData, trendData, avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+      visits: tenant.visit_count || 0 };
   }, [orders, tenant]);
 
-  return (
-    <div>
-      <h2 className="text-lg font-bold text-white mb-6">Analítica</h2>
+  // ── Corte Z ──
+  const corteStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayOrders = orders.filter(o => o.status !== 'cancelado' && new Date(o.created_at) >= today);
+    const byMethod: Record<string, number> = { sinpe: 0, efectivo: 0, tarjeta: 0 };
+    todayOrders.forEach(o => {
+      const m = (o.payment_method || 'efectivo').toLowerCase();
+      if (m.includes('sinpe')) byMethod.sinpe += o.total;
+      else if (m.includes('tarjeta') || m.includes('card')) byMethod.tarjeta += o.total;
+      else byMethod.efectivo += o.total;
+    });
+    return { total: todayOrders.reduce((s, o) => s + o.total, 0), count: todayOrders.length, byMethod, orders: todayOrders };
+  }, [orders]);
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-          <p className="text-xs text-slate-500 mb-1">Total vendido</p>
-          <p className="text-xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
+  const handleDownloadCorte = () => {
+    const now = new Date().toLocaleString('es-CR');
+    const lines = [
+      `CORTE Z DIARIO — ${tenant.name}`,
+      `Fecha: ${now}`,
+      `${'='.repeat(40)}`,
+      `Total de pedidos: ${corteStats.count}`,
+      ``,
+      `SINPE Móvil:  ${formatPrice(corteStats.byMethod.sinpe)}`,
+      `Efectivo:     ${formatPrice(corteStats.byMethod.efectivo)}`,
+      `Tarjeta:      ${formatPrice(corteStats.byMethod.tarjeta)}`,
+      `${'='.repeat(40)}`,
+      `TOTAL DEL DÍA:  ${formatPrice(corteStats.total)}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `corte-z-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast.success('Corte Z descargado');
+  };
+
+  const handleWhatsAppCorte = () => {
+    const now = new Date().toLocaleString('es-CR');
+    const msg = encodeURIComponent(
+      `*CORTE Z — ${tenant.name}*\n${now}\n\n` +
+      `Pedidos: ${corteStats.count}\n` +
+      `SINPE: ${formatPrice(corteStats.byMethod.sinpe)}\n` +
+      `Efectivo: ${formatPrice(corteStats.byMethod.efectivo)}\n` +
+      `Tarjeta: ${formatPrice(corteStats.byMethod.tarjeta)}\n` +
+      `*TOTAL: ${formatPrice(corteStats.total)}*`
+    );
+    window.open(`https://wa.me/?text=${msg}`, '_blank');
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-bold text-white">Dashboard</h2>
+
+      {/* ── ROI / Upsell Module ── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingUp size={16} className="text-green-400" />
+          <h3 className="text-sm font-bold text-white">Prueba de ROI — Este Mes</h3>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-          <p className="text-xs text-slate-500 mb-1">Pedidos</p>
-          <p className="text-xl font-bold text-white">{stats.totalOrders}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign size={14} className="text-amber-400" />
+              <p className="text-xs text-slate-400">Ventas Totales del Mes</p>
+            </div>
+            <p className="text-2xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1">{stats.totalOrders} pedidos completados</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap size={14} className="text-green-400" />
+              <p className="text-xs text-slate-400">Ingresos por Upsells (IA)</p>
+            </div>
+            <p className="text-2xl font-bold text-green-400">{formatPrice(stats.upsellRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1">{stats.upsellOrders} pedidos con upsell</p>
+          </div>
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Users size={14} className="text-blue-400" />
+              <p className="text-xs text-slate-400">Tasa de Éxito Upselling</p>
+            </div>
+            <p className="text-2xl font-bold text-blue-400">{stats.upsellRate}%</p>
+            <p className="text-xs text-slate-500 mt-1">de clientes aceptaron</p>
+          </div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-          <p className="text-xs text-slate-500 mb-1">Visitas al menú</p>
-          <p className="text-xl font-bold text-white">{stats.visits}</p>
+
+        {/* Revenue trend chart */}
+        {stats.trendData.length > 0 && (
+          <div className="mt-3 bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+            <p className="text-xs text-slate-400 mb-3">Tendencia de ventas — últimos 7 días</p>
+            <ResponsiveContainer width="100%" height={100}>
+              <AreaChart data={stats.trendData}>
+                <defs>
+                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="day" tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
+                  formatter={(v: any) => [formatPrice(v), 'Ventas']} />
+                <Area type="monotone" dataKey="total" stroke="#F59E0B" strokeWidth={2} fill="url(#colorTotal)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ── KPIs ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Ticket Promedio', value: formatPrice(stats.avgTicket), icon: <DollarSign size={14} />, color: 'text-amber-400' },
+          { label: 'Pedidos este mes', value: stats.totalOrders, icon: <ClipboardList size={14} />, color: 'text-white' },
+          { label: 'Visitas al menú', value: stats.visits, icon: <Eye size={14} />, color: 'text-white' },
+          { label: 'Conversión', value: stats.visits > 0 ? `${Math.round((stats.totalOrders / stats.visits) * 100)}%` : '0%', icon: <TrendingUp size={14} />, color: 'text-green-400' },
+        ].map(({ label, value, icon, color }) => (
+          <div key={label} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
+            <div className="flex items-center gap-1.5 mb-1 text-slate-500">{icon}<p className="text-xs">{label}</p></div>
+            <p className={`text-xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Top 5 + Horas Pico ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Top 5 Platillos */}
+        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy size={14} className="text-amber-400" />
+            <h3 className="text-sm font-bold text-white">Top 5 Platillos</h3>
+          </div>
+          {stats.top5.length === 0 ? (
+            <p className="text-xs text-slate-500 text-center py-4">Sin datos aún</p>
+          ) : (
+            <div className="space-y-2">
+              {stats.top5.map((item, i) => {
+                const maxCount = stats.top5[0].count;
+                return (
+                  <div key={item.name}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 w-4">#{i + 1}</span>
+                        <span className="text-sm text-white truncate max-w-[140px]">{item.name}</span>
+                      </div>
+                      <span className="text-xs text-slate-400">{item.count} uds.</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-amber-500 transition-all"
+                        style={{ width: `${(item.count / maxCount) * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-          <p className="text-xs text-slate-500 mb-1">Ticket promedio</p>
-          <p className="text-xl font-bold text-white">{stats.totalOrders > 0 ? formatPrice(Math.round(stats.totalRevenue / stats.totalOrders)) : '₡0'}</p>
+
+        {/* Horas Pico */}
+        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock size={14} className="text-blue-400" />
+            <h3 className="text-sm font-bold text-white">Horas Pico (7 días)</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={stats.hourlyData} barSize={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis dataKey="hour" tick={{ fill: '#64748B', fontSize: 9 }} axisLine={false} tickLine={false} interval={2} />
+              <Tooltip contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}
+                formatter={(v: any) => [v, 'Pedidos']} />
+              <Bar dataKey="pedidos" fill="#3B82F6" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Top / Bottom items */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {stats.topItem && (
-          <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">🏆</span>
-              <h3 className="text-sm font-bold text-green-400">Platillo estrella</h3>
+      {/* ── Corte Z ── */}
+      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Scissors size={14} className="text-purple-400" />
+            <h3 className="text-sm font-bold text-white">Corte Z Diario</h3>
+            <span className="text-xs text-slate-500">(hoy)</span>
+          </div>
+          <button onClick={() => setCorteVisible(!corteVisible)}
+            className="text-xs text-slate-400 hover:text-white transition-colors">
+            {corteVisible ? 'Ocultar' : 'Ver detalle'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: 'Total del día', value: formatPrice(corteStats.total), color: 'text-amber-400', bold: true },
+            { label: 'SINPE Móvil', value: formatPrice(corteStats.byMethod.sinpe), color: 'text-purple-400', bold: false },
+            { label: 'Efectivo', value: formatPrice(corteStats.byMethod.efectivo), color: 'text-green-400', bold: false },
+            { label: 'Tarjeta', value: formatPrice(corteStats.byMethod.tarjeta), color: 'text-blue-400', bold: false },
+          ].map(({ label, value, color, bold }) => (
+            <div key={label} className="bg-slate-900/50 rounded-xl p-3">
+              <p className="text-xs text-slate-500 mb-1">{label}</p>
+              <p className={`${bold ? 'text-lg' : 'text-base'} font-bold ${color}`}>{value}</p>
             </div>
-            <p className="text-white font-semibold">{stats.topItem.name}</p>
-            <p className="text-xs text-slate-400 mt-1">{stats.topItem.count} vendidos — {formatPrice(stats.topItem.revenue)}</p>
+          ))}
+        </div>
+
+        {corteVisible && corteStats.orders.length > 0 && (
+          <div className="mb-4 max-h-48 overflow-y-auto space-y-1">
+            {corteStats.orders.map(o => (
+              <div key={o.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/30">
+                <span className="text-slate-400">#{o.order_number} — {new Date(o.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500 capitalize">{o.payment_method}</span>
+                  <span className="text-white font-medium">{formatPrice(o.total)}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-        {stats.bottomItem && (
-          <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">📉</span>
-              <h3 className="text-sm font-bold text-red-400">Bajo rendimiento</h3>
-            </div>
-            <p className="text-white font-semibold">{stats.bottomItem.name}</p>
-            <p className="text-xs text-slate-400 mt-1">{stats.bottomItem.count} vendidos — {formatPrice(stats.bottomItem.revenue)}</p>
-          </div>
-        )}
+
+        <div className="flex gap-2">
+          <button onClick={handleDownloadCorte}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-xs font-medium hover:bg-slate-600 transition-colors">
+            <Download size={13} /> Descargar TXT
+          </button>
+          <button onClick={handleWhatsAppCorte}
+            className="flex items-center gap-1.5 px-4 py-2 bg-green-600/20 text-green-400 border border-green-600/30 rounded-xl text-xs font-medium hover:bg-green-600/30 transition-colors">
+            <MessageCircle size={13} /> Enviar por WhatsApp
+          </button>
+        </div>
       </div>
     </div>
   );
