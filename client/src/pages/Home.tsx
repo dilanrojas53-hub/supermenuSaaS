@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useAllTenants } from '@/hooks/useTenantData';
-import { TENANT_HERO_IMAGES } from '@/lib/types';
 import PoweredByFooter from '@/components/PoweredByFooter';
 
 const LOGO_WHITE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/OmbbPNnVFlwOoZKI.png";
@@ -355,7 +354,7 @@ export default function Home() {
         ) : (
           <div className="space-y-4">
             {tenants.map((tenant, index) => {
-              const heroImage = TENANT_HERO_IMAGES[tenant.slug] || '';
+              const heroImage = tenant.hero_image_url || '';
 
               return (
                 <motion.div

@@ -81,19 +81,46 @@ export function useTenantData(slug: string | undefined) {
   return { data, loading, error };
 }
 
+export interface TenantWithHero extends Tenant {
+  hero_image_url: string | null;
+}
+
 export function useAllTenants() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<TenantWithHero[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchTenants() {
-      const { data } = await supabase
+      const { data: tenantsData } = await supabase
         .from('tenants')
         .select('*')
         .eq('is_active', true)
         .order('name');
 
-      setTenants((data || []) as Tenant[]);
+      if (!tenantsData || tenantsData.length === 0) {
+        setTenants([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch hero images from theme_settings for all tenants in one query
+      const tenantIds = tenantsData.map((t: Tenant) => t.id);
+      const { data: themesData } = await supabase
+        .from('theme_settings')
+        .select('tenant_id, hero_image_url')
+        .in('tenant_id', tenantIds);
+
+      const heroMap: Record<string, string | null> = {};
+      (themesData || []).forEach((t: { tenant_id: string; hero_image_url: string | null }) => {
+        heroMap[t.tenant_id] = t.hero_image_url;
+      });
+
+      const enriched: TenantWithHero[] = tenantsData.map((tenant: Tenant) => ({
+        ...tenant,
+        hero_image_url: heroMap[tenant.id] ?? null,
+      }));
+
+      setTenants(enriched);
       setLoading(false);
     }
     fetchTenants();
