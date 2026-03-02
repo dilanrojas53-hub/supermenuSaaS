@@ -1,9 +1,10 @@
 /*
- * CartDrawer v4: Full checkout flow + i18n ES/EN + Payment Method Selection + Upsell Tracking.
- * 1. Cart summary  2. Customer info  3. Payment method selection  4. SINPE details (if SINPE)  5. Confirmation + WhatsApp
+ * CartDrawer v5: Hotfix - BUG 1: Payment method selection with visual feedback + confirm button.
+ * BUG 2: Robust try/catch, setUploading(false) on error, toast error feedback.
+ * Flow: 1. Cart  2. Customer info  3. Select payment method  4. SINPE details (if SINPE)  5. Confirmation
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone } from 'lucide-react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -36,6 +37,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
   const [uploading, setUploading] = useState(false);
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const handleCopySinpe = useCallback(() => {
@@ -56,86 +58,104 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     }
   };
 
+  // BUG 1 FIX: Selecting a method only updates state + gives visual feedback.
+  // For SINPE → go to payment step. For efectivo/tarjeta → stay on select_payment with confirm button.
   const handleSelectPaymentMethod = (method: PaymentMethod) => {
     setPaymentMethod(method);
+    setErrorMsg('');
     if (method === 'sinpe') {
-      setStep('payment'); // Go to SINPE details step
-    } else {
-      // For efectivo/tarjeta, submit order directly
-      handleSubmitOrderWithMethod(method);
+      setStep('payment');
     }
+    // efectivo/tarjeta: stay on select_payment, show confirm button
   };
 
+  // BUG 2 FIX: Full try/catch, setUploading(false) in finally, error toast on failure.
   const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
     if (!customerName.trim()) return;
     setUploading(true);
+    setErrorMsg('');
 
-    let receiptUrl = '';
+    try {
+      let receiptUrl = '';
 
-    if (receiptFile && method === 'sinpe') {
-      const ext = receiptFile.name.split('.').pop() || 'jpg';
-      const fileName = `${tenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('receipts')
-        .upload(fileName, receiptFile, { cacheControl: '3600', upsert: false });
+      if (receiptFile && method === 'sinpe') {
+        const ext = receiptFile.name.split('.').pop() || 'jpg';
+        const fileName = `${tenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('receipts')
+          .upload(fileName, receiptFile, { cacheControl: '3600', upsert: false });
 
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
-        receiptUrl = urlData.publicUrl;
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
+          receiptUrl = urlData.publicUrl;
+        }
       }
-    }
 
-    // BUG 2 FIX: Include isUpsell flag in order items for analytics tracking
-    const orderItems = items.map(i => ({
-      id: i.menuItem.id,
-      name: i.menuItem.name,
-      price: i.menuItem.price,
-      quantity: i.quantity,
-      isUpsell: i.isUpsell || false,
-    }));
+      // Include isUpsell flag in order items for analytics tracking
+      const orderItems = items.map(i => ({
+        id: i.menuItem.id,
+        name: i.menuItem.name,
+        price: i.menuItem.price,
+        quantity: i.quantity,
+        isUpsell: i.isUpsell || false,
+      }));
 
-    // Calculate upsell revenue for the order
-    const upsellRevenue = items
-      .filter(i => i.isUpsell)
-      .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
+      // Calculate upsell revenue for the order
+      const upsellRevenue = items
+        .filter(i => i.isUpsell)
+        .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
 
-    const statusMap: Record<PaymentMethod, string> = {
-      sinpe: receiptUrl ? 'pago_en_revision' : 'pendiente',
-      efectivo: 'pendiente',
-      tarjeta: 'pendiente',
-    };
+      const statusMap: Record<PaymentMethod, string> = {
+        sinpe: receiptUrl ? 'pago_en_revision' : 'pendiente',
+        efectivo: 'pendiente',
+        tarjeta: 'pendiente',
+      };
 
-    const { data: orderData, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        tenant_id: tenant.id,
-        customer_name: customerName.trim(),
-        customer_phone: customerPhone.trim(),
-        customer_table: customerTable.trim(),
-        items: orderItems,
-        subtotal: totalPrice,
-        total: totalPrice,
-        status: statusMap[method],
-        payment_method: method,
-        sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
-        notes: notes.trim(),
-        upsell_revenue: upsellRevenue,
-        upsell_accepted: upsellRevenue > 0,
-      })
-      .select('id, order_number')
-      .single();
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          tenant_id: tenant.id,
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          customer_table: customerTable.trim(),
+          items: orderItems,
+          subtotal: totalPrice,
+          total: totalPrice,
+          status: statusMap[method],
+          payment_method: method,
+          sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
+          notes: notes.trim(),
+          upsell_revenue: upsellRevenue,
+          upsell_accepted: upsellRevenue > 0,
+        })
+        .select('id, order_number')
+        .single();
 
-    setUploading(false);
+      if (orderError) {
+        console.error('Order error:', orderError);
+        setErrorMsg(
+          lang === 'es'
+            ? `Error al procesar el pedido: ${orderError.message}`
+            : `Error processing order: ${orderError.message}`
+        );
+        return;
+      }
 
-    if (orderError) {
-      console.error('Order error:', orderError);
-      return;
-    }
-
-    if (orderData) {
-      setOrderNumber(orderData.order_number);
-      setOrderId(orderData.id);
-      setStep('confirmation');
+      if (orderData) {
+        setOrderNumber(orderData.order_number);
+        setOrderId(orderData.id);
+        setStep('confirmation');
+      }
+    } catch (err: unknown) {
+      console.error('Unexpected error:', err);
+      setErrorMsg(
+        lang === 'es'
+          ? 'Ocurrió un error inesperado. Por favor intenta de nuevo.'
+          : 'An unexpected error occurred. Please try again.'
+      );
+    } finally {
+      // BUG 2 FIX: Always reset loading state, even on error
+      setUploading(false);
     }
   };
 
@@ -193,14 +213,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     setReceiptPreview('');
     setOrderNumber(null);
     setOrderId(null);
+    setErrorMsg('');
     onClose();
   };
 
   const canProceedToPayment = customerName.trim().length > 0;
 
   const handleBack = () => {
+    setErrorMsg('');
     if (step === 'customer_info') setStep('cart');
-    else if (step === 'select_payment') setStep('customer_info');
+    else if (step === 'select_payment') { setStep('customer_info'); setPaymentMethod(null); }
     else if (step === 'payment') setStep('select_payment');
   };
 
@@ -213,9 +235,36 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     confirmation: t('confirm.title'),
   };
 
-  // Step indicator steps (4 steps now)
   const stepOrder: Step[] = ['customer_info', 'select_payment', 'payment', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
+
+  // Payment method config
+  const paymentOptions: { method: PaymentMethod; icon: React.ReactNode; label: string; desc: string; color: string; bg: string }[] = [
+    {
+      method: 'sinpe',
+      icon: <Smartphone size={28} style={{ color: '#6C63FF' }} />,
+      label: 'SINPE Móvil',
+      desc: lang === 'es' ? 'Pago instantáneo desde tu celular' : 'Instant payment from your phone',
+      color: '#6C63FF',
+      bg: '#6C63FF15',
+    },
+    {
+      method: 'efectivo',
+      icon: <Banknote size={28} style={{ color: '#38A169' }} />,
+      label: lang === 'es' ? 'Efectivo' : 'Cash',
+      desc: lang === 'es' ? 'Paga al recibir tu pedido' : 'Pay when you receive your order',
+      color: '#38A169',
+      bg: '#38A16915',
+    },
+    {
+      method: 'tarjeta',
+      icon: <CreditCard size={28} style={{ color: '#E53935' }} />,
+      label: lang === 'es' ? 'Tarjeta' : 'Card',
+      desc: lang === 'es' ? 'Débito o crédito al entregar' : 'Debit or credit on delivery',
+      color: '#E53935',
+      bg: '#E5393515',
+    },
+  ];
 
   return (
     <AnimatePresence>
@@ -268,28 +317,33 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                 )}
                 <button
                   onClick={step === 'confirmation' ? handleFinish : onClose}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                   style={{ backgroundColor: `${theme.text_color}08` }}
                 >
-                  <X size={18} style={{ color: theme.text_color }} />
+                  <X size={16} style={{ color: theme.text_color }} />
                 </button>
               </div>
             </div>
 
             {/* Step indicator */}
             {step !== 'cart' && (
-              <div className="flex items-center gap-1 px-5 pt-3">
-                {stepOrder.map((s, i) => (
-                  <div
-                    key={s}
-                    className="h-1 flex-1 rounded-full transition-all"
-                    style={{
-                      backgroundColor: currentStepIdx >= i
-                        ? theme.primary_color
-                        : `${theme.text_color}15`,
-                    }}
-                  />
-                ))}
+              <div className="flex items-center gap-1.5 px-5 py-3">
+                {stepOrder.map((s, idx) => {
+                  const isActive = idx === currentStepIdx;
+                  const isDone = idx < currentStepIdx;
+                  // Skip 'payment' step indicator if not SINPE
+                  if (s === 'payment' && paymentMethod !== 'sinpe' && !isActive) return null;
+                  return (
+                    <div
+                      key={s}
+                      className="h-1.5 rounded-full flex-1 transition-all"
+                      style={{
+                        backgroundColor: isDone || isActive ? theme.primary_color : `${theme.text_color}15`,
+                        opacity: isActive ? 1 : isDone ? 0.6 : 0.3,
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
 
@@ -298,66 +352,64 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-3">
                   {items.length === 0 ? (
-                    <div className="text-center py-12 opacity-50">
-                      <p className="text-4xl mb-3">🛒</p>
-                      <p className="text-sm" style={{ color: theme.text_color }}>{t('cart.empty')}</p>
-                      <p className="text-xs mt-1 opacity-60" style={{ color: theme.text_color }}>
-                        {t('cart.empty_desc')}
+                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                      <ShoppingBag size={48} style={{ color: `${theme.text_color}30` }} />
+                      <p className="text-center opacity-40" style={{ color: theme.text_color }}>
+                        {t('cart.empty')}
                       </p>
                     </div>
                   ) : (
-                    items.map((cartItem, idx) => (
+                    items.map(ci => (
                       <motion.div
-                        key={cartItem.menuItem.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="flex items-center gap-3 p-3 rounded-xl"
-                        style={{ backgroundColor: `${theme.primary_color}05` }}
+                        key={ci.menuItem.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="flex items-center gap-3 rounded-2xl p-3"
+                        style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}08` }}
                       >
-                        {cartItem.menuItem.image_url && (
+                        {ci.menuItem.image_url && (
                           <img
-                            src={cartItem.menuItem.image_url}
-                            alt={cartItem.menuItem.name}
-                            className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                            src={ci.menuItem.image_url}
+                            alt={ci.menuItem.name}
+                            className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-1">
-                            <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
-                              {cartItem.menuItem.name}
-                            </p>
-                            {cartItem.isUpsell && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
-                                IA
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
+                            {ci.menuItem.name}
+                          </p>
+                          {ci.isUpsell && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>
+                              ✨ {lang === 'es' ? 'Sugerido' : 'Suggested'}
+                            </span>
+                          )}
                           <p className="text-sm font-bold mt-0.5" style={{ color: theme.primary_color }}>
-                            {formatPrice(cartItem.menuItem.price * cartItem.quantity)}
+                            {formatPrice(ci.menuItem.price * ci.quantity)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity - 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                            onClick={() => updateQuantity(ci.menuItem.id, ci.quantity - 1)}
+                            className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                             style={{ backgroundColor: `${theme.text_color}08` }}
                           >
-                            {cartItem.quantity === 1 ? (
-                              <Trash2 size={14} style={{ color: '#ef4444' }} />
+                            {ci.quantity === 1 ? (
+                              <Trash2 size={13} style={{ color: '#ef4444' }} />
                             ) : (
-                              <Minus size={14} style={{ color: theme.text_color }} />
+                              <Minus size={13} style={{ color: theme.text_color }} />
                             )}
                           </button>
                           <span className="text-sm font-bold w-5 text-center" style={{ color: theme.text_color }}>
-                            {cartItem.quantity}
+                            {ci.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(cartItem.menuItem.id, cartItem.quantity + 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                            style={{ backgroundColor: `${theme.primary_color}15`, color: theme.primary_color }}
+                            onClick={() => updateQuantity(ci.menuItem.id, ci.quantity + 1)}
+                            className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
+                            style={{ backgroundColor: theme.primary_color }}
                           >
-                            <Plus size={14} />
+                            <Plus size={13} className="text-white" />
                           </button>
                         </div>
                       </motion.div>
@@ -368,24 +420,24 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                 {items.length > 0 && (
                   <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm opacity-60" style={{ color: theme.text_color }}>
-                        {t('cart.subtotal')} ({items.reduce((a, b) => a + b.quantity, 0)} {t('cart.items')})
+                      <span className="text-base font-semibold" style={{ color: theme.text_color }}>
+                        {t('cart.total')}
                       </span>
-                      <span className="text-xl font-bold" style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}>
+                      <span className="text-xl font-bold" style={{ color: theme.primary_color }}>
                         {formatPrice(totalPrice)}
                       </span>
                     </div>
                     <motion.button
                       onClick={() => setStep('customer_info')}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
                       style={{
                         backgroundColor: theme.primary_color,
-                        color: '#fff',
-                        boxShadow: `0 4px 16px ${theme.primary_color}30`,
+                        boxShadow: `0 4px 16px ${theme.primary_color}40`,
                       }}
                     >
-                      {t('cart.proceed')}
+                      <ShoppingBag size={20} />
+                      {t('cart.checkout')}
                     </motion.button>
                   </div>
                 )}
@@ -396,76 +448,75 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
             {step === 'customer_info' && (
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  <div>
-                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
-                      {t('checkout.name')} *
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      placeholder={t('checkout.name_placeholder')}
-                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                      style={{
-                        backgroundColor: `${theme.text_color}05`,
-                        border: `1.5px solid ${theme.text_color}15`,
-                        color: theme.text_color,
-                      }}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
-                      {t('checkout.phone')}
-                    </label>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
-                      placeholder="8888-0000"
-                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                      style={{
-                        backgroundColor: `${theme.text_color}05`,
-                        border: `1.5px solid ${theme.text_color}15`,
-                        color: theme.text_color,
-                      }}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
-                      {t('checkout.table')}
-                    </label>
-                    <input
-                      type="text"
-                      value={customerTable}
-                      onChange={e => setCustomerTable(e.target.value)}
-                      placeholder="1, 2, 3..."
-                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                      style={{
-                        backgroundColor: `${theme.text_color}05`,
-                        border: `1.5px solid ${theme.text_color}15`,
-                        color: theme.text_color,
-                      }}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold mb-1.5 block" style={{ color: theme.text_color }}>
-                      {t('checkout.notes')}
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                      placeholder={t('checkout.notes_placeholder')}
-                      rows={2}
-                      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none"
-                      style={{
-                        backgroundColor: `${theme.text_color}05`,
-                        border: `1.5px solid ${theme.text_color}15`,
-                        color: theme.text_color,
-                      }}
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                        {t('checkout.name')} *
+                      </label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={e => setCustomerName(e.target.value)}
+                        placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
+                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                        style={{
+                          backgroundColor: `${theme.text_color}06`,
+                          border: `1.5px solid ${customerName ? theme.primary_color : `${theme.text_color}15`}`,
+                          color: theme.text_color,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                        {t('checkout.phone')}
+                      </label>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={e => setCustomerPhone(e.target.value)}
+                        placeholder="8888-8888"
+                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                        style={{
+                          backgroundColor: `${theme.text_color}06`,
+                          border: `1.5px solid ${theme.text_color}15`,
+                          color: theme.text_color,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                        {t('checkout.table')}
+                      </label>
+                      <input
+                        type="text"
+                        value={customerTable}
+                        onChange={e => setCustomerTable(e.target.value)}
+                        placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra, Para llevar' : 'E.g.: Table 5, Bar, Takeout'}
+                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                        style={{
+                          backgroundColor: `${theme.text_color}06`,
+                          border: `1.5px solid ${theme.text_color}15`,
+                          color: theme.text_color,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                        {t('checkout.notes')}
+                      </label>
+                      <textarea
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                        placeholder={lang === 'es' ? 'Alergias, preferencias, instrucciones especiales...' : 'Allergies, preferences, special instructions...'}
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
+                        style={{
+                          backgroundColor: `${theme.text_color}06`,
+                          border: `1.5px solid ${theme.text_color}15`,
+                          color: theme.text_color,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -474,130 +525,123 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                     onClick={() => setStep('select_payment')}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: theme.primary_color,
-                      color: '#fff',
-                      boxShadow: `0 4px 16px ${theme.primary_color}30`,
+                      boxShadow: canProceedToPayment ? `0 4px 16px ${theme.primary_color}40` : 'none',
                     }}
                   >
-                    {t('checkout.continue')}
+                    {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
                   </motion.button>
                 </div>
               </>
             )}
 
-            {/* ─── STEP: SELECT PAYMENT METHOD (BUG 1 FIX) ─── */}
+            {/* ─── STEP: SELECT PAYMENT METHOD ─── */}
             {step === 'select_payment' && (
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  {/* Order summary mini */}
-                  <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm opacity-70" style={{ color: theme.text_color }}>
-                        {lang === 'es' ? 'Total a pagar' : 'Total to pay'}
-                      </span>
-                      <span className="text-2xl font-bold" style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}>
-                        {formatPrice(totalPrice)}
-                      </span>
-                    </div>
+                  {/* Order total summary */}
+                  <div
+                    className="rounded-2xl p-4 flex items-center justify-between"
+                    style={{ backgroundColor: `${theme.primary_color}08`, border: `1px solid ${theme.primary_color}15` }}
+                  >
+                    <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
+                      {t('cart.total')}
+                    </span>
+                    <span className="text-2xl font-bold" style={{ color: theme.primary_color }}>
+                      {formatPrice(totalPrice)}
+                    </span>
                   </div>
 
                   <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
                     {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
                   </p>
 
-                  {/* Payment method buttons */}
+                  {/* BUG 1 FIX: Payment method buttons with visual selection state */}
                   <div className="space-y-3">
-                    {/* SINPE Móvil */}
-                    <motion.button
-                      onClick={() => handleSelectPaymentMethod('sinpe')}
-                      whileTap={{ scale: 0.97 }}
-                      disabled={uploading}
-                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
-                      style={{
-                        backgroundColor: `${theme.primary_color}08`,
-                        border: `2px solid ${theme.primary_color}25`,
-                      }}
-                    >
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#6C63FF15' }}
-                      >
-                        <Smartphone size={28} style={{ color: '#6C63FF' }} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="text-base font-bold" style={{ color: theme.text_color }}>SINPE Móvil</p>
-                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
-                          {lang === 'es' ? 'Pago instantáneo desde tu celular' : 'Instant payment from your phone'}
-                        </p>
-                      </div>
-                    </motion.button>
-
-                    {/* Efectivo */}
-                    <motion.button
-                      onClick={() => handleSelectPaymentMethod('efectivo')}
-                      whileTap={{ scale: 0.97 }}
-                      disabled={uploading}
-                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
-                      style={{
-                        backgroundColor: `${theme.primary_color}08`,
-                        border: `2px solid ${theme.primary_color}25`,
-                      }}
-                    >
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#38A16915' }}
-                      >
-                        <Banknote size={28} style={{ color: '#38A169' }} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="text-base font-bold" style={{ color: theme.text_color }}>
-                          {lang === 'es' ? 'Efectivo' : 'Cash'}
-                        </p>
-                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
-                          {lang === 'es' ? 'Paga al recibir tu pedido' : 'Pay when you receive your order'}
-                        </p>
-                      </div>
-                    </motion.button>
-
-                    {/* Tarjeta */}
-                    <motion.button
-                      onClick={() => handleSelectPaymentMethod('tarjeta')}
-                      whileTap={{ scale: 0.97 }}
-                      disabled={uploading}
-                      className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
-                      style={{
-                        backgroundColor: `${theme.primary_color}08`,
-                        border: `2px solid ${theme.primary_color}25`,
-                      }}
-                    >
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#E5393515' }}
-                      >
-                        <CreditCard size={28} style={{ color: '#E53935' }} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="text-base font-bold" style={{ color: theme.text_color }}>
-                          {lang === 'es' ? 'Tarjeta' : 'Card'}
-                        </p>
-                        <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
-                          {lang === 'es' ? 'Débito o crédito al entregar' : 'Debit or credit on delivery'}
-                        </p>
-                      </div>
-                    </motion.button>
+                    {paymentOptions.map(opt => {
+                      const isSelected = paymentMethod === opt.method;
+                      return (
+                        <motion.button
+                          key={opt.method}
+                          onClick={() => handleSelectPaymentMethod(opt.method)}
+                          whileTap={{ scale: 0.97 }}
+                          disabled={uploading}
+                          className="w-full p-5 rounded-2xl flex items-center gap-4 transition-all"
+                          style={{
+                            backgroundColor: isSelected ? `${opt.color}18` : `${theme.primary_color}06`,
+                            border: `2px solid ${isSelected ? opt.color : `${theme.primary_color}20`}`,
+                            boxShadow: isSelected ? `0 0 0 1px ${opt.color}30` : 'none',
+                          }}
+                        >
+                          <div
+                            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: opt.bg }}
+                          >
+                            {opt.icon}
+                          </div>
+                          <div className="text-left flex-1">
+                            <p className="text-base font-bold" style={{ color: isSelected ? opt.color : theme.text_color }}>
+                              {opt.label}
+                            </p>
+                            <p className="text-xs opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                              {opt.desc}
+                            </p>
+                          </div>
+                          {/* Checkmark when selected */}
+                          {isSelected && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: opt.color }}
+                            >
+                              <Check size={14} className="text-white" />
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
                   </div>
 
-                  {uploading && (
-                    <div className="flex items-center justify-center gap-2 py-4">
-                      <Loader2 size={20} className="animate-spin" style={{ color: theme.primary_color }} />
-                      <span className="text-sm" style={{ color: theme.text_color }}>
-                        {t('payment.processing')}
-                      </span>
+                  {/* Error message */}
+                  {errorMsg && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-400">{errorMsg}</p>
                     </div>
                   )}
                 </div>
+
+                {/* BUG 1 FIX: Confirm button only shown when efectivo/tarjeta is selected */}
+                {paymentMethod && paymentMethod !== 'sinpe' && (
+                  <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
+                    <motion.button
+                      onClick={handleSubmitOrder}
+                      disabled={uploading}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                      style={{
+                        backgroundColor: theme.primary_color,
+                        color: '#fff',
+                        boxShadow: `0 4px 16px ${theme.primary_color}40`,
+                      }}
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin" />
+                          {t('payment.processing')}
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag size={20} />
+                          {lang === 'es'
+                            ? `Confirmar pedido — ${paymentMethod === 'efectivo' ? 'Efectivo' : 'Tarjeta'}`
+                            : `Confirm order — ${paymentMethod === 'efectivo' ? 'Cash' : 'Card'}`}
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                )}
               </>
             )}
 
@@ -688,6 +732,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                       className="hidden"
                     />
                   </div>
+
+                  {/* Error message */}
+                  {errorMsg && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-400">{errorMsg}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
@@ -735,58 +787,54 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
                       {lang === 'es' ? 'Tu pedido fue registrado exitosamente' : 'Your order was registered successfully'}
                     </p>
 
-                    <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.primary_color}06` }}>
+                    {/* Order summary */}
+                    <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
                       {items.map(ci => (
                         <div key={ci.menuItem.id} className="flex justify-between text-sm py-1" style={{ color: theme.text_color }}>
-                          <span>{ci.quantity}x {ci.menuItem.name}</span>
+                          <span className="opacity-70">{ci.quantity}x {ci.menuItem.name}</span>
                           <span className="font-semibold">{formatPrice(ci.menuItem.price * ci.quantity)}</span>
                         </div>
                       ))}
-                      <div className="flex justify-between pt-3 mt-3 border-t text-base font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
+                      <div className="flex justify-between pt-3 mt-3 border-t font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
                         <span>{t('cart.total')}</span>
                         <span>{formatPrice(totalPrice)}</span>
                       </div>
+                      {paymentMethod && (
+                        <div className="flex justify-between pt-2 text-sm" style={{ color: `${theme.text_color}70` }}>
+                          <span>{lang === 'es' ? 'Método de pago' : 'Payment method'}</span>
+                          <span className="font-semibold">{paymentMethodLabel(paymentMethod)}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Payment method badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4" style={{ backgroundColor: `${theme.primary_color}10` }}>
-                      {paymentMethod === 'sinpe' && <Smartphone size={16} style={{ color: theme.primary_color }} />}
-                      {paymentMethod === 'efectivo' && <Banknote size={16} style={{ color: theme.primary_color }} />}
-                      {paymentMethod === 'tarjeta' && <CreditCard size={16} style={{ color: theme.primary_color }} />}
-                      <span className="text-sm font-semibold" style={{ color: theme.primary_color }}>
-                        {paymentMethodLabel(paymentMethod)}
-                      </span>
-                    </div>
-
-                    <p className="text-xs opacity-50 mb-4" style={{ color: theme.text_color }}>
-                      {lang === 'es'
-                        ? 'Envía tu pedido por WhatsApp para que el restaurante lo prepare.'
-                        : 'Send your order via WhatsApp so the restaurant can prepare it.'}
-                    </p>
                   </motion.div>
                 </div>
 
                 <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
+                  {tenant.whatsapp_number && (
+                    <motion.button
+                      onClick={handleWhatsApp}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
+                      style={{
+                        backgroundColor: '#25D366',
+                        boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
+                      }}
+                    >
+                      <MessageCircle size={20} />
+                      {t('confirm.whatsapp')}
+                    </motion.button>
+                  )}
                   <motion.button
-                    onClick={handleWhatsApp}
+                    onClick={handleFinish}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-3 rounded-2xl font-semibold text-sm transition-all"
                     style={{
-                      backgroundColor: '#25D366',
-                      color: '#fff',
-                      boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
+                      backgroundColor: `${theme.text_color}08`,
+                      color: theme.text_color,
                     }}
                   >
-                    <MessageCircle size={20} />
-                    {t('confirm.whatsapp')}
+                    {t('confirm.close')}
                   </motion.button>
-                  <button
-                    onClick={handleFinish}
-                    className="w-full py-3 rounded-2xl text-sm font-medium transition-all"
-                    style={{ color: theme.text_color, backgroundColor: `${theme.text_color}06` }}
-                  >
-                    {t('general.close')}
-                  </button>
                 </div>
               </>
             )}
