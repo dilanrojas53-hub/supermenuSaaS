@@ -1,11 +1,12 @@
 /*
- * CartDrawer v5: Hotfix - BUG 1: Payment method selection with visual feedback + confirm button.
- * BUG 2: Robust try/catch, setUploading(false) on error, toast error feedback.
- * Flow: 1. Cart  2. Customer info  3. Select payment method  4. SINPE details (if SINPE)  5. Confirmation
+ * CartDrawer v6: AI Upsell Integration.
+ * Flow: 1. Cart  2. Customer info  3. [AI Upsell Modal]  4. Select payment method  5. SINPE details (if SINPE)  6. Confirmation
+ * AI: Calls /api/generate-upsell (GPT-4o-mini) to suggest personalized items before payment.
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
+import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -40,6 +41,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
+  // AI Upsell state
+  const [showAIUpsell, setShowAIUpsell] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestedItems, setAiSuggestedItems] = useState<AISuggestedItem[]>([]);
+  const [aiPitchMessage, setAiPitchMessage] = useState<string | null>(null);
+
   const handleCopySinpe = useCallback(() => {
     if (tenant.sinpe_number) {
       navigator.clipboard.writeText(tenant.sinpe_number.replace(/-/g, '')).catch(() => {});
@@ -56,6 +63,72 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
       reader.onload = (ev) => setReceiptPreview(ev.target?.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  // AI Upsell: Call /api/generate-upsell and show modal before proceeding to payment
+  const handleProceedToPayment = useCallback(async () => {
+    // Show modal immediately with loading state
+    setShowAIUpsell(true);
+    setAiLoading(true);
+    setAiSuggestedItems([]);
+    setAiPitchMessage(null);
+
+    try {
+      const cartPayload = items.map(ci => ({
+        id: ci.menuItem.id,
+        name: ci.menuItem.name,
+        price: ci.menuItem.price,
+        category: ci.menuItem.category_id,
+        dietary_tags: (ci.menuItem as any).dietary_tags || [],
+      }));
+
+      // Use relative URL so it works both locally (Vite proxy) and in Vercel production
+      const response = await fetch('/api/generate-upsell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart: cartPayload,
+          tenant_id: tenant.id,
+          restaurant_name: tenant.name,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.fallback && data.suggested_items?.length > 0) {
+          setAiSuggestedItems(data.suggested_items as AISuggestedItem[]);
+          setAiPitchMessage(data.pitch_message || null);
+        } else {
+          // No suggestions or fallback: close modal and go directly to payment
+          setShowAIUpsell(false);
+          setStep('select_payment');
+          return;
+        }
+      } else {
+        // API error: skip upsell and go to payment
+        setShowAIUpsell(false);
+        setStep('select_payment');
+        return;
+      }
+    } catch {
+      // Network error or timeout: skip upsell silently
+      setShowAIUpsell(false);
+      setStep('select_payment');
+      return;
+    } finally {
+      setAiLoading(false);
+    }
+  }, [items, tenant]);
+
+  const handleAIUpsellContinue = () => {
+    setShowAIUpsell(false);
+    setStep('select_payment');
+  };
+
+  const handleAIUpsellClose = () => {
+    setShowAIUpsell(false);
+    setStep('select_payment');
   };
 
   // BUG 1 FIX: Selecting a method only updates state + gives visual feedback.
@@ -522,7 +595,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                   <motion.button
-                    onClick={() => setStep('select_payment')}
+                    onClick={handleProceedToPayment}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -841,6 +914,17 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
           </motion.div>
         </>
       )}
+
+      {/* ─── AI UPSELL MODAL (rendered outside the main drawer z-stack) ─── */}
+      <AIUpsellModal
+        isOpen={showAIUpsell}
+        onClose={handleAIUpsellClose}
+        onContinue={handleAIUpsellContinue}
+        suggestedItems={aiSuggestedItems}
+        pitchMessage={aiPitchMessage}
+        isLoading={aiLoading}
+        theme={theme}
+      />
     </AnimatePresence>
   );
 }
