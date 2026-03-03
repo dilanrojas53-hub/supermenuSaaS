@@ -48,7 +48,7 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex gap-4 p-4 rounded-2xl relative"
+        className="flex gap-3 p-3 md:p-4 rounded-2xl relative"
         style={{
           backgroundColor: theme.background_color,
           boxShadow: '0 2px 12px rgba(139, 109, 71, 0.08)',
@@ -64,12 +64,12 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
 
         {/* Image placeholder */}
         {item.image_url ? (
-          <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+          <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0">
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
           </div>
         ) : (
           <div
-            className="w-24 h-24 rounded-xl flex-shrink-0 flex items-center justify-center text-3xl opacity-30"
+            className="w-28 h-28 md:w-36 md:h-36 rounded-2xl flex-shrink-0 flex items-center justify-center text-4xl opacity-30"
             style={{ backgroundColor: `${theme.primary_color}08` }}
           >
             🍽️
