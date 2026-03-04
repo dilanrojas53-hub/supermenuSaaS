@@ -1,349 +1,275 @@
 /**
- * AnimatedBackground — Immersive animated backgrounds for restaurant menus.
- * Modes: 'bokeh' (floating blurred circles), 'mesh' (animated gradient), 'particles' (constellation network).
- * Pure CSS + Canvas. No external libraries. Battery-friendly with requestAnimationFrame throttling.
+ * AnimatedBackground — Premium VFX layer.
+ * Two modes:
+ *   'mesh'     → "Ambient Mesh Blur": 4 giant orbes with blur(120px), slow organic float.
+ *   'bokeh'    → "Premium Bokeh": 15–20 soft glowing circles drifting upward.
+ *   'particles'→ Falls back to mesh (particles mode deprecated).
+ *
+ * Architecture:
+ *   Fixed full-viewport container (z-index: -10) + contrast overlay (rgba black + backdrop-blur).
+ *   Content sits on top and remains fully legible.
+ *
+ * Zero external dependencies. Pure CSS animations. Battery-friendly.
  */
-import { useRef, useEffect, useCallback, memo } from 'react';
-import type { ThemeAnimation, AnimationSpeed } from '@/lib/types';
+import { memo, useMemo } from 'react';
+import type { ThemeAnimation } from '@/lib/types';
 
 interface AnimatedBackgroundProps {
   animation: ThemeAnimation | null;
-  /** Fallback primary color if no animation config */
+  /** Fallback primary color when no animation config exists */
   primaryColor?: string;
-  /** Render mode: 'hero' = full intensity for hero section, 'page' = subtle background */
-  mode?: 'hero' | 'page';
-  className?: string;
+  /** Secondary fallback color */
+  secondaryColor?: string;
+  /** Background color for the contrast overlay */
+  backgroundColor?: string;
 }
 
-// Speed → duration mapping (ms per animation cycle)
-const SPEED_MAP: Record<AnimationSpeed, number> = {
-  slow: 40000,
-  medium: 25000,
-  fast: 15000,
-};
+// ─── Helpers ───
 
-// Hex to RGB helper
-function hexToRgb(hex: string): [number, number, number] {
+function hexToRgba(hex: string, alpha: number): string {
   const c = hex.replace('#', '');
-  return [
-    parseInt(c.substring(0, 2), 16) || 0,
-    parseInt(c.substring(2, 4), 16) || 0,
-    parseInt(c.substring(4, 6), 16) || 0,
-  ];
+  const r = parseInt(c.substring(0, 2), 16) || 0;
+  const g = parseInt(c.substring(2, 4), 16) || 0;
+  const b = parseInt(c.substring(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Lighten a hex color by a factor (0–1)
-function lightenHex(hex: string, factor: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  const lr = Math.round(r + (255 - r) * factor);
-  const lg = Math.round(g + (255 - g) * factor);
-  const lb = Math.round(b + (255 - b) * factor);
-  return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
+function lighten(hex: string, factor: number): string {
+  const c = hex.replace('#', '');
+  const r = Math.min(255, Math.round(parseInt(c.substring(0, 2), 16) + (255 - parseInt(c.substring(0, 2), 16)) * factor));
+  const g = Math.min(255, Math.round(parseInt(c.substring(2, 4), 16) + (255 - parseInt(c.substring(2, 4), 16)) * factor));
+  const b = Math.min(255, Math.round(parseInt(c.substring(4, 6), 16) + (255 - parseInt(c.substring(4, 6), 16)) * factor));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-// ─── BOKEH ───
-function BokehCanvas({ color1, color2, speed, intensity, mode }: {
-  color1: string; color2: string; speed: AnimationSpeed; intensity: number; mode: 'hero' | 'page';
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
+// ─── Ambient Mesh Blur ───
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth * (window.devicePixelRatio > 1 ? 1.5 : 1);
-      canvas.height = canvas.offsetHeight * (window.devicePixelRatio > 1 ? 1.5 : 1);
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const rgb1 = hexToRgb(color1);
-    const rgb2 = hexToRgb(color2);
-    const particleCount = Math.floor((mode === 'hero' ? 14 : 8) * intensity);
-    const speedFactor = SPEED_MAP[speed] / 30000;
-
-    // Generate particles
-    const particles = Array.from({ length: particleCount }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      radius: 20 + Math.random() * 60,
-      vx: (Math.random() - 0.5) * 0.0003 / speedFactor,
-      vy: -(0.0001 + Math.random() * 0.0003) / speedFactor,
-      color: Math.random() > 0.5 ? rgb1 : rgb2,
-      alpha: 0.08 + Math.random() * 0.15 * intensity,
-      pulse: Math.random() * Math.PI * 2,
-      pulseSpeed: 0.005 + Math.random() * 0.01,
-    }));
-
-    let lastTime = 0;
-    const FPS = 30;
-    const interval = 1000 / FPS;
-
-    const animate = (time: number) => {
-      animRef.current = requestAnimationFrame(animate);
-      const delta = time - lastTime;
-      if (delta < interval) return;
-      lastTime = time - (delta % interval);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.pulse += p.pulseSpeed;
-
-        // Wrap around
-        if (p.y < -0.1) { p.y = 1.1; p.x = Math.random(); }
-        if (p.x < -0.1) p.x = 1.1;
-        if (p.x > 1.1) p.x = -0.1;
-
-        const cx = p.x * canvas.width;
-        const cy = p.y * canvas.height;
-        const r = p.radius * (1 + Math.sin(p.pulse) * 0.2);
-        const a = p.alpha * (0.8 + Math.sin(p.pulse) * 0.2);
-
-        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        grad.addColorStop(0, `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${a})`);
-        grad.addColorStop(1, `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, 0)`);
-
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-    };
-
-    animRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animRef.current);
-      window.removeEventListener('resize', resize);
-    };
-  }, [color1, color2, speed, intensity, mode]);
+function AmbientMeshBlur({ color1, color2, intensity }: { color1: string; color2: string; intensity: number }) {
+  const c1Light = lighten(color1, 0.3);
+  const c2Light = lighten(color2, 0.3);
+  const opacity = 0.3 + intensity * 0.3; // 0.3–0.6 range
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ pointerEvents: 'none' }}
-    />
-  );
-}
-
-// ─── MESH GRADIENT ───
-function MeshGradient({ color1, color2, speed, intensity, mode }: {
-  color1: string; color2: string; speed: AnimationSpeed; intensity: number; mode: 'hero' | 'page';
-}) {
-  const duration = SPEED_MAP[speed];
-  const opacity = mode === 'hero' ? Math.min(intensity * 0.8, 0.7) : Math.min(intensity * 0.4, 0.3);
-  const c1Light = lightenHex(color1, 0.3);
-  const c2Light = lightenHex(color2, 0.3);
-
-  return (
-    <div className="absolute inset-0" style={{ pointerEvents: 'none', overflow: 'hidden' }}>
-      {/* Layer 1: rotating gradient blob */}
+    <>
+      {/* Orbe 1: Top-left, floats toward center */}
       <div
-        className="absolute"
         style={{
-          width: '140%',
-          height: '140%',
-          top: '-20%',
-          left: '-20%',
-          background: `
-            radial-gradient(ellipse at 20% 50%, ${color1}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 20%, ${color2}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 50%),
-            radial-gradient(ellipse at 60% 80%, ${c1Light}${Math.round(opacity * 200).toString(16).padStart(2, '0')} 0%, transparent 50%),
-            radial-gradient(ellipse at 30% 80%, ${c2Light}${Math.round(opacity * 180).toString(16).padStart(2, '0')} 0%, transparent 50%)
-          `,
-          animation: `meshRotate ${duration}ms ease-in-out infinite alternate`,
-        }}
-      />
-      {/* Layer 2: counter-rotating blob */}
-      <div
-        className="absolute"
-        style={{
-          width: '120%',
-          height: '120%',
+          position: 'absolute',
+          width: '55vw',
+          height: '55vw',
+          borderRadius: '50%',
+          background: hexToRgba(color1, opacity),
+          filter: 'blur(120px)',
           top: '-10%',
-          left: '-10%',
-          background: `
-            radial-gradient(ellipse at 70% 30%, ${color1}${Math.round(opacity * 180).toString(16).padStart(2, '0')} 0%, transparent 45%),
-            radial-gradient(ellipse at 30% 70%, ${color2}${Math.round(opacity * 160).toString(16).padStart(2, '0')} 0%, transparent 45%)
-          `,
-          animation: `meshRotateReverse ${duration * 1.3}ms ease-in-out infinite alternate`,
+          left: '-15%',
+          animation: 'orbe1Float 20s ease-in-out infinite alternate',
+          willChange: 'transform',
         }}
       />
+      {/* Orbe 2: Bottom-right, floats upward */}
+      <div
+        style={{
+          position: 'absolute',
+          width: '50vw',
+          height: '50vw',
+          borderRadius: '50%',
+          background: hexToRgba(color2, opacity),
+          filter: 'blur(120px)',
+          bottom: '-15%',
+          right: '-10%',
+          animation: 'orbe2Float 25s ease-in-out infinite alternate-reverse',
+          willChange: 'transform',
+        }}
+      />
+      {/* Orbe 3: Center, breathes (scale pulse) */}
+      <div
+        style={{
+          position: 'absolute',
+          width: '45vw',
+          height: '45vw',
+          borderRadius: '50%',
+          background: hexToRgba(c1Light, opacity * 0.7),
+          filter: 'blur(120px)',
+          top: '30%',
+          left: '25%',
+          animation: 'orbe3Breathe 22s ease-in-out infinite alternate',
+          willChange: 'transform',
+        }}
+      />
+      {/* Orbe 4: Top-right accent, slow drift */}
+      <div
+        style={{
+          position: 'absolute',
+          width: '40vw',
+          height: '40vw',
+          borderRadius: '50%',
+          background: hexToRgba(c2Light, opacity * 0.5),
+          filter: 'blur(120px)',
+          top: '5%',
+          right: '10%',
+          animation: 'orbe4Drift 28s ease-in-out infinite alternate',
+          willChange: 'transform',
+        }}
+      />
+
       <style>{`
-        @keyframes meshRotate {
-          0% { transform: rotate(0deg) scale(1); }
-          50% { transform: rotate(180deg) scale(1.1); }
-          100% { transform: rotate(360deg) scale(1); }
+        @keyframes orbe1Float {
+          0%   { transform: translate(0, 0) scale(1); }
+          50%  { transform: translate(15vw, 12vh) scale(1.15); }
+          100% { transform: translate(8vw, 20vh) scale(1.05); }
         }
-        @keyframes meshRotateReverse {
-          0% { transform: rotate(0deg) scale(1.05); }
-          50% { transform: rotate(-180deg) scale(0.95); }
-          100% { transform: rotate(-360deg) scale(1.05); }
+        @keyframes orbe2Float {
+          0%   { transform: translate(0, 0) scale(1); }
+          50%  { transform: translate(-12vw, -18vh) scale(1.1); }
+          100% { transform: translate(-6vw, -25vh) scale(0.95); }
+        }
+        @keyframes orbe3Breathe {
+          0%   { transform: translate(0, 0) scale(1); }
+          50%  { transform: translate(-5vw, 5vh) scale(1.4); }
+          100% { transform: translate(3vw, -3vh) scale(1.1); }
+        }
+        @keyframes orbe4Drift {
+          0%   { transform: translate(0, 0) scale(1); }
+          50%  { transform: translate(-10vw, 8vh) scale(1.2); }
+          100% { transform: translate(-5vw, 15vh) scale(1.05); }
         }
       `}</style>
-    </div>
+    </>
   );
 }
 
-// ─── PARTICLES (Constellation) ───
-function ParticlesCanvas({ color1, color2, speed, intensity, mode }: {
-  color1: string; color2: string; speed: AnimationSpeed; intensity: number; mode: 'hero' | 'page';
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
+// ─── Premium Bokeh ───
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+function PremiumBokeh({ color1, color2, intensity }: { color1: string; color2: string; intensity: number }) {
+  const count = Math.floor(12 + intensity * 8); // 12–20 particles
 
-    const resize = () => {
-      canvas.width = canvas.offsetWidth * (window.devicePixelRatio > 1 ? 1.5 : 1);
-      canvas.height = canvas.offsetHeight * (window.devicePixelRatio > 1 ? 1.5 : 1);
-    };
-    resize();
-    window.addEventListener('resize', resize);
+  const particles = useMemo(() => {
+    return Array.from({ length: count }, (_, i) => {
+      const useColor1 = i % 3 !== 0;
+      const size = 4 + Math.random() * 12;
+      const left = Math.random() * 100;
+      const startY = 100 + Math.random() * 20; // start below viewport
+      const duration = 12 + Math.random() * 18; // 12–30s
+      const delay = Math.random() * -30; // stagger start
+      const drift = (Math.random() - 0.5) * 15; // horizontal drift
+      const opacity = 0.15 + Math.random() * 0.35 * intensity;
+      const blur = 1 + Math.random() * 3;
 
-    const rgb1 = hexToRgb(color1);
-    const rgb2 = hexToRgb(color2);
-    const particleCount = Math.floor((mode === 'hero' ? 40 : 25) * intensity);
-    const connectionDistance = mode === 'hero' ? 120 : 100;
-    const speedFactor = SPEED_MAP[speed] / 30000;
-
-    const particles = Array.from({ length: particleCount }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.0004 / speedFactor,
-      vy: (Math.random() - 0.5) * 0.0004 / speedFactor,
-      radius: 1.5 + Math.random() * 2,
-      color: Math.random() > 0.5 ? rgb1 : rgb2,
-    }));
-
-    let lastTime = 0;
-    const FPS = 30;
-    const interval = 1000 / FPS;
-
-    const animate = (time: number) => {
-      animRef.current = requestAnimationFrame(animate);
-      const delta = time - lastTime;
-      if (delta < interval) return;
-      lastTime = time - (delta % interval);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Update positions
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > 1) p.vx *= -1;
-        if (p.y < 0 || p.y > 1) p.vy *= -1;
-        p.x = Math.max(0, Math.min(1, p.x));
-        p.y = Math.max(0, Math.min(1, p.y));
-      }
-
-      const lineAlpha = 0.08 * intensity;
-      const dotAlpha = 0.3 * intensity;
-
-      // Draw connections
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = (particles[i].x - particles[j].x) * canvas.width;
-          const dy = (particles[i].y - particles[j].y) * canvas.height;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < connectionDistance) {
-            const alpha = lineAlpha * (1 - dist / connectionDistance);
-            const c = particles[i].color;
-            ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
-            ctx.lineWidth = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x * canvas.width, particles[i].y * canvas.height);
-            ctx.lineTo(particles[j].x * canvas.width, particles[j].y * canvas.height);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Draw dots
-      for (const p of particles) {
-        ctx.beginPath();
-        ctx.arc(p.x * canvas.width, p.y * canvas.height, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${dotAlpha})`;
-        ctx.fill();
-      }
-    };
-
-    animRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animRef.current);
-      window.removeEventListener('resize', resize);
-    };
-  }, [color1, color2, speed, intensity, mode]);
+      return { useColor1, size, left, startY, duration, delay, drift, opacity, blur, key: i };
+    });
+  }, [count, intensity]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ pointerEvents: 'none' }}
-    />
+    <>
+      {particles.map(p => (
+        <div
+          key={p.key}
+          style={{
+            position: 'absolute',
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            borderRadius: '50%',
+            background: p.useColor1 ? color1 : color2,
+            filter: `blur(${p.blur}px)`,
+            opacity: 0,
+            left: `${p.left}%`,
+            bottom: `-${p.size}px`,
+            animation: `bokehRise${p.key % 4} ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            willChange: 'transform, opacity',
+          }}
+        />
+      ))}
+
+      <style>{`
+        @keyframes bokehRise0 {
+          0%   { transform: translateY(0) translateX(0); opacity: 0; }
+          10%  { opacity: ${0.15 + intensity * 0.3}; }
+          70%  { opacity: ${0.1 + intensity * 0.2}; }
+          100% { transform: translateY(-110vh) translateX(${(Math.random() - 0.5) * 20}vw); opacity: 0; }
+        }
+        @keyframes bokehRise1 {
+          0%   { transform: translateY(0) translateX(0); opacity: 0; }
+          15%  { opacity: ${0.2 + intensity * 0.25}; }
+          65%  { opacity: ${0.1 + intensity * 0.15}; }
+          100% { transform: translateY(-115vh) translateX(${(Math.random() - 0.5) * 15}vw); opacity: 0; }
+        }
+        @keyframes bokehRise2 {
+          0%   { transform: translateY(0) translateX(0); opacity: 0; }
+          12%  { opacity: ${0.15 + intensity * 0.2}; }
+          75%  { opacity: ${0.08 + intensity * 0.15}; }
+          100% { transform: translateY(-105vh) translateX(${(Math.random() - 0.5) * 25}vw); opacity: 0; }
+        }
+        @keyframes bokehRise3 {
+          0%   { transform: translateY(0) translateX(0); opacity: 0; }
+          8%   { opacity: ${0.18 + intensity * 0.22}; }
+          80%  { opacity: ${0.05 + intensity * 0.1}; }
+          100% { transform: translateY(-120vh) translateX(${(Math.random() - 0.5) * 18}vw); opacity: 0; }
+        }
+      `}</style>
+    </>
   );
 }
 
-// ─── MAIN COMPONENT ───
-function AnimatedBackground({ animation, primaryColor = '#F59E0B', mode = 'hero', className = '' }: AnimatedBackgroundProps) {
-  // Build effective config: use provided animation or generate a subtle default from primaryColor
+// ─── Main Component ───
+
+function AnimatedBackground({
+  animation,
+  primaryColor = '#F59E0B',
+  secondaryColor,
+  backgroundColor = '#000000',
+}: AnimatedBackgroundProps) {
+  // Build effective config
   const config = animation || {
     type: 'mesh' as const,
     color1: primaryColor,
-    color2: lightenHex(primaryColor, 0.4),
+    color2: secondaryColor || lighten(primaryColor, 0.35),
     speed: 'slow' as const,
-    intensity: mode === 'hero' ? 0.4 : 0.2,
+    intensity: 0.5,
   };
 
-  const effectiveIntensity = mode === 'page' ? config.intensity * 0.4 : config.intensity;
+  // 'particles' falls back to 'mesh'
+  const effectiveType = config.type === 'particles' ? 'mesh' : config.type;
 
   return (
     <div
-      className={`absolute inset-0 overflow-hidden ${className}`}
-      style={{ pointerEvents: 'none', zIndex: 0 }}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: -10,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}
       aria-hidden="true"
     >
-      {config.type === 'bokeh' && (
-        <BokehCanvas
+      {/* Animation layer */}
+      {effectiveType === 'mesh' && (
+        <AmbientMeshBlur
           color1={config.color1}
           color2={config.color2}
-          speed={config.speed}
-          intensity={effectiveIntensity}
-          mode={mode}
+          intensity={config.intensity}
         />
       )}
-      {config.type === 'mesh' && (
-        <MeshGradient
+      {effectiveType === 'bokeh' && (
+        <PremiumBokeh
           color1={config.color1}
           color2={config.color2}
-          speed={config.speed}
-          intensity={effectiveIntensity}
-          mode={mode}
+          intensity={config.intensity}
         />
       )}
-      {config.type === 'particles' && (
-        <ParticlesCanvas
-          color1={config.color1}
-          color2={config.color2}
-          speed={config.speed}
-          intensity={effectiveIntensity}
-          mode={mode}
-        />
-      )}
+
+      {/* Contrast overlay — guarantees text legibility */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: hexToRgba(backgroundColor, 0.75),
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+        }}
+      />
     </div>
   );
 }

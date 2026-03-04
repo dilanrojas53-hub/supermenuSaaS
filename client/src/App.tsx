@@ -5,6 +5,8 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
+import { AnimationProvider, useAnimationConfig } from "./contexts/AnimationContext";
+import AnimatedBackground from "./components/AnimatedBackground";
 import Home from "./pages/Home";
 import MenuPage from "./pages/MenuPage";
 import AdminLogin from "./pages/AdminLogin";
@@ -36,15 +38,32 @@ function Router() {
   );
 }
 
+/** Global animated background that reads from AnimationContext */
+function GlobalAnimatedBg() {
+  const { config } = useAnimationConfig();
+  if (!config) return null;
+  return (
+    <AnimatedBackground
+      animation={config.animation}
+      primaryColor={config.primaryColor}
+      secondaryColor={config.secondaryColor}
+      backgroundColor={config.backgroundColor}
+    />
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <AdminAuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <AnimationProvider>
+            <TooltipProvider>
+              <Toaster />
+              <GlobalAnimatedBg />
+              <Router />
+            </TooltipProvider>
+          </AnimationProvider>
         </AdminAuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

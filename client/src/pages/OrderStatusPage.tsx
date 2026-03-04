@@ -11,6 +11,7 @@ import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, Shopping
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
+import { useAnimationConfig } from '@/contexts/AnimationContext';
 
 // Status step config with icons and animations
 const STATUS_STEPS: {
@@ -65,6 +66,27 @@ export default function OrderStatusPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Push animation config to global context
+  const { setAnimationConfig } = useAnimationConfig();
+  useEffect(() => {
+    if (!order) return;
+    (async () => {
+      const { data: themeData } = await supabase
+        .from('theme_settings')
+        .select('primary_color, secondary_color, background_color, theme_animation')
+        .eq('tenant_id', order.tenant_id)
+        .single();
+      if (themeData) {
+        setAnimationConfig({
+          animation: themeData.theme_animation,
+          primaryColor: themeData.primary_color,
+          secondaryColor: themeData.secondary_color,
+          backgroundColor: themeData.background_color,
+        });
+      }
+    })();
+  }, [order?.tenant_id, setAnimationConfig]);
 
   // Fetch order initially
   const fetchOrder = useCallback(async () => {

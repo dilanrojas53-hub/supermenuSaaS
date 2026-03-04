@@ -22,7 +22,7 @@ import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
 import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
-import AnimatedBackground from '@/components/AnimatedBackground';
+import { useAnimationConfig } from '@/contexts/AnimationContext';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -52,6 +52,19 @@ function MenuContent() {
   useEffect(() => {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
+
+  // Push animation config to global context so App.tsx renders it
+  const { setAnimationConfig } = useAnimationConfig();
+  useEffect(() => {
+    if (data) {
+      setAnimationConfig({
+        animation: data.theme.theme_animation,
+        primaryColor: data.theme.primary_color,
+        secondaryColor: data.theme.secondary_color,
+        backgroundColor: data.theme.background_color,
+      });
+    }
+  }, [data, setAnimationConfig]);
 
   // Set first category as active
   useEffect(() => {
@@ -170,7 +183,7 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-28 relative"
+      className="min-h-screen pb-28 relative z-[1]"
       style={{
         backgroundColor: theme.background_color,
         fontFamily: bodyFont,
@@ -179,15 +192,6 @@ function MenuContent() {
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
-
-      {/* Animated Page Background (subtle, behind everything) */}
-      <div className="fixed inset-0 z-0" style={{ pointerEvents: 'none' }}>
-        <AnimatedBackground
-          animation={theme.theme_animation}
-          primaryColor={theme.primary_color}
-          mode="page"
-        />
-      </div>
 
       {/* Hero Section */}
       <div className="relative h-56 overflow-hidden">
@@ -198,12 +202,6 @@ function MenuContent() {
             className="w-full h-full object-cover"
           />
         )}
-        {/* Animated overlay on Hero */}
-        <AnimatedBackground
-          animation={theme.theme_animation}
-          primaryColor={theme.primary_color}
-          mode="hero"
-        />
         <div
           className="absolute inset-0"
           style={{
