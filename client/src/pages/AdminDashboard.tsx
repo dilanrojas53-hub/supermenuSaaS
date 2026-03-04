@@ -740,9 +740,22 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
   const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
 
-  const nuevos = orders.filter(o => o.status === 'pendiente' || o.status === 'pago_en_revision');
-  const enCocina = orders.filter(o => o.status === 'en_cocina');
-  const listos = orders.filter(o => o.status === 'listo');
+  // Delivery orders: active (not entregado/cancelado) with delivery_type = 'delivery'
+  const deliveryActivos = orders.filter(o =>
+    (o as any).delivery_type === 'delivery' &&
+    o.status !== 'entregado' && o.status !== 'cancelado'
+  );
+  // Non-delivery orders for the standard columns
+  const nuevos = orders.filter(o =>
+    (o.status === 'pendiente' || o.status === 'pago_en_revision') &&
+    (o as any).delivery_type !== 'delivery'
+  );
+  const enCocina = orders.filter(o =>
+    o.status === 'en_cocina' && (o as any).delivery_type !== 'delivery'
+  );
+  const listos = orders.filter(o =>
+    o.status === 'listo' && (o as any).delivery_type !== 'delivery'
+  );
 
   const KanbanCard = ({ order }: { order: Order }) => {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
@@ -959,7 +972,16 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       {loading ? (
         <div className="text-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <>
+        {/* Delivery banner if there are active delivery orders */}
+        {deliveryActivos.length > 0 && (
+          <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/30">
+            <Bike size={15} className="text-blue-400" />
+            <span className="text-blue-300 text-xs font-bold">{deliveryActivos.length} pedido{deliveryActivos.length !== 1 ? 's' : ''} de delivery activo{deliveryActivos.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <KanbanColumn
             title="Nuevos"
             icon={<AlertCircle size={14} />}
@@ -981,7 +1003,27 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             orders={listos}
             emptyMsg="Sin pedidos listos"
           />
+          {/* 4th column: Delivery — always visible */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-500/20">
+                <Bike size={14} className="text-blue-400" />
+              </div>
+              <h3 className="font-bold text-white text-sm">Delivery</h3>
+              <span className="ml-auto w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-blue-500">
+                {deliveryActivos.length}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {deliveryActivos.length === 0 ? (
+                <div className="text-center py-8 text-slate-600 text-xs border-2 border-dashed border-blue-500/20 rounded-2xl">
+                  Sin deliveries activos
+                </div>
+              ) : deliveryActivos.map(o => <KanbanCard key={o.id} order={o} />)}
+            </div>
+          </div>
         </div>
+        </>
       )}
 
       {/* ─── Receipt Lightbox Modal ─── */}
