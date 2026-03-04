@@ -95,7 +95,8 @@ export const themes: Record<ThemeKey, ThemeDefinition> = {
   },
 };
 
-export const THEME_STORAGE_KEY = 'da_ui_theme';
+// V4.0: key alineada al brief (era 'da_ui_theme')
+export const THEME_STORAGE_KEY = 'restaurant_theme';
 export const DEFAULT_THEME: ThemeKey = 'luxury_black_gold';
 
 /**

@@ -603,6 +603,26 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Panel de Administración</h3>
         </div>
         <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Elige el tema visual del panel. El cambio es instantáneo y se guarda automáticamente.</p>
+
+        {/* Dropdown simple para selección rápida */}
+        <div className="flex items-center gap-3 mb-4">
+          <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Selección rápida:</label>
+          <select
+            value={uiTheme}
+            onChange={e => setUiTheme(e.target.value as ThemeKey)}
+            className="px-3 py-1.5 rounded-lg text-sm border cursor-pointer"
+            style={{
+              backgroundColor: 'var(--bg-page)',
+              color: 'var(--text-primary)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            {(Object.entries(themes) as [ThemeKey, typeof themes[ThemeKey]][]).map(([key, def]) => (
+              <option key={key} value={key}>{def.emoji} {def.name} — {def.description}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {(Object.entries(themes) as [ThemeKey, typeof themes[ThemeKey]][]).map(([key, def]) => {
             const isActive = uiTheme === key;

@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
+import { applyTheme, getStoredTheme } from '@/lib/themes';
 
 // Status step config with icons and animations
 const STATUS_STEPS: {
@@ -67,6 +68,11 @@ export default function OrderStatusPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el tracking
+  useEffect(() => {
+    applyTheme(getStoredTheme());
+  }, []);
 
   // Push animation config to global context
   const { setAnimationConfig } = useAnimationConfig();

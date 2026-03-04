@@ -24,6 +24,7 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
+import { applyTheme, getStoredTheme } from '@/lib/themes';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -55,6 +56,11 @@ function MenuContent() {
   useEffect(() => {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
+
+  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el menú público
+  useEffect(() => {
+    applyTheme(getStoredTheme());
+  }, []);
 
   // Push animation config to global context so App.tsx renders it
   const { setAnimationConfig } = useAnimationConfig();
