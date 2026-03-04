@@ -48,7 +48,6 @@ function GlobalAnimatedBg() {
   return (
     <AnimatedBackground
       color1={config?.primaryColor}
-      color2={config?.secondaryColor}
     />
   );
 }
