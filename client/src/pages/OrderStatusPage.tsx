@@ -312,12 +312,6 @@ export default function OrderStatusPage() {
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-slate-300">
                   {item.quantity}× {item.name}
-                  {item.upsell_source === 'ai' && (
-                    <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold">IA</span>
-                  )}
-                  {item.upsell_source === 'static' && (
-                    <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-bold">Sugerido</span>
-                  )}
                 </span>
                 <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
               </div>

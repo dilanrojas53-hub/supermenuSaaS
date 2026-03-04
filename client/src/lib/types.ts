@@ -55,6 +55,17 @@ export const PLAN_LABELS: Record<PlanTier, { label: string; color: string; bgCol
   premium: { label: 'Premium', color: '#F59E0B', bgColor: '#FEF3C7' },
 };
 
+export type AnimationType = 'bokeh' | 'mesh' | 'particles';
+export type AnimationSpeed = 'slow' | 'medium' | 'fast';
+
+export interface ThemeAnimation {
+  type: AnimationType;
+  color1: string;
+  color2: string;
+  speed: AnimationSpeed;
+  intensity: number; // 0.0 – 1.0
+}
+
 export interface ThemeSettings {
   id: string;
   tenant_id: string;
@@ -66,6 +77,7 @@ export interface ThemeSettings {
   font_family: string;
   view_mode: 'grid' | 'list';
   hero_image_url: string | null;
+  theme_animation: ThemeAnimation | null;
   created_at: string;
   updated_at: string;
 }

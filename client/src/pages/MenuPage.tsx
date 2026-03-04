@@ -22,6 +22,7 @@ import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
 import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -169,7 +170,7 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-28"
+      className="min-h-screen pb-28 relative"
       style={{
         backgroundColor: theme.background_color,
         fontFamily: bodyFont,
@@ -178,6 +179,15 @@ function MenuContent() {
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
+
+      {/* Animated Page Background (subtle, behind everything) */}
+      <div className="fixed inset-0 z-0" style={{ pointerEvents: 'none' }}>
+        <AnimatedBackground
+          animation={theme.theme_animation}
+          primaryColor={theme.primary_color}
+          mode="page"
+        />
+      </div>
 
       {/* Hero Section */}
       <div className="relative h-56 overflow-hidden">
@@ -188,6 +198,12 @@ function MenuContent() {
             className="w-full h-full object-cover"
           />
         )}
+        {/* Animated overlay on Hero */}
+        <AnimatedBackground
+          animation={theme.theme_animation}
+          primaryColor={theme.primary_color}
+          mode="hero"
+        />
         <div
           className="absolute inset-0"
           style={{

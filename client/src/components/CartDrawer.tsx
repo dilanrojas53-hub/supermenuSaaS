@@ -601,11 +601,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                           <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
                             {ci.menuItem.name}
                           </p>
-                          {ci.isUpsell && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>
-                              ✨ {lang === 'es' ? 'Sugerido' : 'Suggested'}
-                            </span>
-                          )}
                           <p className="text-sm font-bold mt-0.5" style={{ color: theme.primary_color }}>
                             {formatPrice(ci.menuItem.price * ci.quantity)}
                           </p>
