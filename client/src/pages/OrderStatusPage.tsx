@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike } from 'lucide-react';
+import { buildWhatsAppUrl } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
@@ -164,14 +165,13 @@ export default function OrderStatusPage() {
 
   const handleWhatsAppDelivery = () => {
     if (!order) return;
-    const phone = deliveryPhone?.replace(/[^0-9]/g, '') || '';
-    const msg = encodeURIComponent(
+    const msg =
       `🛕 *Pedido #${order.order_number} listo para entrega*\n` +
       `📍 ${deliveryAddress || 'Sin dirección'}\n` +
       `⏰ ${scheduledDate === 'tomorrow' ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
-      `💰 Total: ${formatPrice(order.total)}`
-    );
-    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+      `💰 Total: ${formatPrice(order.total)}`;
+    const url = buildWhatsAppUrl(deliveryPhone, msg);
+    if (url) window.open(url, '_blank');
   };
 
   // Navigate back to menu to add more items (Cuenta Abierta)
@@ -394,14 +394,19 @@ export default function OrderStatusPage() {
               </div>
             )}
             {isDelivery && deliveryPhone && (
-              <button
-                onClick={handleWhatsAppDelivery}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
-                style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
-              >
-                <MessageCircle size={16} />
-                Coordinar entrega por WhatsApp
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleWhatsAppDelivery}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                  style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
+                >
+                  <MessageCircle size={16} />
+                  Coordinar entrega por WhatsApp
+                </button>
+                <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                  ℹ️ Al abrirse el chat, usa el icóno <strong className="text-slate-400">(+)</strong> o <strong className="text-slate-400">(📎)</strong> para enviarnos tu <strong className="text-slate-400">'Ubicación'</strong> (el pin).
+                </p>
+              </div>
             )}
           </div>
         )}

@@ -28,6 +28,7 @@ import {
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
   Trophy, AlertCircle, Users, MapPin, Navigation, Bike
 } from 'lucide-react';
+import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { toast } from 'sonner';
 
 // ─── Toggle Switch ───
@@ -723,22 +724,28 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const deliveryAddress = (order as any).delivery_address;
     const deliveryPhone = (order as any).delivery_phone;
 
+    const isGoogleMapsLink = deliveryAddress &&
+      (deliveryAddress.includes('google.com/maps') || deliveryAddress.includes('maps.app.goo.gl'));
+
     const handleWaze = () => {
       if (!deliveryAddress) return;
-      const encoded = encodeURIComponent(deliveryAddress);
-      window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, '_blank');
+      if (isGoogleMapsLink) {
+        // Use the Google Maps link directly as Waze destination
+        window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      } else {
+        window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      }
     };
 
     const handleWhatsAppDelivery = () => {
       if (!deliveryPhone) return;
-      const phone = deliveryPhone.replace(/[^0-9]/g, '');
-      const msg = encodeURIComponent(
+      const msg =
         `🛕 *Pedido #${order.order_number}* listo para entrega\n` +
         `📍 ${deliveryAddress || ''}\n` +
         `⏰ ${isTomorrow ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
-        `💰 Total: ${formatPrice(order.total)}`
-      );
-      window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+        `💰 Total: ${formatPrice(order.total)}`;
+      const url = buildWhatsAppUrl(deliveryPhone, msg);
+      if (url) window.open(url, '_blank');
     };
 
     return (
@@ -794,9 +801,19 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               </div>
             )}
             {isDelivery && deliveryAddress && (
-              <div className="flex items-start gap-1.5">
-                <MapPin size={11} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                <span className="text-xs text-slate-300 leading-tight">{deliveryAddress}</span>
+              <div className="space-y-1">
+                {isGoogleMapsLink ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-blue-300 bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 rounded-full">
+                      📍 Ubicación de Google Maps
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-1.5">
+                    <MapPin size={11} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-xs text-slate-300 leading-tight">{deliveryAddress}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1103,38 +1120,38 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
           <TrendingUp size={16} className="text-green-400" />
           <h3 className="text-sm font-bold text-white">Prueba de ROI — Este Mes</h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign size={14} className="text-amber-400" />
-              <p className="text-xs text-slate-400">Ventas Totales</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-[2rem] p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign size={15} className="text-amber-400" />
+              <p className="text-xs text-slate-400 font-semibold">Ventas Totales</p>
             </div>
-            <p className="text-xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1">{stats.totalOrders} pedidos</p>
+            <p className="text-2xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1.5">{stats.totalOrders} pedidos</p>
           </div>
-          <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap size={14} className="text-violet-400" />
-              <p className="text-xs text-slate-400">Upsell IA (GPT)</p>
+          <div className="bg-gradient-to-br from-emerald-500/10 to-rose-500/10 border border-rose-500/20 rounded-[2rem] p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap size={15} className="text-emerald-400" />
+              <p className="text-xs text-slate-300 font-bold">Revenue por IA ✨</p>
             </div>
-            <p className="text-xl font-bold text-violet-400">{formatPrice(stats.aiUpsellRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1">ingresos por IA</p>
+            <p className="text-2xl font-bold text-emerald-400">{formatPrice(stats.aiUpsellRevenue)}</p>
+            <p className="text-xs text-rose-400/70 mt-1.5 font-medium">generado por GPT</p>
           </div>
-          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp size={14} className="text-green-400" />
-              <p className="text-xs text-slate-400">Upsell Estático</p>
+          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-[2rem] p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={15} className="text-green-400" />
+              <p className="text-xs text-slate-400 font-semibold">Upsell Estático</p>
             </div>
-            <p className="text-xl font-bold text-green-400">{formatPrice(stats.staticUpsellRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1">{stats.upsellOrders} pedidos con upsell</p>
+            <p className="text-2xl font-bold text-green-400">{formatPrice(stats.staticUpsellRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1.5">{stats.upsellOrders} pedidos con upsell</p>
           </div>
-          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Users size={14} className="text-blue-400" />
-              <p className="text-xs text-slate-400">Tasa de Éxito</p>
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-[2rem] p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={15} className="text-blue-400" />
+              <p className="text-xs text-slate-400 font-semibold">Tasa de Éxito</p>
             </div>
-            <p className="text-xl font-bold text-blue-400">{stats.upsellRate}%</p>
-            <p className="text-xs text-slate-500 mt-1">de clientes aceptaron</p>
+            <p className="text-2xl font-bold text-blue-400">{stats.upsellRate}%</p>
+            <p className="text-xs text-slate-500 mt-1.5">de clientes aceptaron</p>
           </div>
         </div>
 
@@ -1162,16 +1179,16 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {[
-          { label: 'Ticket Promedio', value: formatPrice(stats.avgTicket), icon: <DollarSign size={14} />, color: 'text-amber-400' },
-          { label: 'Pedidos este mes', value: stats.totalOrders, icon: <ClipboardList size={14} />, color: 'text-white' },
-          { label: 'Visitas al menú', value: stats.visits, icon: <Eye size={14} />, color: 'text-white' },
-          { label: 'Conversión', value: stats.visits > 0 ? `${Math.round((stats.totalOrders / stats.visits) * 100)}%` : '0%', icon: <TrendingUp size={14} />, color: 'text-green-400' },
-        ].map(({ label, value, icon, color }) => (
-          <div key={label} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-1 text-slate-500">{icon}<p className="text-xs">{label}</p></div>
-            <p className={`text-xl font-bold ${color}`}>{value}</p>
+          { label: 'Ticket Promedio', value: formatPrice(stats.avgTicket), icon: <DollarSign size={15} />, color: 'text-amber-400', bg: 'from-amber-500/10 to-amber-600/5 border-amber-500/20' },
+          { label: 'Pedidos este mes', value: stats.totalOrders, icon: <ClipboardList size={15} />, color: 'text-white', bg: 'from-slate-700/30 to-slate-800/20 border-slate-600/30' },
+          { label: 'Visitas al menú', value: stats.visits, icon: <Eye size={15} />, color: 'text-white', bg: 'from-slate-700/30 to-slate-800/20 border-slate-600/30' },
+          { label: 'Conversión', value: stats.visits > 0 ? `${Math.round((stats.totalOrders / stats.visits) * 100)}%` : '0%', icon: <TrendingUp size={15} />, color: 'text-green-400', bg: 'from-green-500/10 to-green-600/5 border-green-500/20' },
+        ].map(({ label, value, icon, color, bg }) => (
+          <div key={label} className={`bg-gradient-to-br ${bg} border rounded-[2rem] p-5 shadow-xl`}>
+            <div className="flex items-center gap-1.5 mb-2 text-slate-500">{icon}<p className="text-xs font-semibold">{label}</p></div>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -1371,30 +1388,30 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign size={14} className="text-amber-400" />
-            <p className="text-xs text-slate-400">Ingresos Totales</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-[2rem] p-5 shadow-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign size={15} className="text-amber-400" />
+            <p className="text-xs text-slate-400 font-semibold">Ingresos Totales</p>
           </div>
           <p className="text-2xl font-bold text-amber-400">{formatPrice(kpis.totalRevenue)}</p>
-          <p className="text-xs text-slate-500 mt-1">{filterLabels[filter]}</p>
+          <p className="text-xs text-slate-500 mt-1.5">{filterLabels[filter]}</p>
         </div>
-        <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Zap size={14} className="text-violet-400" />
-            <p className="text-xs text-slate-400">Revenue IA (Upsell)</p>
+        <div className="bg-gradient-to-br from-emerald-500/10 to-rose-500/10 border border-rose-500/20 rounded-[2rem] p-5 shadow-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap size={15} className="text-emerald-400" />
+            <p className="text-xs text-slate-300 font-bold">Revenue por IA ✨</p>
           </div>
-          <p className="text-2xl font-bold text-violet-400">{formatPrice(kpis.aiUpsellRevenue)}</p>
-          <p className="text-xs text-slate-500 mt-1">generado por GPT</p>
+          <p className="text-2xl font-bold text-emerald-400">{formatPrice(kpis.aiUpsellRevenue)}</p>
+          <p className="text-xs text-rose-400/70 mt-1.5 font-medium">generado por GPT</p>
         </div>
-        <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardList size={14} className="text-blue-400" />
-            <p className="text-xs text-slate-400">Volumen de Pedidos</p>
+        <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-[2rem] p-5 shadow-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <ClipboardList size={15} className="text-blue-400" />
+            <p className="text-xs text-slate-400 font-semibold">Volumen de Pedidos</p>
           </div>
           <p className="text-2xl font-bold text-blue-400">{kpis.count}</p>
-          <p className="text-xs text-slate-500 mt-1">pedidos completados</p>
+          <p className="text-xs text-slate-500 mt-1.5">pedidos completados</p>
         </div>
       </div>
 
@@ -1611,14 +1628,16 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="bg-slate-800/40 border-b border-slate-700/30">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+      <div className="bg-slate-800/60 border-b border-white/10 sticky top-[57px] z-30 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-1 px-4 py-2">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === tab.key
-                  ? 'border-amber-500 text-amber-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                  activeTab === tab.key
+                    ? 'bg-rose-500/15 text-rose-400 border border-rose-500/40'
+                    : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'
+                }`}>
                 {tab.icon} {tab.label}
               </button>
             ))}

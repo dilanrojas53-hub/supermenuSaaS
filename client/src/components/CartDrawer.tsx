@@ -5,6 +5,7 @@
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package } from 'lucide-react';
+import { buildWhatsAppUrl } from '@/lib/phone';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
@@ -351,24 +352,24 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         .from('orders')
         .insert({
           tenant_id: tenant.id,
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          customer_table: customerTable.trim(),
+          customer_name: customerName.trim() || '',
+          customer_phone: customerPhone.trim() || '',
+          customer_table: customerTable.trim() || '',
           items: newOrderItems,
           subtotal: totalPrice,
           total: totalPrice,
           status: statusMap[method],
           payment_method: method,
-          sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
-          notes: notes.trim(),
-          upsell_revenue: newUpsellRevenue,
-          ai_upsell_revenue: newAiUpsellRevenue,
+          sinpe_receipt_url: method === 'sinpe' ? (receiptUrl || '') : '',
+          notes: notes.trim() || '',
+          upsell_revenue: newUpsellRevenue ?? 0,
+          ai_upsell_revenue: newAiUpsellRevenue ?? 0,
           upsell_accepted: newUpsellRevenue > 0,
-          delivery_type: deliveryType,
-          scheduled_date: (deliveryType === 'takeout' || deliveryType === 'delivery') ? scheduledDate : null,
-          scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery') && scheduledTime ? scheduledTime : null,
-          delivery_address: deliveryType === 'delivery' ? deliveryAddress.trim() || null : null,
-          delivery_phone: deliveryType === 'delivery' ? deliveryPhone.trim() || null : null,
+          delivery_type: deliveryType || 'dine_in',
+          scheduled_date: (deliveryType === 'takeout' || deliveryType === 'delivery') ? (scheduledDate || 'today') : '',
+          scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery') ? (scheduledTime || '') : '',
+          delivery_address: deliveryType === 'delivery' ? (deliveryAddress.trim() || '') : '',
+          delivery_phone: deliveryType === 'delivery' ? (deliveryPhone.trim() || '') : '',
         })
         .select('id, order_number')
         .single();
@@ -433,8 +434,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       message += `\n\n✅ ${lang === 'es' ? 'Comprobante' : 'Receipt'} ${receiptLabel}.`;
     }
 
-    const phone = tenant.whatsapp_number?.replace(/[^0-9]/g, '') || '';
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = buildWhatsAppUrl(tenant.whatsapp_number, message) || `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile, t, lang, paymentMethod]);
 
