@@ -57,10 +57,31 @@ function MenuContent() {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
 
-  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el menú público
+  // TAREA 2 V4.0: Inyectar los colores del restaurante (Supabase) como CSS vars
+  // Esto conecta el menú público al motor de theming B2B
   useEffect(() => {
-    applyTheme(getStoredTheme());
-  }, []);
+    if (!data) {
+      // Mientras carga, aplicar el tema B2B del localStorage como fallback
+      applyTheme(getStoredTheme());
+      return;
+    }
+    const t = data.theme;
+    const root = document.documentElement;
+    // Colores del restaurante sobreescriben las CSS vars del motor B2B
+    root.style.setProperty('--bg-page', t.background_color);
+    root.style.setProperty('--bg-surface', t.background_color);
+    root.style.setProperty('--text-primary', t.text_color);
+    root.style.setProperty('--text-secondary', `${t.text_color}99`);
+    root.style.setProperty('--accent', t.primary_color);
+    root.style.setProperty('--accent-contrast', '#ffffff');
+    root.style.setProperty('--border', `${t.text_color}15`);
+    root.style.setProperty('--muted', `${t.text_color}60`);
+    // Aplicar color personalizado de fondo si existe en localStorage
+    const customBg = localStorage.getItem('custom_bg_color');
+    const customAccent = localStorage.getItem('custom_accent_color');
+    if (customBg) root.style.setProperty('--bg-page', customBg);
+    if (customAccent) root.style.setProperty('--accent', customAccent);
+  }, [data]);
 
   // Push animation config to global context so App.tsx renders it
   const { setAnimationConfig } = useAnimationConfig();

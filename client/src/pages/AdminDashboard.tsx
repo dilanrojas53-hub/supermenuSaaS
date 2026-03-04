@@ -580,6 +580,42 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   });
   const [saving, setSaving] = useState(false);
 
+  // TAREA 3: Color pickers de personalización libre
+  const [customBg, setCustomBg] = useState<string>(
+    localStorage.getItem('custom_bg_color') || ''
+  );
+  const [customAccent, setCustomAccent] = useState<string>(
+    localStorage.getItem('custom_accent_color') || ''
+  );
+
+  const handleCustomBgChange = (color: string) => {
+    setCustomBg(color);
+    localStorage.setItem('custom_bg_color', color);
+    document.documentElement.style.setProperty('--bg-page', color);
+    document.documentElement.style.setProperty('--bg-surface', color);
+    // También actualiza el form para que el botón Guardar lo persista en Supabase
+    setForm(f => ({ ...f, background_color: color }));
+  };
+
+  const handleCustomAccentChange = (color: string) => {
+    setCustomAccent(color);
+    localStorage.setItem('custom_accent_color', color);
+    document.documentElement.style.setProperty('--accent', color);
+    // También actualiza el form para que el botón Guardar lo persista en Supabase
+    setForm(f => ({ ...f, primary_color: color }));
+  };
+
+  const handleClearCustomColors = () => {
+    localStorage.removeItem('custom_bg_color');
+    localStorage.removeItem('custom_accent_color');
+    setCustomBg('');
+    setCustomAccent('');
+    // Restaurar los colores del tema del restaurante
+    document.documentElement.style.setProperty('--bg-page', form.background_color);
+    document.documentElement.style.setProperty('--accent', form.primary_color);
+    toast.success('Colores personalizados eliminados');
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const { error } = await supabase.from('theme_settings').update({
@@ -716,6 +752,58 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 
         <h3 className="text-sm font-semibold text-slate-300 mb-3">Imagen Hero</h3>
         <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url} onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
+
+        {/* TAREA 3: Color Pickers de Personalización Libre */}
+        <div className="mt-6 p-4 rounded-2xl border" style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 5%, var(--bg-page))', borderColor: 'color-mix(in srgb, var(--accent) 30%, transparent)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">🎨</span>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Personalización Libre de Colores</h3>
+          </div>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Sobreescribe el fondo y el acento del menú público. Los cambios son instantáneos y se guardan al presionar "Guardar tema".</p>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Fondo Principal</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={customBg || form.background_color}
+                  onChange={e => handleCustomBgChange(e.target.value)}
+                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+                <div>
+                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customBg || form.background_color}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --bg-page</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Acento (Botones)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={customAccent || form.primary_color}
+                  onChange={e => handleCustomAccentChange(e.target.value)}
+                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+                <div>
+                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customAccent || form.primary_color}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --accent</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          {(customBg || customAccent) && (
+            <button
+              onClick={handleClearCustomColors}
+              className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+            >
+              × Limpiar colores personalizados
+            </button>
+          )}
+        </div>
 
         {/* Live Preview */}
         <div className="mt-6 p-4 rounded-xl border border-slate-600" style={{ backgroundColor: form.background_color }}>
