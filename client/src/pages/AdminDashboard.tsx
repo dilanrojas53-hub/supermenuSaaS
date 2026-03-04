@@ -704,6 +704,37 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const label = ORDER_STATUS_CONFIG[newStatus]?.label || newStatus;
     toast.success(`✅ ${label}`);
     fetchOrders();
+
+    // ── Automatización WhatsApp ──
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    const customerPhone = (order as any).delivery_phone || order.customer_phone;
+    if (!customerPhone) return;
+
+    const name = order.customer_name || 'Cliente';
+    const shortId = String(order.order_number);
+    const deliveryType = (order as any).delivery_type || 'dine_in';
+
+    let waMsg: string | null = null;
+
+    if (newStatus === 'en_cocina' && order.payment_method === 'sinpe') {
+      waMsg =
+        `¡Hola ${name}! Tu pago por SINPE ha sido verificado con éxito ✅.\n` +
+        `Tu pedido #${shortId} ya está en la cocina preparándose.`;
+    } else if (newStatus === 'listo') {
+      const suffix =
+        deliveryType === 'delivery'
+          ? 'El motorizado va en camino hacia tu dirección.'
+          : deliveryType === 'takeout'
+          ? 'Ya puedes pasar por él al local.'
+          : 'Te lo estamos llevando a tu mesa.';
+      waMsg = `¡Buenas noticias ${name}! Tu pedido #${shortId} ya está LISTO 🎉.\n${suffix}`;
+    }
+
+    if (waMsg) {
+      const waUrl = buildWhatsAppUrl(customerPhone, waMsg);
+      if (waUrl) setTimeout(() => window.open(waUrl, '_blank'), 500);
+    }
   };
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
@@ -1009,8 +1040,14 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 }
 
 // ─── Analytics Tab — Dashboard Premium V2 ───
+type AnalyticsFilter = 'today' | 'yesterday' | 'week' | 'month';
+const analyticsFilterLabels: Record<AnalyticsFilter, string> = {
+  today: 'Hoy', yesterday: 'Ayer', week: 'Esta semana', month: 'Este mes',
+};
+
 function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuItem[]; orders: Order[] }) {
   const [corteVisible, setCorteVisible] = useState(false);
+  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter>('today');
 
   // ── Core stats ──
   const stats = useMemo(() => {
@@ -1073,25 +1110,52 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     });
     const trendData = Object.entries(dayRevenue).map(([day, total]) => ({ day, total }));
 
-    // ── Picos de Venta: bloques horarios (hoy) ──
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayOrders = valid.filter(o => new Date(o.created_at) >= today);
-    const timeBlocks = {
-      manana: todayOrders.filter(o => new Date(o.created_at).getHours() < 12).length,
-      tarde: todayOrders.filter(o => { const h = new Date(o.created_at).getHours(); return h >= 12 && h < 17; }).length,
-      noche: todayOrders.filter(o => new Date(o.created_at).getHours() >= 17).length,
-    };
-
-    // ── Top 3 platillos más vendidos (completados) ──
-    const top3 = sortedItems.slice(0, 3);
-
+    // timeBlocks and top3 are computed separately based on analyticsFilter
     return { totalRevenue, totalOrders, upsellRevenue, upsellRate, upsellOrders: upsellOrders.length,
       aiUpsellRevenue, staticUpsellRevenue,
-      top5, top3, hourlyData, trendData, timeBlocks,
+      top5, hourlyData, trendData,
       avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
       visits: tenant.visit_count || 0 };
   }, [orders, tenant]);
+
+  // ── Filtered stats for Picos de Venta and Top 3 ──
+  const filteredStats = useMemo(() => {
+    const now = new Date();
+    const valid = orders.filter(o => o.status !== 'cancelado');
+    let filtered: Order[];
+    if (analyticsFilter === 'today') {
+      const start = new Date(now); start.setHours(0, 0, 0, 0);
+      filtered = valid.filter(o => new Date(o.created_at) >= start);
+    } else if (analyticsFilter === 'yesterday') {
+      const start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+      const end = new Date(now); end.setHours(0, 0, 0, 0);
+      filtered = valid.filter(o => { const d = new Date(o.created_at); return d >= start && d < end; });
+    } else if (analyticsFilter === 'week') {
+      filtered = valid.filter(o => Date.now() - new Date(o.created_at).getTime() < 7 * 86400000);
+    } else {
+      filtered = valid.filter(o => {
+        const d = new Date(o.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    }
+
+    const timeBlocks = {
+      manana: filtered.filter(o => new Date(o.created_at).getHours() < 12).length,
+      tarde: filtered.filter(o => { const h = new Date(o.created_at).getHours(); return h >= 12 && h < 17; }).length,
+      noche: filtered.filter(o => new Date(o.created_at).getHours() >= 17).length,
+    };
+
+    const itemCounts: Record<string, { name: string; count: number }> = {};
+    filtered.forEach(o => {
+      (o.items as any[]).forEach((item: any) => {
+        if (!itemCounts[item.id || item.name]) itemCounts[item.id || item.name] = { name: item.name, count: 0 };
+        itemCounts[item.id || item.name].count += item.quantity;
+      });
+    });
+    const top3 = Object.values(itemCounts).sort((a, b) => b.count - a.count).slice(0, 3);
+
+    return { timeBlocks, top3, filteredCount: filtered.length };
+  }, [orders, analyticsFilter]);
 
   // ── Corte Z ──
   const corteStats = useMemo(() => {
@@ -1227,19 +1291,35 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         ))}
       </div>
 
-      {/* ── Picos de Venta (Hoy) ── */}
-      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock size={15} className="text-amber-400" />
-          <h3 className="text-sm font-bold text-white">Picos de Venta — Hoy</h3>
+      {/* ── Picos de Venta + Top 3 con filtro dinámico ── */}
+      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl space-y-5">
+        {/* Filtro de tiempo */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Clock size={15} className="text-amber-400" />
+            <h3 className="text-sm font-bold text-white">Picos de Venta</h3>
+            <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{filteredStats.filteredCount} pedidos</span>
+          </div>
+          <div className="flex gap-1">
+            {(Object.keys(analyticsFilterLabels) as AnalyticsFilter[]).map(f => (
+              <button key={f} onClick={() => setAnalyticsFilter(f)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  analyticsFilter === f ? 'bg-amber-500 text-black' : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600'
+                }`}>
+                {analyticsFilterLabels[f]}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Bloques horarios */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Mañana', sublabel: 'antes 12pm', count: stats.timeBlocks.manana, color: '#F59E0B', emoji: '🌅' },
-            { label: 'Tarde', sublabel: '12pm – 5pm', count: stats.timeBlocks.tarde, color: '#3B82F6', emoji: '☀️' },
-            { label: 'Noche', sublabel: 'después 5pm', count: stats.timeBlocks.noche, color: '#8B5CF6', emoji: '🌙' },
+            { label: 'Mañana', sublabel: 'antes 12pm', count: filteredStats.timeBlocks.manana, color: '#F59E0B', emoji: '🌅' },
+            { label: 'Tarde', sublabel: '12pm – 5pm', count: filteredStats.timeBlocks.tarde, color: '#3B82F6', emoji: '☀️' },
+            { label: 'Noche', sublabel: 'después 5pm', count: filteredStats.timeBlocks.noche, color: '#8B5CF6', emoji: '🌙' },
           ].map(({ label, sublabel, count, color, emoji }) => {
-            const total = stats.timeBlocks.manana + stats.timeBlocks.tarde + stats.timeBlocks.noche;
+            const total = filteredStats.timeBlocks.manana + filteredStats.timeBlocks.tarde + filteredStats.timeBlocks.noche;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
               <div key={label} className="bg-slate-800/60 rounded-2xl p-4 text-center border border-slate-700/40">
@@ -1247,44 +1327,44 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
                 <p className="text-xs text-slate-400 font-semibold">{label}</p>
                 <p className="text-[10px] text-slate-600 mb-2">{sublabel}</p>
                 <p className="text-2xl font-bold" style={{ color }}>{count}</p>
-                <p className="text-[10px] text-slate-500 mt-1">{pct}% del día</p>
+                <p className="text-[10px] text-slate-500 mt-1">{pct}%</p>
               </div>
             );
           })}
         </div>
-      </div>
 
-      {/* ── Top 3 Platillos del Día ── */}
-      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl">
-        <div className="flex items-center gap-2 mb-4">
-          <Trophy size={15} className="text-amber-400" />
-          <h3 className="text-sm font-bold text-white">Top 3 Platillos Más Vendidos</h3>
-        </div>
-        {stats.top3.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-4">Sin datos aún</p>
-        ) : (
-          <div className="space-y-3">
-            {stats.top3.map((item, i) => {
-              const medals = ['🥇', '🥈', '🥉'];
-              const maxCount = stats.top3[0].count;
-              return (
-                <div key={item.name} className="flex items-center gap-3">
-                  <span className="text-xl w-7 flex-shrink-0">{medals[i]}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold text-white truncate max-w-[160px]">{item.name}</span>
-                      <span className="text-xs font-bold text-amber-400 ml-2 flex-shrink-0">{item.count} uds.</span>
-                    </div>
-                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: ['#F59E0B', '#94A3B8', '#CD7F32'][i] }} />
+        {/* Top 3 Platillos */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy size={14} className="text-amber-400" />
+            <h3 className="text-sm font-bold text-white">Top 3 Platillos Más Vendidos</h3>
+          </div>
+          {filteredStats.top3.length === 0 ? (
+            <p className="text-xs text-slate-500 text-center py-4">Sin datos en este período</p>
+          ) : (
+            <div className="space-y-3">
+              {filteredStats.top3.map((item: { name: string; count: number }, i: number) => {
+                const medals = ['🥇', '🥈', '🥉'];
+                const maxCount = filteredStats.top3[0].count;
+                return (
+                  <div key={item.name} className="flex items-center gap-3">
+                    <span className="text-xl w-7 flex-shrink-0">{medals[i]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold text-white truncate max-w-[160px]">{item.name}</span>
+                        <span className="text-xs font-bold text-amber-400 ml-2 flex-shrink-0">{item.count} uds.</span>
+                      </div>
+                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: ['#F59E0B', '#94A3B8', '#CD7F32'][i] }} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Top 5 + Horas Pico ── */}
