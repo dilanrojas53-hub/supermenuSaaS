@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
+import { AnimationProvider, useAnimationConfig } from "./contexts/AnimationContext";
 import AnimatedBackground from "./components/AnimatedBackground";
 import Home from "./pages/Home";
 import MenuPage from "./pages/MenuPage";
@@ -37,17 +38,33 @@ function Router() {
   );
 }
 
+/**
+ * Global animated background — ALWAYS renders.
+ * Reads restaurant colors from AnimationContext when available.
+ * Falls back to warm amber tones when no restaurant is loaded.
+ */
+function GlobalAnimatedBg() {
+  const { config } = useAnimationConfig();
+  return (
+    <AnimatedBackground
+      color1={config?.primaryColor}
+      color2={config?.secondaryColor}
+    />
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <AdminAuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            {/* GLOBAL ANIMATED BACKGROUND — always rendered, no conditionals, no DB */}
-            <AnimatedBackground />
-            <Router />
-          </TooltipProvider>
+          <AnimationProvider>
+            <TooltipProvider>
+              <Toaster />
+              <GlobalAnimatedBg />
+              <Router />
+            </TooltipProvider>
+          </AnimationProvider>
         </AdminAuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
