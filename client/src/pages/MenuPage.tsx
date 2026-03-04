@@ -22,6 +22,7 @@ import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
 import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
+import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
 
 function MenuContent() {
@@ -30,6 +31,8 @@ function MenuContent() {
   const { data, loading, error } = useTenantData(slug);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   // Upsell state removed — all upselling now happens at checkout
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -100,7 +103,11 @@ function MenuContent() {
     }
   };
 
-  // Upsell handler removed — all upselling now happens at checkout via CartDrawer
+  // Open ProductDetailModal when user taps on photo/text area of a card
+  const handleOpenDetail = (item: MenuItem) => {
+    setDetailItem(item);
+    setDetailOpen(true);
+  };
 
   // Scroll spy for categories
   useEffect(() => {
@@ -353,6 +360,7 @@ function MenuContent() {
                     viewMode={theme.view_mode}
                     allItems={data.menuItems}
                     showBadges={features.neuroBadges}
+                    onOpenDetail={handleOpenDetail}
                   />
                 ))}
               </div>
@@ -371,6 +379,15 @@ function MenuContent() {
         theme={theme}
         tenant={tenant}
         allMenuItems={data.menuItems}
+      />
+
+      {/* Product Detail Modal — opens when user taps on item photo/text */}
+      <ProductDetailModal
+        item={detailItem}
+        isOpen={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        theme={theme}
+        tenant={tenant}
       />
 
       {/* Active Order FAB — shows when customer has an active order */}

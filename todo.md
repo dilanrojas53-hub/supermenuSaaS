@@ -42,7 +42,26 @@
 - [ ] Seguridad SINPE: subida de comprobante, validación admin
 
 ## Fix SINPE Upload + Admin Visor de Comprobantes
-- [ ] Fix fallo silencioso de upload SINPE en CartDrawer: try/catch, toast.error, getPublicUrl
-- [ ] Guardar sinpe_receipt_url en el INSERT/UPDATE de orders
-- [ ] Crear botón "Ver Comprobante" en KanbanCard del Admin cuando método es SINPE
-- [ ] Crear Modal/Lightbox para ver imagen del comprobante en tamaño grande
+- [x] Fix fallo silencioso de upload SINPE en CartDrawer: try/catch, toast.error, getPublicUrl
+- [x] Guardar sinpe_receipt_url en el INSERT/UPDATE de orders
+- [x] Crear botón "Ver Comprobante" en KanbanCard del Admin cuando método es SINPE
+- [x] Crear Modal/Lightbox para ver imagen del comprobante en tamaño grande
+
+## Épica V5: Fixes Críticos, Product Modal & Smart Cart
+
+### Fase 1: Fixes Críticos
+- [ ] Fix Checkout: enviar status 'NUEVO' en INSERT
+- [ ] Fix Cuenta Abierta: UPDATE orden existente (concatenar items, sumar total, has_new_items: true)
+- [ ] Fix Kanban: badge rojo parpadeante NUEVOS ITEMS + botón marcar como visto
+- [ ] Fix UI Overlap: z-index del botón Volver/Estado sobre header del menú
+
+### Fase 2: Product Detail Modal
+- [ ] Crear ProductDetailModal: foto grande, descripción, selector cantidad (+/-)
+- [ ] In-Modal AI Upsell: sugerencia IA específica para el platillo
+- [ ] Selector de cantidad en upsells (modal y checkout)
+
+### Fase 3: Smart Cart
+- [ ] cartItemId único (UUID) por cada item agregado
+- [ ] parent_cart_item_id para vincular extras/upsells al item principal
+- [ ] Flag prevent_checkout_upsell en items que ya fueron upselled en modal
+- [ ] Filtrar carrito en checkout IA: solo analizar items con prevent_checkout_upsell: false

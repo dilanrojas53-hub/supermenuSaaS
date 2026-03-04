@@ -150,8 +150,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     };
 
     try {
-      // Send only the fields the API actually needs (no dietary_tags — column doesn't exist)
-      const cartPayload = items.map(ci => ({
+      // Smart Cart: only send items that haven't been through the upsell flow yet
+      const eligibleItems = items.filter(ci => !ci.prevent_checkout_upsell && !ci.isUpsell);
+      if (eligibleItems.length === 0) {
+        console.log('%c[AI Upsell] All items already upselled in ProductDetailModal, skipping', 'color: #6C63FF;');
+        setShowAIUpsell(false);
+        setAiLoading(false);
+        setStep('select_payment');
+        return;
+      }
+      const cartPayload = eligibleItems.map(ci => ({
         id: ci.menuItem.id,
         name: ci.menuItem.name,
         price: ci.menuItem.price,
@@ -593,7 +601,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   ) : (
                     items.map(ci => (
                       <motion.div
-                        key={ci.menuItem.id}
+                        key={ci.cartItemId}
                         layout
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -618,7 +626,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => updateQuantity(ci.menuItem.id, ci.quantity - 1)}
+                            onClick={() => updateQuantity(ci.cartItemId, ci.quantity - 1)}
                             className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                             style={{ backgroundColor: `${theme.text_color}08` }}
                           >
@@ -632,7 +640,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             {ci.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(ci.menuItem.id, ci.quantity + 1)}
+                            onClick={() => updateQuantity(ci.cartItemId, ci.quantity + 1)}
                             className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                             style={{ backgroundColor: theme.primary_color }}
                           >

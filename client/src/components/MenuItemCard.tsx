@@ -1,8 +1,11 @@
 /*
- * Design: "Warm Craft" + Neuro-Ventas + i18n
+ * Design: "Warm Craft" + Neuro-Ventas + i18n + Smart Cart
  * Cards con sombra sepia, tipografía Lora, badges de prueba social animados,
  * feedback visual al agregar (scale + checkmark flash).
- * NOTE: Upsell triggers removed — all upselling now happens exclusively at checkout.
+ *
+ * Smart Cart behavior:
+ * - Clicking photo/text → opens ProductDetailModal (with AI upsell)
+ * - Clicking + button → Quick Add (no modal, prevent_checkout_upsell = false)
  */
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,19 +22,29 @@ interface MenuItemCardProps {
   viewMode: 'grid' | 'list';
   allItems?: MenuItem[];
   showBadges?: boolean;
+  /** Called when user taps on the photo/text area to open the detail modal */
+  onOpenDetail?: (item: MenuItem) => void;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail }: MenuItemCardProps) {
   const { addItem } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
 
-  const handleAdd = useCallback(() => {
+  // Quick Add — no modal, prevent_checkout_upsell stays false (will get checkout AI)
+  const handleQuickAdd = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't open the detail modal
     addItem(item);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
-    // NOTE: No upsell trigger here — all upselling happens at checkout via AI/static fallback
   }, [addItem, item]);
+
+  // Open detail modal
+  const handleOpenDetail = useCallback(() => {
+    if (onOpenDetail) {
+      onOpenDetail(item);
+    }
+  }, [onOpenDetail, item]);
 
   if (viewMode === 'list') {
     return (
@@ -39,7 +52,8 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex gap-3 p-3 md:p-4 rounded-2xl relative"
+        className="flex gap-3 p-3 md:p-4 rounded-2xl relative cursor-pointer"
+        onClick={handleOpenDetail}
         style={{
           backgroundColor: theme.background_color,
           boxShadow: '0 2px 12px rgba(139, 109, 71, 0.08)',
@@ -53,7 +67,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         )}
 
-        {/* Image placeholder */}
+        {/* Image */}
         {item.image_url ? (
           <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0">
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
@@ -84,7 +98,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </p>
           )}
 
-          {/* Social proof counter (non-compact) */}
+          {/* Social proof counter */}
           {showBadges && item.badge && (
             <div className="mb-1">
               <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} />
@@ -99,7 +113,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
               {formatPrice(item.price)}
             </span>
             <motion.button
-              onClick={handleAdd}
+              onClick={handleQuickAdd}
               whileTap={{ scale: 0.92 }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
               style={{
@@ -145,7 +159,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35 }}
-      className="rounded-2xl overflow-hidden relative"
+      className="rounded-2xl overflow-hidden relative cursor-pointer"
       style={{
         backgroundColor: theme.background_color,
         boxShadow: '0 4px 20px rgba(139, 109, 71, 0.1)',
@@ -159,10 +173,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         )}
 
-      {/* Image area */}
+      {/* Image area — clicking opens detail modal */}
       <div
         className="w-full h-40 relative"
         style={{ backgroundColor: `${theme.primary_color}08` }}
+        onClick={handleOpenDetail}
       >
         {item.image_url ? (
           <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
@@ -175,20 +190,23 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
       {/* Content */}
       <div className="p-4">
-        <h3
-          className="text-sm font-semibold leading-tight mb-1"
-          style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
-        >
-          {item.name}
-        </h3>
-        {item.description && (
-          <p
-            className="text-xs leading-relaxed mb-2 line-clamp-2 opacity-60"
-            style={{ color: theme.text_color }}
+        {/* Text area — clicking opens detail modal */}
+        <div onClick={handleOpenDetail}>
+          <h3
+            className="text-sm font-semibold leading-tight mb-1"
+            style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
           >
-            {item.description}
-          </p>
-        )}
+            {item.name}
+          </h3>
+          {item.description && (
+            <p
+              className="text-xs leading-relaxed mb-2 line-clamp-2 opacity-60"
+              style={{ color: theme.text_color }}
+            >
+              {item.description}
+            </p>
+          )}
+        </div>
 
         {/* Social proof counter */}
         {showBadges && item.badge && (
@@ -204,8 +222,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           >
             {formatPrice(item.price)}
           </span>
+          {/* Quick Add button — does NOT open modal */}
           <motion.button
-            onClick={handleAdd}
+            onClick={handleQuickAdd}
             whileTap={{ scale: 0.85 }}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
             style={{

@@ -152,11 +152,17 @@ export interface Order {
 }
 
 export interface CartItem {
+  /** Unique ID for this cart entry (separates "Hamburguesa 1" from "Hamburguesa 2") */
+  cartItemId: string;
   menuItem: MenuItem;
   quantity: number;
   isUpsell?: boolean;
   /** 'ai' = suggested by GPT-4o-mini, 'static' = triggered by upsell_item_id on MenuItemCard */
   upsell_source?: 'ai' | 'static' | null;
+  /** Links an upsell item to the main item that triggered it */
+  parent_cart_item_id?: string | null;
+  /** True if user already saw/accepted/rejected upsell in ProductDetailModal — skip at checkout */
+  prevent_checkout_upsell?: boolean;
 }
 
 export interface TenantData {
