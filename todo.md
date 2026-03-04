@@ -40,3 +40,9 @@
 
 ### No tocar (Fase 3 — futuro)
 - [ ] Seguridad SINPE: subida de comprobante, validación admin
+
+## Fix SINPE Upload + Admin Visor de Comprobantes
+- [ ] Fix fallo silencioso de upload SINPE en CartDrawer: try/catch, toast.error, getPublicUrl
+- [ ] Guardar sinpe_receipt_url en el INSERT/UPDATE de orders
+- [ ] Crear botón "Ver Comprobante" en KanbanCard del Admin cuando método es SINPE
+- [ ] Crear Modal/Lightbox para ver imagen del comprobante en tamaño grande

@@ -248,10 +248,21 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           .from('receipts')
           .upload(fileName, receiptFile, { cacheControl: '3600', upsert: false });
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
-          receiptUrl = urlData.publicUrl;
+        if (uploadError) {
+          console.error('[SINPE Upload] Error:', uploadError);
+          toast.error(
+            lang === 'es'
+              ? 'Error al subir el comprobante. Intenta de nuevo.'
+              : 'Error uploading receipt. Please try again.',
+            { duration: 6000 }
+          );
+          setUploading(false);
+          return;
         }
+
+        const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
+        receiptUrl = urlData.publicUrl;
+        console.log('[SINPE Upload] Success:', receiptUrl);
       }
 
       // Include isUpsell + upsell_source flags in order items for analytics tracking

@@ -664,6 +664,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
   const prevOrderCountRef = useRef(0);
   const { playBell } = useKitchenBell();
 
@@ -753,10 +754,11 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         </div>
         {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">📝 {order.notes}</div>}
         {order.sinpe_receipt_url && (
-          <a href={order.sinpe_receipt_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-purple-400 hover:underline flex items-center gap-1 mb-2">
-            📎 Ver comprobante SINPE
-          </a>
+          <button
+            onClick={() => setReceiptViewerUrl(order.sinpe_receipt_url!)}
+            className="w-full flex items-center justify-center gap-2 py-2 mb-2 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation bg-purple-500/20 text-purple-300 border-2 border-purple-500/40 hover:bg-purple-500/30">
+            🧾 Ver Comprobante
+          </button>
         )}
         <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 mb-3">
           <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
@@ -834,6 +836,58 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             orders={listos}
             emptyMsg="Sin pedidos listos"
           />
+        </div>
+      )}
+
+      {/* ─── Receipt Lightbox Modal ─── */}
+      {receiptViewerUrl && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setReceiptViewerUrl(null)}
+        >
+          <div
+            className="relative max-w-lg w-[90vw] max-h-[85vh] bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-800/80 border-b border-slate-700">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                🧾 Comprobante SINPE
+              </span>
+              <button
+                onClick={() => setReceiptViewerUrl(null)}
+                className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {/* Image */}
+            <div className="p-4 flex items-center justify-center overflow-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+              <img
+                src={receiptViewerUrl}
+                alt="Comprobante SINPE"
+                className="max-w-full max-h-full rounded-lg object-contain"
+                style={{ maxHeight: '70vh' }}
+              />
+            </div>
+            {/* Footer */}
+            <div className="px-4 py-3 bg-slate-800/80 border-t border-slate-700 flex gap-2">
+              <a
+                href={receiptViewerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 transition-colors"
+              >
+                <ExternalLink size={14} /> Abrir en nueva pestaña
+              </a>
+              <button
+                onClick={() => setReceiptViewerUrl(null)}
+                className="flex-1 py-2 rounded-xl text-sm font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
