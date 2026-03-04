@@ -36,6 +36,12 @@ export function waPhone(raw: string | number | null | undefined): string {
 
 /**
  * Construye un link de WhatsApp completo con mensaje pre-cargado.
+ *
+ * FIX ENCODING (V3.0): Se normaliza el mensaje a NFC antes de aplicar
+ * encodeURIComponent para eliminar rombos negros (caracteres corruptos)
+ * causados por representaciones Unicode inconsistentes (NFD vs NFC).
+ * Esto garantiza que emojis, tildes y caracteres especiales del español
+ * lleguen correctamente al destinatario de WhatsApp.
  */
 export function buildWhatsAppUrl(
   phone: string | number | null | undefined,
@@ -43,5 +49,7 @@ export function buildWhatsAppUrl(
 ): string {
   const formatted = waPhone(phone);
   if (!formatted) return '';
-  return `https://wa.me/${formatted}?text=${encodeURIComponent(message)}`;
+  // Normalizar a NFC para representación Unicode consistente
+  const safeMessage = message.normalize('NFC');
+  return `https://wa.me/${formatted}?text=${encodeURIComponent(safeMessage)}`;
 }

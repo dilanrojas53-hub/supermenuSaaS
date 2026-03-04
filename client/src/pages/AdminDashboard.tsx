@@ -661,11 +661,14 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   );
 }
 
-// ─── Orders Tab — Kanban V2 ───
+// ─── Orders Tab — Kanban V3 (sub-tabs + badges) ───
+type OrderSubTab = 'DINE_IN' | 'DELIVERY' | 'TAKEOUT';
+
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
   const prevOrderCountRef = useRef(0);
   const { playBell } = useKitchenBell();
 
@@ -740,22 +743,29 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
   const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
 
-  // Delivery orders: active (not entregado/cancelado) with delivery_type = 'delivery'
-  const deliveryActivos = orders.filter(o =>
-    (o as any).delivery_type === 'delivery' &&
-    o.status !== 'entregado' && o.status !== 'cancelado'
+  // ── Normaliza delivery_type para comparación case-insensitive ──
+  const getDeliveryType = (o: Order): string =>
+    ((o as any).delivery_type || 'DINE_IN').toUpperCase();
+
+  // ── Pedidos filtrados por sub-tab activa ──
+  const filteredOrders = orders.filter(o => getDeliveryType(o) === activeSubTab);
+
+  // ── Columnas Kanban según sub-tab ──
+  const nuevos = filteredOrders.filter(o =>
+    o.status === 'pendiente' || o.status === 'pago_en_revision'
   );
-  // Non-delivery orders for the standard columns
-  const nuevos = orders.filter(o =>
-    (o.status === 'pendiente' || o.status === 'pago_en_revision') &&
-    (o as any).delivery_type !== 'delivery'
-  );
-  const enCocina = orders.filter(o =>
-    o.status === 'en_cocina' && (o as any).delivery_type !== 'delivery'
-  );
-  const listos = orders.filter(o =>
-    o.status === 'listo' && (o as any).delivery_type !== 'delivery'
-  );
+  const enCocina = filteredOrders.filter(o => o.status === 'en_cocina');
+  const listos = filteredOrders.filter(o => o.status === 'listo');
+  const deliveryActivos = filteredOrders; // para la columna Delivery (sub-tab DELIVERY)
+
+  // ── Badges: tareas pendientes por sub-tab ──
+  const badgeCount = (subTab: OrderSubTab): number => {
+    const tabOrders = orders.filter(o => getDeliveryType(o) === subTab);
+    return tabOrders.filter(o =>
+      o.status === 'pendiente' ||
+      o.status === 'pago_en_revision'
+    ).length;
+  };
 
   const KanbanCard = ({ order }: { order: Order }) => {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
@@ -956,9 +966,17 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     </div>
   );
 
+  // ── Sub-tab config ──
+  const subTabs: { key: OrderSubTab; label: string; icon: string; color: string; activeColor: string }[] = [
+    { key: 'DINE_IN',  label: 'Comer Aquí', icon: '🍽️', color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300' },
+    { key: 'DELIVERY', label: 'Delivery',    icon: '🛵', color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300' },
+    { key: 'TAKEOUT',  label: 'Por Encargo', icon: '🛍️', color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
+  ];
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
           <p className="text-xs text-slate-500">{orders.length} pedido{orders.length !== 1 ? 's' : ''} activo{orders.length !== 1 ? 's' : ''}</p>
@@ -969,60 +987,89 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         </button>
       </div>
 
+      {/* ── Sub-navegación: Comer Aquí / Delivery / Por Encargo ── */}
+      <div className="flex gap-2 mb-5 p-1 bg-slate-800/60 rounded-2xl border border-slate-700/50">
+        {subTabs.map(tab => {
+          const count = badgeCount(tab.key);
+          const isActive = activeSubTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSubTab(tab.key)}
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
+                isActive
+                  ? tab.activeColor
+                  : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+              {count > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <div className="text-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : (
         <>
-        {/* Delivery banner if there are active delivery orders */}
-        {deliveryActivos.length > 0 && (
-          <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/30">
-            <Bike size={15} className="text-blue-400" />
-            <span className="text-blue-300 text-xs font-bold">{deliveryActivos.length} pedido{deliveryActivos.length !== 1 ? 's' : ''} de delivery activo{deliveryActivos.length !== 1 ? 's' : ''}</span>
+        {/* Kanban: columnas según sub-tab activa */}
+        {activeSubTab === 'DELIVERY' ? (
+          /* Vista Delivery: columna única con todos los pedidos de delivery activos */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KanbanColumn
+              title="Nuevos Delivery"
+              icon={<AlertCircle size={14} />}
+              color="#F59E0B"
+              orders={nuevos}
+              emptyMsg="Sin pedidos nuevos"
+            />
+            <KanbanColumn
+              title="En Camino"
+              icon={<Bike size={14} />}
+              color="#3B82F6"
+              orders={enCocina}
+              emptyMsg="Sin pedidos en camino"
+            />
+            <KanbanColumn
+              title="Entregados / Listos"
+              icon={<CheckCircle2 size={14} />}
+              color="#10B981"
+              orders={listos}
+              emptyMsg="Sin pedidos listos"
+            />
+          </div>
+        ) : (
+          /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KanbanColumn
+              title="Nuevos"
+              icon={<AlertCircle size={14} />}
+              color="#F59E0B"
+              orders={nuevos}
+              emptyMsg="Sin pedidos nuevos"
+            />
+            <KanbanColumn
+              title="En Preparación"
+              icon={<ChefHat size={14} />}
+              color="#3B82F6"
+              orders={enCocina}
+              emptyMsg="Cocina libre"
+            />
+            <KanbanColumn
+              title="Listos para Entregar"
+              icon={<CheckCircle2 size={14} />}
+              color="#10B981"
+              orders={listos}
+              emptyMsg="Sin pedidos listos"
+            />
           </div>
         )}
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KanbanColumn
-            title="Nuevos"
-            icon={<AlertCircle size={14} />}
-            color="#F59E0B"
-            orders={nuevos}
-            emptyMsg="Sin pedidos nuevos"
-          />
-          <KanbanColumn
-            title="En Preparación"
-            icon={<ChefHat size={14} />}
-            color="#3B82F6"
-            orders={enCocina}
-            emptyMsg="Cocina libre"
-          />
-          <KanbanColumn
-            title="Listos para Entregar"
-            icon={<CheckCircle2 size={14} />}
-            color="#10B981"
-            orders={listos}
-            emptyMsg="Sin pedidos listos"
-          />
-          {/* 4th column: Delivery — always visible */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-500/20">
-                <Bike size={14} className="text-blue-400" />
-              </div>
-              <h3 className="font-bold text-white text-sm">Delivery</h3>
-              <span className="ml-auto w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-blue-500">
-                {deliveryActivos.length}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {deliveryActivos.length === 0 ? (
-                <div className="text-center py-8 text-slate-600 text-xs border-2 border-dashed border-blue-500/20 rounded-2xl">
-                  Sin deliveries activos
-                </div>
-              ) : deliveryActivos.map(o => <KanbanCard key={o.id} order={o} />)}
-            </div>
-          </div>
-        </div>
         </>
       )}
 
@@ -1239,15 +1286,22 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
 
   const handleWhatsAppCorte = () => {
     const now = new Date().toLocaleString('es-CR');
-    const msg = encodeURIComponent(
-      `*CORTE Z — ${tenant.name}*\n${now}\n\n` +
+    // FIX V3.0: construir el mensaje primero como string, luego usar buildWhatsAppUrl
+    // para evitar doble-encoding y caracteres corruptos
+    const mensajeCorte =
+      `*CORTE Z \u2014 ${tenant.name}*\n${now}\n\n` +
       `Pedidos: ${corteStats.count}\n` +
       `SINPE: ${formatPrice(corteStats.byMethod.sinpe)}\n` +
       `Efectivo: ${formatPrice(corteStats.byMethod.efectivo)}\n` +
       `Tarjeta: ${formatPrice(corteStats.byMethod.tarjeta)}\n` +
-      `*TOTAL: ${formatPrice(corteStats.total)}*`
-    );
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
+      `*TOTAL: ${formatPrice(corteStats.total)}*`;
+    const waUrl = buildWhatsAppUrl(tenant.whatsapp_number || tenant.phone, mensajeCorte);
+    // Si no hay teléfono configurado, abrir sin destinatario
+    if (waUrl) {
+      window.open(waUrl, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(mensajeCorte.normalize('NFC'))}`, '_blank');
+    }
   };
 
   return (

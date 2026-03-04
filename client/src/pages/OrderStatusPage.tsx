@@ -163,13 +163,45 @@ export default function OrderStatusPage() {
   const deliveryAddress = (order as any)?.delivery_address;
   const deliveryPhone = (order as any)?.delivery_phone;
 
+  // ── FASE 3: Auto-GPS ──
+  const [gpsLink, setGpsLink] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+
+  const handleGetGPS = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Tu navegador no soporta geolocalización.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const link = `https://www.google.com/maps?q=${latitude},${longitude}`;
+        setGpsLink(link);
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsError('Permiso de ubicación denegado. Actívalo en tu navegador.');
+        } else {
+          setGpsError('No se pudo obtener tu ubicación. Intenta de nuevo.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleWhatsAppDelivery = () => {
     if (!order) return;
+    const gpsLine = gpsLink ? `\n\ud83d\udccd Ubicación GPS: ${gpsLink}` : '';
     const msg =
-      `🛕 *Pedido #${order.order_number} listo para entrega*\n` +
-      `📍 ${deliveryAddress || 'Sin dirección'}\n` +
-      `⏰ ${scheduledDate === 'tomorrow' ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
-      `💰 Total: ${formatPrice(order.total)}`;
+      `\ud83d\uded5 *Pedido #${order.order_number} listo para entrega*\n` +
+      `\ud83d\udccd ${deliveryAddress || 'Sin dirección'}\n` +
+      `\u23f0 ${scheduledDate === 'tomorrow' ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
+      `\ud83d\udcb0 Total: ${formatPrice(order.total)}${gpsLine}`;
     const url = buildWhatsAppUrl(deliveryPhone, msg);
     if (url) window.open(url, '_blank');
   };
@@ -394,18 +426,59 @@ export default function OrderStatusPage() {
               </div>
             )}
             {isDelivery && deliveryPhone && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Botón GPS */}
+                {!gpsLink ? (
+                  <button
+                    onClick={handleGetGPS}
+                    disabled={gpsLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
+                    style={{
+                      backgroundColor: gpsLoading ? '#16A34A10' : '#16A34A20',
+                      color: gpsLoading ? '#86EFAC' : '#4ADE80',
+                      border: '2px solid #16A34A40',
+                      opacity: gpsLoading ? 0.7 : 1,
+                    }}
+                  >
+                    <MapPin size={16} />
+                    {gpsLoading ? 'Obteniendo ubicación...' : '📍 Usar mi ubicación GPS actual'}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30">
+                    <MapPin size={14} className="text-green-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-green-400">Ubicación GPS capturada ✅</p>
+                      <p className="text-[10px] text-slate-500 truncate">Se adjuntará al mensaje de WhatsApp</p>
+                    </div>
+                    <button
+                      onClick={() => setGpsLink(null)}
+                      className="text-slate-500 hover:text-slate-300 transition-colors text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Error GPS */}
+                {gpsError && (
+                  <p className="text-[11px] text-red-400 text-center px-1">⚠️ {gpsError}</p>
+                )}
+
+                {/* Botón WhatsApp */}
                 <button
                   onClick={handleWhatsAppDelivery}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
                   style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
                 >
                   <MessageCircle size={16} />
-                  Coordinar entrega por WhatsApp
+                  {gpsLink ? 'Enviar pedido y GPS por WhatsApp' : 'Coordinar entrega por WhatsApp'}
                 </button>
-                <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
-                  ℹ️ Al abrirse el chat, usa el icóno <strong className="text-slate-400">(+)</strong> o <strong className="text-slate-400">(📎)</strong> para enviarnos tu <strong className="text-slate-400">'Ubicación'</strong> (el pin).
-                </p>
+
+                {!gpsLink && (
+                  <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                    ℹ️ Usa el botón GPS para compartir tu ubicación exacta automáticamente.
+                  </p>
+                )}
               </div>
             )}
           </div>
