@@ -210,9 +210,9 @@ export default function OrderStatusPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen text-white" style={{ backgroundColor: 'transparent' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/50">
+      <div className="sticky top-0 z-10 bg-black/60 backdrop-blur-md border-b border-slate-800/50">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}

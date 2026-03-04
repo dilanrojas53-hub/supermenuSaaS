@@ -126,7 +126,7 @@ function MenuContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF8F0]">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'transparent' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
@@ -139,7 +139,7 @@ function MenuContent() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF8F0] p-6">
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'transparent' }}>
         <div className="text-center">
           <p className="text-5xl mb-4">🍽️</p>
           <h1 className="text-2xl font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
@@ -166,7 +166,7 @@ function MenuContent() {
     return (
       <div
         className="min-h-screen flex items-center justify-center p-6"
-        style={{ backgroundColor: theme.background_color, fontFamily: bodyFont }}
+        style={{ backgroundColor: 'transparent', fontFamily: bodyFont }}
       >
         <div className="text-center">
           <p className="text-5xl mb-4">🔒</p>
@@ -185,7 +185,7 @@ function MenuContent() {
     <div
       className="min-h-screen pb-28 relative z-[1]"
       style={{
-        backgroundColor: theme.background_color,
+        backgroundColor: 'transparent',
         fontFamily: bodyFont,
         color: theme.text_color,
       }}
@@ -265,7 +265,9 @@ function MenuContent() {
         ref={tabsRef}
         className="sticky top-0 z-30 overflow-x-auto scrollbar-hide border-b"
         style={{
-          backgroundColor: theme.background_color,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           borderColor: `${theme.text_color}10`,
         }}
       >
