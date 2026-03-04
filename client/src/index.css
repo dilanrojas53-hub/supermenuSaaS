@@ -4,6 +4,17 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* ── Motor de Theming B2B V4.0 ── */
+  /* Estas vars son inyectadas dinámicamente por applyTheme() en lib/themes.ts */
+  --color-page:           var(--bg-page);
+  --color-surface:        var(--bg-surface);
+  --color-primaryText:    var(--text-primary);
+  --color-secondaryText:  var(--text-secondary);
+  --color-accentToken:    var(--accent);
+  --color-accentContrast: var(--accent-contrast);
+  --color-borderToken:    var(--border);
+  --color-mutedToken:     var(--muted);
+  /* ── Radii originales ── */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -45,6 +56,18 @@
 }
 
 :root {
+  /* ── Fallback del Motor de Theming B2B (luxury_black_gold por defecto) ── */
+  /* El JS sobreescribe estos valores al cargar con applyTheme() */
+  --bg-page:          #0a0a0a;
+  --bg-surface:       #101010;
+  --text-primary:     #f5f3ee;
+  --text-secondary:   #bfb9aa;
+  --accent:           #c6a75e;
+  --accent-contrast:  #0b0b0b;
+  --border:           rgba(255,255,255,0.06);
+  --muted:            #9b8f82;
+  --shadow:           0 12px 40px rgba(2,2,2,0.7);
+  /* ── Variables originales de Shadcn/UI ── */
   --primary: oklch(0.45 0.12 55);
   --primary-foreground: oklch(0.98 0.01 80);
   --sidebar-primary: oklch(0.45 0.12 55);

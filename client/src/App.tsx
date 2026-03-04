@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { UIThemeProvider } from "./contexts/UIThemeContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { AnimationProvider, useAnimationConfig } from "./contexts/AnimationContext";
 import AnimatedBackground from "./components/AnimatedBackground";
@@ -55,6 +56,7 @@ function GlobalAnimatedBg() {
 function App() {
   return (
     <ErrorBoundary>
+      <UIThemeProvider>
       <ThemeProvider defaultTheme="light">
         <AdminAuthProvider>
           <AnimationProvider>
@@ -66,6 +68,7 @@ function App() {
           </AnimationProvider>
         </AdminAuthProvider>
       </ThemeProvider>
+      </UIThemeProvider>
     </ErrorBoundary>
   );
 }

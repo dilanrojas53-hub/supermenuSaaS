@@ -29,6 +29,8 @@ import {
   Trophy, AlertCircle, Users, MapPin, Navigation, Bike
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
+import { useUITheme } from '@/contexts/UIThemeContext';
+import { themes, type ThemeKey } from '@/lib/themes';
 import { toast } from 'sonner';
 
 // ─── Toggle Switch ───
@@ -568,6 +570,8 @@ function ChangePasswordCard() {
 
 // ─── Theme Tab ───
 function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSettings; onRefresh: () => void }) {
+  // ── Motor de Theming B2B V4.0 ──
+  const { uiTheme, setUiTheme } = useUITheme();
   const [form, setForm] = useState({
     primary_color: theme.primary_color, secondary_color: theme.secondary_color,
     accent_color: theme.accent_color, background_color: theme.background_color,
@@ -590,9 +594,60 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-white mb-6">Personalización del Tema</h2>
-      <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6">
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Colores</h3>
+      <h2 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Personalización del Tema</h2>
+
+      {/* ── PANEL DE APARIENCIA B2B V4.0 ── */}
+      <div className="rounded-2xl p-6 mb-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-lg">🎨</span>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Panel de Administración</h3>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Elige el tema visual del panel. El cambio es instantáneo y se guarda automáticamente.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(Object.entries(themes) as [ThemeKey, typeof themes[ThemeKey]][]).map(([key, def]) => {
+            const isActive = uiTheme === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setUiTheme(key)}
+                className="relative rounded-xl p-3 border-2 transition-all text-left hover:scale-[1.02]"
+                style={{
+                  backgroundColor: def.vars['--bg-page'],
+                  borderColor: isActive ? def.vars['--accent'] : 'rgba(255,255,255,0.08)',
+                  boxShadow: isActive ? `0 0 0 3px ${def.vars['--accent']}30` : 'none',
+                }}
+              >
+                {/* Preview mini */}
+                <div className="flex gap-1 mb-2">
+                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--bg-surface'] }} />
+                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--accent'] }} />
+                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--border'] }} />
+                </div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-sm">{def.emoji}</span>
+                  <span className="text-xs font-bold" style={{ color: def.vars['--text-primary'] }}>{def.name}</span>
+                </div>
+                <p className="text-[10px]" style={{ color: def.vars['--text-secondary'] }}>{def.description}</p>
+                {isActive && (
+                  <div
+                    className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black"
+                    style={{ backgroundColor: def.vars['--accent'], color: def.vars['--accent-contrast'] }}
+                  >
+                    ✓
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── COLORES DEL MENÚ PÚBLICO (Supabase) ── */}
+      <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-base">🍽️</span>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {[
             { key: 'primary_color', label: 'Primario' },
@@ -653,8 +708,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-6 disabled:opacity-50">
-          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar tema'}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-colors mt-6 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-contrast)' }}>
+          <Save size={16} /> {saving ? 'Guardando...' : 'Guardar tema del menú'}
         </button>
       </div>
     </div>
@@ -1834,19 +1890,19 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-page)' }}>
+        <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
   if (!tenant || !theme) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg-page)' }}>
         <div className="text-center">
           <p className="text-4xl mb-4">🔍</p>
-          <h1 className="text-xl font-bold text-white mb-2">Restaurante no encontrado</h1>
-          <p className="text-slate-400 text-sm">El slug "{slug}" no existe en la base de datos.</p>
+          <h1 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Restaurante no encontrado</h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>El slug "{slug}" no existe en la base de datos.</p>
         </div>
       </div>
     );
@@ -1873,8 +1929,8 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <header className="bg-slate-800/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-40">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
+      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)', borderColor: 'var(--border)' }}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
@@ -1882,7 +1938,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold text-white">{tenant.name}</h1>
+                <h1 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{tenant.name}</h1>
                 <span className={`w-2 h-2 rounded-full ${tenant.is_open ? 'bg-green-400' : 'bg-red-400'}`} />
               </div>
               <p className="text-[10px] text-slate-500">/{slug}</p>
@@ -1901,16 +1957,20 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="bg-slate-800/60 border-b border-white/10 sticky top-[57px] z-30 backdrop-blur-xl">
+      <div className="border-b sticky top-[57px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 80%, transparent)', borderColor: 'var(--border)' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-1 px-4 py-2">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                  activeTab === tab.key
-                    ? 'bg-rose-500/15 text-rose-400 border border-rose-500/40'
-                    : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'
-                }`}>
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap flex-shrink-0 border"
+                style={activeTab === tab.key ? {
+                  backgroundColor: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+                  color: 'var(--accent)',
+                  borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
+                } : {
+                  color: 'var(--text-secondary)',
+                  borderColor: 'transparent',
+                }}>
                 {tab.icon} {tab.label}
               </button>
             ))}
