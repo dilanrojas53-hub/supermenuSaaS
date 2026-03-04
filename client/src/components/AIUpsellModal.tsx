@@ -1,11 +1,12 @@
 /*
- * AIUpsellModal — Motor de Neuro-Ventas con IA (GPT-4o-mini)
- * Design: Premium bottom sheet con animaciones spring, social proof y copy persuasivo.
- * Flujo: CartDrawer intercepta "Continuar al pago" → llama /api/generate-upsell →
- *        muestra este modal → usuario acepta/rechaza → continúa al pago.
+ * AIUpsellModal v2 — Dashboard de Recomendaciones Multi-Item
+ * Design: Premium bottom sheet with scrollable match cards.
+ * Each card shows: "Para tu [trigger_item]..." + suggested item photo/price + AI pitch + Add button.
+ * Single "Continuar al Pago →" CTA at the bottom.
  */
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, ChevronRight, Sparkles, Zap, Loader2 } from 'lucide-react';
+import { X, Plus, ChevronRight, Sparkles, Loader2, Check } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -17,7 +18,10 @@ export interface AISuggestedItem {
   description: string | null;
   price: number;
   image_url: string | null;
-  dietary_tags?: string[];
+  /** The cart item name that triggered this suggestion */
+  trigger_item_name?: string;
+  /** AI-generated persuasive pitch specific to this match */
+  pitch?: string;
 }
 
 interface AIUpsellModalProps {
@@ -25,7 +29,6 @@ interface AIUpsellModalProps {
   onClose: () => void;
   onContinue: () => void;
   suggestedItems: AISuggestedItem[];
-  pitchMessage: string | null;
   isLoading: boolean;
   theme: ThemeSettings;
 }
@@ -35,7 +38,6 @@ export default function AIUpsellModal({
   onClose,
   onContinue,
   suggestedItems,
-  pitchMessage,
   isLoading,
   theme,
 }: AIUpsellModalProps) {
@@ -46,7 +48,6 @@ export default function AIUpsellModal({
   const [addedIds, setAddedIds] = React.useState<Set<string>>(new Set());
 
   const handleAddItem = (item: AISuggestedItem) => {
-    // Cast to MenuItem shape (compatible subset)
     const menuItem: MenuItem = {
       id: item.id,
       tenant_id: '',
@@ -64,7 +65,7 @@ export default function AIUpsellModal({
       created_at: '',
       updated_at: '',
     };
-    addItem(menuItem, true, 'ai'); // isUpsell=true, upsell_source='ai' for analytics tracking
+    addItem(menuItem, true, 'ai');
     setAddedIds(prev => new Set(Array.from(prev).concat(item.id)));
   };
 
@@ -79,6 +80,7 @@ export default function AIUpsellModal({
   };
 
   const hasAddedAny = addedIds.size > 0;
+  const addedCount = addedIds.size;
 
   return (
     <AnimatePresence>
@@ -99,100 +101,113 @@ export default function AIUpsellModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 120 }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl pb-safe"
+            className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl pb-safe flex flex-col"
             style={{
               backgroundColor: theme.background_color,
               boxShadow: '0 -8px 40px rgba(0,0,0,0.25)',
+              maxHeight: '85vh',
             }}
           >
             {/* Handle bar */}
-            <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-1 opacity-20" style={{ backgroundColor: theme.text_color }} />
+            <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-1 opacity-20 flex-shrink-0" style={{ backgroundColor: theme.text_color }} />
 
             {/* Close button */}
             {!isLoading && (
               <button
                 onClick={handleSkip}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity"
+                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center opacity-50 hover:opacity-100 transition-opacity z-10"
                 style={{ backgroundColor: `${theme.text_color}10` }}
               >
                 <X size={16} style={{ color: theme.text_color }} />
               </button>
             )}
 
-            <div className="px-5 pt-2 pb-6">
-              {/* ─── LOADING STATE ─── */}
-              {isLoading && (
-                <div className="flex flex-col items-center justify-center py-10 gap-4">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                    className="w-14 h-14 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: `${theme.primary_color}15` }}
-                  >
-                    <Sparkles size={24} style={{ color: theme.primary_color }} />
-                  </motion.div>
-                  <div className="text-center">
-                    <p className="font-bold text-base" style={{ color: theme.text_color }}>
-                      {lang === 'es' ? 'Preparando sugerencias...' : 'Preparing suggestions...'}
-                    </p>
-                    <p className="text-xs opacity-50 mt-1" style={{ color: theme.text_color }}>
-                      {lang === 'es' ? 'Nuestra IA está analizando tu pedido' : 'Our AI is analyzing your order'}
-                    </p>
-                  </div>
-                  <Loader2 size={20} className="animate-spin opacity-40" style={{ color: theme.primary_color }} />
+            {/* ─── LOADING STATE ─── */}
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-12 gap-4 px-5">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: `${theme.primary_color}15` }}
+                >
+                  <Sparkles size={24} style={{ color: theme.primary_color }} />
+                </motion.div>
+                <div className="text-center">
+                  <p className="font-bold text-base" style={{ color: theme.text_color, fontFamily: "'Lora', serif" }}>
+                    {lang === 'es' ? 'Analizando tu pedido...' : 'Analyzing your order...'}
+                  </p>
+                  <p className="text-xs opacity-50 mt-1" style={{ color: theme.text_color }}>
+                    {lang === 'es' ? 'Nuestra IA está preparando sugerencias personalizadas' : 'Our AI is preparing personalized suggestions'}
+                  </p>
                 </div>
-              )}
+                <Loader2 size={20} className="animate-spin opacity-40" style={{ color: theme.primary_color }} />
+              </div>
+            )}
 
-              {/* ─── CONTENT STATE ─── */}
-              {!isLoading && suggestedItems.length > 0 && (
-                <>
-                  {/* Header */}
+            {/* ─── CONTENT STATE: Multi-Item Dashboard ─── */}
+            {!isLoading && suggestedItems.length > 0 && (
+              <>
+                {/* Header */}
+                <div className="px-5 pt-2 pb-3 flex-shrink-0">
                   <div className="flex items-center gap-2 mb-1">
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: `${theme.primary_color}15` }}
                     >
-                      <Zap size={16} style={{ color: theme.primary_color }} />
+                      <Sparkles size={14} style={{ color: theme.primary_color }} />
                     </div>
                     <span
                       className="text-xs font-bold uppercase tracking-widest"
                       style={{ color: theme.primary_color }}
                     >
-                      {lang === 'es' ? 'Sugerido por IA' : 'AI Suggested'}
+                      {lang === 'es' ? 'Sugerencias personalizadas' : 'Personalized suggestions'}
                     </span>
                   </div>
+                  <p
+                    className="text-lg font-bold leading-snug pr-8"
+                    style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
+                  >
+                    {lang === 'es'
+                      ? 'Completa tu experiencia'
+                      : 'Complete your experience'}
+                  </p>
+                </div>
 
-                  {/* Pitch message */}
-                  {pitchMessage && (
-                    <motion.p
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      className="text-lg font-bold leading-snug mb-4 pr-8"
-                      style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
-                    >
-                      {pitchMessage}
-                    </motion.p>
-                  )}
+                {/* Scrollable Match Cards */}
+                <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-3" style={{ minHeight: 0 }}>
+                  {suggestedItems.map((item, idx) => {
+                    const isAdded = addedIds.has(item.id);
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.08 + idx * 0.06, type: 'spring', damping: 20 }}
+                        className="rounded-2xl overflow-hidden transition-all"
+                        style={{
+                          backgroundColor: isAdded
+                            ? `${theme.primary_color}08`
+                            : `${theme.text_color}03`,
+                          border: `1.5px solid ${isAdded ? theme.primary_color + '30' : theme.text_color + '08'}`,
+                        }}
+                      >
+                        {/* Trigger label */}
+                        {item.trigger_item_name && (
+                          <div
+                            className="px-4 pt-3 pb-1"
+                          >
+                            <p className="text-xs font-semibold opacity-50" style={{ color: theme.text_color }}>
+                              {lang === 'es' ? 'Para tu' : 'For your'}{' '}
+                              <span style={{ color: theme.primary_color, opacity: 1 }} className="font-bold">
+                                {item.trigger_item_name}
+                              </span>
+                            </p>
+                          </div>
+                        )}
 
-                  {/* Suggested items */}
-                  <div className="space-y-3 mb-4">
-                    {suggestedItems.map((item, idx) => {
-                      const isAdded = addedIds.has(item.id);
-                      return (
-                        <motion.div
-                          key={item.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.15 + idx * 0.08 }}
-                          className="flex items-center gap-3 rounded-2xl p-3 transition-all"
-                          style={{
-                            backgroundColor: isAdded
-                              ? `${theme.primary_color}10`
-                              : `${theme.text_color}04`,
-                            border: `1.5px solid ${isAdded ? theme.primary_color : `${theme.text_color}08`}`,
-                          }}
-                        >
+                        {/* Card body */}
+                        <div className="flex items-center gap-3 px-4 pb-3 pt-1">
                           {/* Image */}
                           <div
                             className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0"
@@ -205,7 +220,9 @@ export default function AIUpsellModal({
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
+                              <div className="w-full h-full flex items-center justify-center text-2xl opacity-40">
+                                🍽️
+                              </div>
                             )}
                           </div>
 
@@ -217,12 +234,13 @@ export default function AIUpsellModal({
                             >
                               {item.name}
                             </p>
-                            {item.description && (
+                            {/* AI pitch in italic */}
+                            {item.pitch && (
                               <p
-                                className="text-xs opacity-50 line-clamp-1 mt-0.5"
-                                style={{ color: theme.text_color }}
+                                className="text-xs italic leading-snug mt-0.5 line-clamp-2"
+                                style={{ color: `${theme.text_color}90` }}
                               >
-                                {item.description}
+                                "{item.pitch}"
                               </p>
                             )}
                             <p
@@ -236,11 +254,11 @@ export default function AIUpsellModal({
                           {/* Add button */}
                           <motion.button
                             onClick={() => !isAdded && handleAddItem(item)}
-                            whileTap={{ scale: 0.92 }}
+                            whileTap={{ scale: 0.88 }}
                             disabled={isAdded}
-                            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                            className="flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold flex-shrink-0 transition-all"
                             style={{
-                              backgroundColor: isAdded ? theme.primary_color : `${theme.primary_color}15`,
+                              backgroundColor: isAdded ? theme.primary_color : `${theme.primary_color}12`,
                               color: isAdded ? '#fff' : theme.primary_color,
                             }}
                           >
@@ -248,20 +266,43 @@ export default function AIUpsellModal({
                               <motion.span
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                className="text-base"
+                                className="flex items-center gap-1"
                               >
-                                ✓
+                                <Check size={14} />
+                                {lang === 'es' ? 'Agregado' : 'Added'}
                               </motion.span>
                             ) : (
-                              <Plus size={18} />
+                              <>
+                                <Plus size={14} />
+                                {lang === 'es' ? 'Agregar' : 'Add'}
+                              </>
                             )}
                           </motion.button>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
 
-                  {/* Action buttons */}
+                {/* Sticky CTA footer */}
+                <div
+                  className="px-5 pt-3 pb-5 flex-shrink-0 border-t"
+                  style={{ borderColor: `${theme.text_color}08` }}
+                >
+                  {/* Added count indicator */}
+                  {hasAddedAny && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-center mb-2 font-semibold"
+                      style={{ color: theme.primary_color }}
+                    >
+                      {addedCount} {lang === 'es'
+                        ? `item${addedCount > 1 ? 's' : ''} agregado${addedCount > 1 ? 's' : ''}`
+                        : `item${addedCount > 1 ? 's' : ''} added`}
+                    </motion.p>
+                  )}
+
                   <div className="flex gap-3">
                     <button
                       onClick={handleSkip}
@@ -276,51 +317,39 @@ export default function AIUpsellModal({
                     <motion.button
                       onClick={handleContinue}
                       whileTap={{ scale: 0.95 }}
-                      className="flex-[1.4] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
+                      className="flex-[1.5] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
                       style={{
                         backgroundColor: hasAddedAny ? theme.primary_color : `${theme.primary_color}15`,
                         color: hasAddedAny ? '#fff' : theme.primary_color,
                         boxShadow: hasAddedAny ? `0 4px 16px ${theme.primary_color}35` : 'none',
                       }}
                     >
-                      {hasAddedAny ? (
-                        <>
-                          {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
-                          <ChevronRight size={16} />
-                        </>
-                      ) : (
-                        <>
-                          {lang === 'es' ? 'Continuar sin agregar' : 'Continue without adding'}
-                          <ChevronRight size={14} />
-                        </>
-                      )}
+                      {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
+                      <ChevronRight size={16} />
                     </motion.button>
                   </div>
-                </>
-              )}
-
-              {/* ─── FALLBACK: no suggestions (skip silently) ─── */}
-              {!isLoading && suggestedItems.length === 0 && (
-                <div className="py-4 text-center">
-                  <p className="text-sm opacity-50" style={{ color: theme.text_color }}>
-                    {lang === 'es' ? 'Sin sugerencias adicionales' : 'No additional suggestions'}
-                  </p>
-                  <button
-                    onClick={handleContinue}
-                    className="mt-3 text-sm font-semibold"
-                    style={{ color: theme.primary_color }}
-                  >
-                    {lang === 'es' ? 'Continuar al pago →' : 'Continue to payment →'}
-                  </button>
                 </div>
-              )}
-            </div>
+              </>
+            )}
+
+            {/* ─── FALLBACK: no suggestions ─── */}
+            {!isLoading && suggestedItems.length === 0 && (
+              <div className="py-6 text-center px-5">
+                <p className="text-sm opacity-50" style={{ color: theme.text_color }}>
+                  {lang === 'es' ? 'Sin sugerencias adicionales' : 'No additional suggestions'}
+                </p>
+                <button
+                  onClick={handleContinue}
+                  className="mt-3 text-sm font-semibold"
+                  style={{ color: theme.primary_color }}
+                >
+                  {lang === 'es' ? 'Continuar al pago →' : 'Continue to payment →'}
+                </button>
+              </div>
+            )}
           </motion.div>
         </>
       )}
     </AnimatePresence>
   );
 }
-
-// Need React for useState
-import React from 'react';

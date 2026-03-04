@@ -49,7 +49,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [showAIUpsell, setShowAIUpsell] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestedItems, setAiSuggestedItems] = useState<AISuggestedItem[]>([]);
-  const [aiPitchMessage, setAiPitchMessage] = useState<string | null>(null);
+  // pitchMessage removed — each suggested item now carries its own pitch
 
   // Static Upsell Fallback state (shown when AI fails)
   const [showStaticUpsell, setShowStaticUpsell] = useState(false);
@@ -93,7 +93,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     setShowAIUpsell(true);
     setAiLoading(true);
     setAiSuggestedItems([]);
-    setAiPitchMessage(null);
 
     const goToStaticFallback = () => {
       setShowAIUpsell(false);
@@ -143,8 +142,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         console.log('%c[AI Upsell] Response:', 'color: #10B981; font-weight: bold;', data);
 
         if (!data.fallback && data.suggested_items?.length > 0) {
+          // v2: each item now carries trigger_item_name + pitch
           setAiSuggestedItems(data.suggested_items as AISuggestedItem[]);
-          setAiPitchMessage(data.pitch_message || null);
           // Keep AI modal open to show suggestions
         } else {
           // AI returned fallback (no API key, Supabase error, etc.)
@@ -980,7 +979,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         onClose={handleAIUpsellClose}
         onContinue={handleAIUpsellContinue}
         suggestedItems={aiSuggestedItems}
-        pitchMessage={aiPitchMessage}
         isLoading={aiLoading}
         theme={theme}
       />

@@ -1,7 +1,8 @@
 /*
  * Design: "Warm Craft" + Neuro-Ventas + i18n
  * Cards con sombra sepia, tipografía Lora, badges de prueba social animados,
- * feedback visual al agregar (scale + checkmark flash), upsell con delay de 600ms.
+ * feedback visual al agregar (scale + checkmark flash).
+ * NOTE: Upsell triggers removed — all upselling now happens exclusively at checkout.
  */
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,12 +17,11 @@ interface MenuItemCardProps {
   item: MenuItem;
   theme: ThemeSettings;
   viewMode: 'grid' | 'list';
-  onUpsell?: (item: MenuItem, text: string | null) => void;
-  allItems: MenuItem[];
+  allItems?: MenuItem[];
   showBadges?: boolean;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems, showBadges = true }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true }: MenuItemCardProps) {
   const { addItem } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -30,17 +30,8 @@ export default function MenuItemCard({ item, theme, viewMode, onUpsell, allItems
     addItem(item);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
-
-    // Upsell with 600ms delay for better UX
-    if (item.upsell_item_id && onUpsell) {
-      const upsellTarget = allItems.find(i => i.id === item.upsell_item_id);
-      if (upsellTarget) {
-        setTimeout(() => {
-          onUpsell(upsellTarget, item.upsell_text);
-        }, 600);
-      }
-    }
-  }, [addItem, item, onUpsell, allItems]);
+    // NOTE: No upsell trigger here — all upselling happens at checkout via AI/static fallback
+  }, [addItem, item]);
 
   if (viewMode === 'list') {
     return (

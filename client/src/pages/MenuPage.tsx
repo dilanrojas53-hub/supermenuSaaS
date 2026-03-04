@@ -16,7 +16,7 @@ import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types'
 import type { MenuItem, PlanFeatures } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
-import UpsellModal from '@/components/UpsellModal';
+// UpsellModal removed — all upselling now happens at checkout via CartDrawer
 import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
@@ -28,9 +28,7 @@ function MenuContent() {
   const { data, loading, error } = useTenantData(slug);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [upsellOpen, setUpsellOpen] = useState(false);
-  const [upsellItem, setUpsellItem] = useState<MenuItem | null>(null);
-  const [upsellText, setUpsellText] = useState<string | null>(null);
+  // Upsell state removed — all upselling now happens at checkout
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
@@ -82,12 +80,7 @@ function MenuContent() {
     }
   };
 
-  // Updated upsell handler — receives text directly from MenuItemCard
-  const handleUpsell = (item: MenuItem, text: string | null) => {
-    setUpsellItem(item);
-    setUpsellText(text);
-    setUpsellOpen(true);
-  };
+  // Upsell handler removed — all upselling now happens at checkout via CartDrawer
 
   // Scroll spy for categories
   useEffect(() => {
@@ -336,7 +329,6 @@ function MenuContent() {
                     item={item}
                     theme={theme}
                     viewMode={theme.view_mode}
-                    onUpsell={features.upsell ? handleUpsell : undefined}
                     allItems={data.menuItems}
                     showBadges={features.neuroBadges}
                   />
@@ -359,14 +351,7 @@ function MenuContent() {
         allMenuItems={data.menuItems}
       />
 
-      {/* Upsell Modal */}
-      <UpsellModal
-        isOpen={upsellOpen}
-        onClose={() => setUpsellOpen(false)}
-        upsellItem={upsellItem}
-        upsellText={upsellText}
-        theme={theme}
-      />
+      {/* Upsell Modal removed — all upselling now happens at checkout via CartDrawer */}
 
       {/* Powered by Digital Atlas Footer */}
       <PoweredByFooter bgColor={theme.background_color} textColor={`${theme.text_color}70`} />
