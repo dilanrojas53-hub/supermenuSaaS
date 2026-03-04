@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
@@ -155,6 +155,24 @@ export default function OrderStatusPage() {
   const isCancelled = order?.status === 'cancelado';
   const isCompleted = order?.status === 'entregado';
   const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
+  const isDelivery = (order as any)?.delivery_type === 'delivery';
+  const isTakeout = (order as any)?.delivery_type === 'takeout';
+  const scheduledDate = (order as any)?.scheduled_date;
+  const scheduledTime = (order as any)?.scheduled_time;
+  const deliveryAddress = (order as any)?.delivery_address;
+  const deliveryPhone = (order as any)?.delivery_phone;
+
+  const handleWhatsAppDelivery = () => {
+    if (!order) return;
+    const phone = deliveryPhone?.replace(/[^0-9]/g, '') || '';
+    const msg = encodeURIComponent(
+      `🛕 *Pedido #${order.order_number} listo para entrega*\n` +
+      `📍 ${deliveryAddress || 'Sin dirección'}\n` +
+      `⏰ ${scheduledDate === 'tomorrow' ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
+      `💰 Total: ${formatPrice(order.total)}`
+    );
+    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+  };
 
   // Navigate back to menu to add more items (Cuenta Abierta)
   const handleAddMore = () => {
@@ -351,6 +369,42 @@ export default function OrderStatusPage() {
             </div>
           )}
         </div>
+
+        {/* ─── DELIVERY INFO CARD ─── */}
+        {(isDelivery || isTakeout) && (
+          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-3">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+              {isDelivery ? '🛕 Información de Delivery' : '🥡 Información de Takeout'}
+            </h2>
+            {scheduledDate && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock size={14} className="text-amber-400" />
+                <span className="text-slate-300">
+                  {scheduledDate === 'tomorrow' ? (
+                    <span className="font-bold text-orange-400">⏰ Mañana</span>
+                  ) : 'Hoy'}
+                  {scheduledTime && ` a las ${scheduledTime}`}
+                </span>
+              </div>
+            )}
+            {deliveryAddress && (
+              <div className="flex items-start gap-2 text-sm">
+                <MapPin size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <span className="text-slate-300">{deliveryAddress}</span>
+              </div>
+            )}
+            {isDelivery && deliveryPhone && (
+              <button
+                onClick={handleWhatsAppDelivery}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
+              >
+                <MessageCircle size={16} />
+                Coordinar entrega por WhatsApp
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ─── CUENTA ABIERTA: ADD MORE BUTTON ─── */}
         {canAddMore && (

@@ -121,6 +121,7 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 'pendiente' | 'pago_en_revision' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+export type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
 export interface Order {
   id: string;
@@ -149,6 +150,16 @@ export interface Order {
   has_new_items?: boolean;
   /** True when admin has verified the SINPE payment */
   payment_verified?: boolean;
+  /** Delivery modality */
+  delivery_type?: DeliveryType | null;
+  /** Scheduled date: 'today' | 'tomorrow' */
+  scheduled_date?: 'today' | 'tomorrow' | null;
+  /** Scheduled time slot e.g. '11:30' */
+  scheduled_time?: string | null;
+  /** Delivery address / señas */
+  delivery_address?: string | null;
+  /** Customer WhatsApp for delivery */
+  delivery_phone?: string | null;
 }
 
 export interface CartItem {

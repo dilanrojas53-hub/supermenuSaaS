@@ -4,7 +4,7 @@
  * Cuenta Abierta: Detects open_tab_order in localStorage → UPDATE existing order instead of INSERT.
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
@@ -27,6 +27,7 @@ interface CartDrawerProps {
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
+type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
 // Shape of the open_tab_order stored in localStorage by OrderStatusPage
 interface OpenTabOrder {
@@ -60,6 +61,13 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [orderId, setOrderId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── DELIVERY / LOGISTICA ───
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('dine_in');
+  const [scheduledDate, setScheduledDate] = useState<'today' | 'tomorrow'>('today');
+  const [scheduledTime, setScheduledTime] = useState<string>('');
+  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
+  const [deliveryPhone, setDeliveryPhone] = useState<string>('');
 
   // ─── CUENTA ABIERTA (Open Tab) ───
   const [openTab, setOpenTab] = useState<OpenTabOrder | null>(null);
@@ -356,6 +364,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           upsell_revenue: newUpsellRevenue,
           ai_upsell_revenue: newAiUpsellRevenue,
           upsell_accepted: newUpsellRevenue > 0,
+          delivery_type: deliveryType,
+          scheduled_date: (deliveryType === 'takeout' || deliveryType === 'delivery') ? scheduledDate : null,
+          scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery') && scheduledTime ? scheduledTime : null,
+          delivery_address: deliveryType === 'delivery' ? deliveryAddress.trim() || null : null,
+          delivery_phone: deliveryType === 'delivery' ? deliveryPhone.trim() || null : null,
         })
         .select('id, order_number')
         .single();
@@ -691,10 +704,125 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               </>
             )}
 
-            {/* ─── STEP: CUSTOMER INFO ─── */}
+            {/* ─── STEP: CUSTOMER INFO + DELIVERY TYPE ─── */}
             {step === 'customer_info' && (
               <>
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+                  {/* ── Delivery Type Selector ── */}
+                  <div>
+                    <label className="text-xs font-semibold mb-2 block" style={{ color: `${theme.text_color}80` }}>
+                      {lang === 'es' ? '¿Cómo recibes tu pedido?' : 'How will you receive your order?'}
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { type: 'dine_in' as DeliveryType, icon: <UtensilsCrossed size={18} />, label: lang === 'es' ? 'Comer Aquí' : 'Dine In' },
+                        { type: 'takeout' as DeliveryType, icon: <Package size={18} />, label: 'Takeout' },
+                        { type: 'delivery' as DeliveryType, icon: <Bike size={18} />, label: 'Delivery' },
+                      ] as { type: DeliveryType; icon: React.ReactNode; label: string }[]).map(({ type, icon, label }) => (
+                        <button
+                          key={type}
+                          onClick={() => setDeliveryType(type)}
+                          className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all"
+                          style={{
+                            backgroundColor: deliveryType === type ? `${theme.primary_color}20` : `${theme.text_color}06`,
+                            border: `2px solid ${deliveryType === type ? theme.primary_color : `${theme.text_color}10`}`,
+                            color: deliveryType === type ? theme.primary_color : `${theme.text_color}60`,
+                          }}
+                        >
+                          {icon}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Scheduled Date + Time (Takeout or Delivery) ── */}
+                  {(deliveryType === 'takeout' || deliveryType === 'delivery') && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold mb-2 block" style={{ color: `${theme.text_color}80` }}>
+                          {lang === 'es' ? '¿Cuándo?' : 'When?'}
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(['today', 'tomorrow'] as const).map(d => (
+                            <button
+                              key={d}
+                              onClick={() => setScheduledDate(d)}
+                              className="py-2.5 rounded-xl text-sm font-semibold transition-all"
+                              style={{
+                                backgroundColor: scheduledDate === d ? `${theme.primary_color}20` : `${theme.text_color}06`,
+                                border: `2px solid ${scheduledDate === d ? theme.primary_color : `${theme.text_color}10`}`,
+                                color: scheduledDate === d ? theme.primary_color : `${theme.text_color}60`,
+                              }}
+                            >
+                              {d === 'today' ? (lang === 'es' ? 'Hoy' : 'Today') : (lang === 'es' ? 'Mañana' : 'Tomorrow')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          <Clock size={11} className="inline mr-1" />
+                          {lang === 'es' ? 'Hora de entrega' : 'Delivery time'}
+                        </label>
+                        <input
+                          type="time"
+                          value={scheduledTime}
+                          onChange={e => setScheduledTime(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${scheduledTime ? theme.primary_color : `${theme.text_color}15`}`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Delivery Address + Phone (Delivery only) ── */}
+                  {deliveryType === 'delivery' && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          <MapPin size={11} className="inline mr-1" />
+                          {lang === 'es' ? 'Señas / Dirección' : 'Delivery Address'}
+                        </label>
+                        <textarea
+                          value={deliveryAddress}
+                          onChange={e => setDeliveryAddress(e.target.value)}
+                          placeholder={lang === 'es' ? 'Ej: 100m norte del parque, casa azul...' : 'E.g.: 100m north of the park, blue house...'}
+                          rows={2}
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${deliveryAddress ? theme.primary_color : `${theme.text_color}15`}`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          {lang === 'es' ? 'WhatsApp para coordinar entrega' : 'WhatsApp for delivery coordination'}
+                        </label>
+                        <input
+                          type="tel"
+                          value={deliveryPhone}
+                          onChange={e => setDeliveryPhone(e.target.value)}
+                          placeholder="8888-8888"
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${deliveryPhone ? theme.primary_color : `${theme.text_color}15`}`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Standard fields ── */}
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
@@ -730,23 +858,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         }}
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                        {t('checkout.table')}
-                      </label>
-                      <input
-                        type="text"
-                        value={customerTable}
-                        onChange={e => setCustomerTable(e.target.value)}
-                        placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra, Para llevar' : 'E.g.: Table 5, Bar, Takeout'}
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                        style={{
-                          backgroundColor: `${theme.text_color}06`,
-                          border: `1.5px solid ${theme.text_color}15`,
-                          color: theme.text_color,
-                        }}
-                      />
-                    </div>
+                    {deliveryType === 'dine_in' && (
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          {t('checkout.table')}
+                        </label>
+                        <input
+                          type="text"
+                          value={customerTable}
+                          onChange={e => setCustomerTable(e.target.value)}
+                          placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra' : 'E.g.: Table 5, Bar'}
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${theme.text_color}15`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
                         {t('checkout.notes')}
@@ -755,7 +885,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
                         placeholder={lang === 'es' ? 'Alergias, preferencias, instrucciones especiales...' : 'Allergies, preferences, special instructions...'}
-                        rows={3}
+                        rows={2}
                         className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
                         style={{
                           backgroundColor: `${theme.text_color}06`,

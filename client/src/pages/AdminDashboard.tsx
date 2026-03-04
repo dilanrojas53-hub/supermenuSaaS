@@ -26,7 +26,7 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -717,6 +717,30 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const isUrgent = elapsed > 20;
     const hasNewItems = (order as any).has_new_items === true;
     const actions = ORDER_STATUS_ACTIONS[order.status] || [];
+    const isDelivery = (order as any).delivery_type === 'delivery';
+    const isTomorrow = (order as any).scheduled_date === 'tomorrow';
+    const scheduledTime = (order as any).scheduled_time;
+    const deliveryAddress = (order as any).delivery_address;
+    const deliveryPhone = (order as any).delivery_phone;
+
+    const handleWaze = () => {
+      if (!deliveryAddress) return;
+      const encoded = encodeURIComponent(deliveryAddress);
+      window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, '_blank');
+    };
+
+    const handleWhatsAppDelivery = () => {
+      if (!deliveryPhone) return;
+      const phone = deliveryPhone.replace(/[^0-9]/g, '');
+      const msg = encodeURIComponent(
+        `🛕 *Pedido #${order.order_number}* listo para entrega\n` +
+        `📍 ${deliveryAddress || ''}\n` +
+        `⏰ ${isTomorrow ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
+        `💰 Total: ${formatPrice(order.total)}`
+      );
+      window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    };
+
     return (
       <div className={`rounded-2xl p-4 border transition-all ${
         hasNewItems ? 'bg-amber-500/10 border-amber-500/50 animate-pulse' :
@@ -753,16 +777,69 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           ))}
         </div>
         {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">📝 {order.notes}</div>}
+
+        {/* ── Delivery / Takeout info ── */}
+        {(isDelivery || (order as any).delivery_type === 'takeout') && (
+          <div className="mb-2 px-2.5 py-2 rounded-lg space-y-1" style={{ backgroundColor: isDelivery ? '#3B82F610' : '#10B98110', border: `1px solid ${isDelivery ? '#3B82F630' : '#10B98130'}` }}>
+            {isTomorrow && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-orange-400 uppercase tracking-wider">⏰ MAÑANA</span>
+                {scheduledTime && <span className="text-xs text-orange-300">{scheduledTime}</span>}
+              </div>
+            )}
+            {!isTomorrow && scheduledTime && (
+              <div className="flex items-center gap-1.5">
+                <Clock size={11} className="text-slate-400" />
+                <span className="text-xs text-slate-300">Hoy {scheduledTime}</span>
+              </div>
+            )}
+            {isDelivery && deliveryAddress && (
+              <div className="flex items-start gap-1.5">
+                <MapPin size={11} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <span className="text-xs text-slate-300 leading-tight">{deliveryAddress}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {order.sinpe_receipt_url && (
           <button
             onClick={() => setReceiptViewerUrl(order.sinpe_receipt_url!)}
             className="w-full flex items-center justify-center gap-2 py-2 mb-2 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation bg-purple-500/20 text-purple-300 border-2 border-purple-500/40 hover:bg-purple-500/30">
-            🧾 Ver Comprobante
+            🧻 Ver Comprobante
           </button>
         )}
+
+        {/* ── Waze + WhatsApp for delivery ── */}
+        {isDelivery && (
+          <div className="flex gap-2 mb-2">
+            {deliveryAddress && (
+              <button
+                onClick={handleWaze}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                style={{ backgroundColor: '#06B6D420', color: '#06B6D4', border: '2px solid #06B6D440' }}
+              >
+                <Navigation size={13} /> Waze
+              </button>
+            )}
+            {deliveryPhone && (
+              <button
+                onClick={handleWhatsAppDelivery}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
+              >
+                <MessageCircle size={13} /> WhatsApp
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 mb-3">
           <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
-          <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
+          <div className="flex items-center gap-2">
+            {isDelivery && <Bike size={12} className="text-blue-400" />}
+            <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
+          </div>
         </div>
         <div className="flex gap-2">
           {actions.map((action: any) => (
@@ -1208,6 +1285,176 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
   );
 }
 
+// ─── History Tab — Panel de Inteligencia Financiera ───
+type HistoryFilter = 'today' | 'yesterday' | 'week' | 'month';
+
+function HistoryTab({ tenant }: { tenant: Tenant }) {
+  const [filter, setFilter] = useState<HistoryFilter>('today');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  const getDateRange = (f: HistoryFilter): { from: Date; to: Date } => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    switch (f) {
+      case 'today': return { from: today, to: now };
+      case 'yesterday': {
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        return { from: y, to: today };
+      }
+      case 'week': {
+        const w = new Date(today); w.setDate(w.getDate() - 6);
+        return { from: w, to: now };
+      }
+      case 'month': {
+        const m = new Date(today); m.setDate(1);
+        return { from: m, to: now };
+      }
+    }
+  };
+
+  const fetchHistory = useCallback(async () => {
+    setLoading(true);
+    const { from, to } = getDateRange(filter);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .not('status', 'eq', 'cancelado')
+      .gte('created_at', from.toISOString())
+      .lte('created_at', to.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (!error) setOrders((data as Order[]) || []);
+    setLoading(false);
+  }, [tenant.id, filter]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const kpis = useMemo(() => {
+    const totalRevenue = orders.reduce((s, o) => s + (o.total || 0), 0);
+    const aiUpsellRevenue = orders.reduce((s, o) => s + ((o as any).ai_upsell_revenue || 0), 0);
+    const count = orders.length;
+    return { totalRevenue, aiUpsellRevenue, count };
+  }, [orders]);
+
+  const filterLabels: Record<HistoryFilter, string> = {
+    today: 'Hoy', yesterday: 'Ayer', week: 'Esta Semana', month: 'Este Mes'
+  };
+
+  const deliveryLabel = (o: Order) => {
+    if ((o as any).delivery_type === 'delivery') return '🛵 Delivery';
+    if ((o as any).delivery_type === 'takeout') return '🥡 Takeout';
+    return '🪑 Mesa';
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-white">Historial de Pedidos</h2>
+        <button onClick={fetchHistory} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+          <RefreshCw size={12} /> Actualizar
+        </button>
+      </div>
+
+      {/* Filter buttons */}
+      <div className="flex gap-2 flex-wrap">
+        {(Object.keys(filterLabels) as HistoryFilter[]).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              filter === f ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}>
+            {filterLabels[f]}
+          </button>
+        ))}
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign size={14} className="text-amber-400" />
+            <p className="text-xs text-slate-400">Ingresos Totales</p>
+          </div>
+          <p className="text-2xl font-bold text-amber-400">{formatPrice(kpis.totalRevenue)}</p>
+          <p className="text-xs text-slate-500 mt-1">{filterLabels[filter]}</p>
+        </div>
+        <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap size={14} className="text-violet-400" />
+            <p className="text-xs text-slate-400">Revenue IA (Upsell)</p>
+          </div>
+          <p className="text-2xl font-bold text-violet-400">{formatPrice(kpis.aiUpsellRevenue)}</p>
+          <p className="text-xs text-slate-500 mt-1">generado por GPT</p>
+        </div>
+        <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardList size={14} className="text-blue-400" />
+            <p className="text-xs text-slate-400">Volumen de Pedidos</p>
+          </div>
+          <p className="text-2xl font-bold text-blue-400">{kpis.count}</p>
+          <p className="text-xs text-slate-500 mt-1">pedidos completados</p>
+        </div>
+      </div>
+
+      {/* Orders table */}
+      {loading ? (
+        <div className="text-center py-12"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 text-sm">Sin pedidos en este período</div>
+      ) : (
+        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl overflow-hidden">
+          <div className="hidden sm:grid grid-cols-5 px-4 py-2 border-b border-slate-700/50 text-xs text-slate-500 font-semibold uppercase tracking-wider">
+            <span>#</span><span>Cliente</span><span>Tipo</span><span>Total</span><span>Detalle</span>
+          </div>
+          <div className="divide-y divide-slate-700/30">
+            {orders.map(o => (
+              <div key={o.id}>
+                <div className="grid grid-cols-2 sm:grid-cols-5 items-center px-4 py-3 hover:bg-slate-700/20 transition-colors">
+                  <span className="text-sm font-bold text-white">#{o.order_number}</span>
+                  <span className="text-sm text-slate-300 truncate">{o.customer_name || '—'}</span>
+                  <span className="text-xs text-slate-400 hidden sm:block">{deliveryLabel(o)}</span>
+                  <span className="text-sm font-bold text-amber-400">{formatPrice(o.total)}</span>
+                  <button
+                    onClick={() => setExpandedOrderId(expandedOrderId === o.id ? null : o.id)}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors text-left sm:text-center">
+                    {expandedOrderId === o.id ? 'Ocultar' : 'Ver Detalle'}
+                  </button>
+                </div>
+                {expandedOrderId === o.id && (
+                  <div className="px-4 pb-3 bg-slate-900/40">
+                    <div className="text-xs text-slate-500 mb-1">
+                      {new Date(o.created_at).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {(o as any).scheduled_date && (
+                        <span className="ml-2 text-orange-400">⏰ Programado: {(o as any).scheduled_date === 'tomorrow' ? 'Mañana' : 'Hoy'} {(o as any).scheduled_time}</span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      {((o.items || []) as any[]).map((item: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className="text-slate-400">{item.quantity}× {item.name}</span>
+                          <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {(o as any).delivery_address && (
+                      <p className="text-xs text-slate-400 mt-1">📍 {(o as any).delivery_address}</p>
+                    )}
+                    {(o as any).delivery_phone && (
+                      <p className="text-xs text-slate-400">📱 {(o as any).delivery_phone}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── QR Tab ───
 function QRTab({ tenant }: { tenant: Tenant }) {
   const menuUrl = `${window.location.origin}/${tenant.slug}`;
@@ -1251,7 +1498,7 @@ function QRTab({ tenant }: { tenant: Tenant }) {
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'settings' | 'theme' | 'orders' | 'analytics' | 'qr';
+type TabKey = 'menu' | 'categories' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -1319,6 +1566,7 @@ export default function AdminDashboard() {
 
   const allTabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: 'orders', label: 'Pedidos', icon: <ClipboardList size={16} /> },
+    { key: 'history', label: 'Historial', icon: <Clock size={16} /> },
     { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={16} /> },
     { key: 'categories', label: 'Categorías', icon: <Tag size={16} /> },
     { key: 'settings', label: 'Config', icon: <Settings size={16} /> },
@@ -1385,6 +1633,7 @@ export default function AdminDashboard() {
         {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
         {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
         {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
+        {activeTab === 'history' && <HistoryTab tenant={tenant} />}
         {activeTab === 'qr' && <QRTab tenant={tenant} />}
       </main>
     </div>
