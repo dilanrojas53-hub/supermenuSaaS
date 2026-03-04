@@ -367,7 +367,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           upsell_accepted: newUpsellRevenue > 0,
           delivery_type: deliveryType || 'dine_in',
           scheduled_date: (deliveryType === 'takeout' || deliveryType === 'delivery') ? (scheduledDate || 'today') : '',
-          scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery') ? (scheduledTime || '') : '',
+          // V4.0 ASAP: si es "Hoy", enviar 'ASAP' para evitar campo vacío en BD
+          scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery')
+            ? (scheduledDate === 'today' ? 'ASAP' : (scheduledTime || 'ASAP'))
+            : '',
           delivery_address: deliveryType === 'delivery' ? (deliveryAddress.trim() || '') : '',
           delivery_phone: deliveryType === 'delivery' ? (deliveryPhone.trim() || '') : '',
         })
@@ -761,23 +764,39 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                           ))}
                         </div>
                       </div>
-                      <div>
-                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                          <Clock size={11} className="inline mr-1" />
-                          {lang === 'es' ? 'Hora de entrega' : 'Delivery time'}
-                        </label>
-                        <input
-                          type="time"
-                          value={scheduledTime}
-                          onChange={e => setScheduledTime(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                      {/* FASE 1 V4.0: ASAP logic — solo mostrar hora si es "Mañana" */}
+                      {scheduledDate === 'today' ? (
+                        <div
+                          className="flex items-center gap-2.5 px-4 py-3 rounded-xl"
                           style={{
-                            backgroundColor: `${theme.text_color}06`,
-                            border: `1.5px solid ${scheduledTime ? theme.primary_color : `${theme.text_color}15`}`,
-                            color: theme.text_color,
+                            backgroundColor: `${theme.primary_color}12`,
+                            border: `1.5px solid ${theme.primary_color}30`,
                           }}
-                        />
-                      </div>
+                        >
+                          <span className="text-base">\uD83D\uDEF5</span>
+                          <p className="text-sm font-semibold" style={{ color: theme.primary_color }}>
+                            {lang === 'es' ? 'Entrega lo m\u00e1s pronto posible (Aprox. 30\u201345 min)' : 'Delivery as soon as possible (Approx. 30\u201345 min)'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                            <Clock size={11} className="inline mr-1" />
+                            {lang === 'es' ? 'Hora de entrega' : 'Delivery time'}
+                          </label>
+                          <input
+                            type="time"
+                            value={scheduledTime}
+                            onChange={e => setScheduledTime(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1.5px solid ${scheduledTime ? theme.primary_color : `${theme.text_color}15`}`,
+                              color: theme.text_color,
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 

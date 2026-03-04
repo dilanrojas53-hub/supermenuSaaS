@@ -871,7 +871,10 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             {!isTomorrow && scheduledTime && (
               <div className="flex items-center gap-1.5">
                 <Clock size={11} className="text-slate-400" />
-                <span className="text-xs text-slate-300">Hoy {scheduledTime}</span>
+                {/* V4.0: mostrar 'ASAP' como 'Lo antes posible' en el Kanban */}
+                <span className="text-xs text-slate-300">
+                  {scheduledTime === 'ASAP' ? '\uD83D\uDEF5 Lo antes posible' : `Hoy ${scheduledTime}`}
+                </span>
               </div>
             )}
             {isDelivery && deliveryAddress && (

@@ -60,9 +60,11 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       transition={{ duration: 0.5, delay: 0.2 }}
       className="mx-4 mb-6 rounded-2xl overflow-hidden relative"
       style={{
-        background: `linear-gradient(135deg, ${theme.primary_color}15, ${theme.accent_color}18)`,
-        border: `2px solid ${theme.primary_color}25`,
-        boxShadow: `0 8px 32px ${theme.primary_color}12`,
+        // V4.0 PREMIUM: fondo sólido del tema, sin gradiente neón
+        // Borde sutil con el color de marca al 20% de opacidad
+        backgroundColor: theme.background_color,
+        border: `1px solid ${theme.primary_color}20`,
+        boxShadow: '0 4px 24px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.15)',
       }}
     >
       {/* Shimmer overlay */}

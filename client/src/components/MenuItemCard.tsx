@@ -52,12 +52,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex gap-3 p-3 md:p-4 rounded-2xl relative cursor-pointer"
+        className="flex gap-3 p-3 md:p-4 rounded-2xl relative cursor-pointer transition-all hover:scale-[1.01]"
         onClick={handleOpenDetail}
         style={{
+          // V4.0 PREMIUM: fondo semitransparente sobre el fondo oscuro del app
+          // Borde sutil blanco/10 en dark, sin colores de marca en el fondo
           backgroundColor: theme.background_color,
-          boxShadow: '0 2px 12px rgba(139, 109, 71, 0.08)',
-          border: `1px solid ${theme.primary_color}12`,
+          boxShadow: '0 1px 8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
+          border: '1px solid rgba(255,255,255,0.08)',
         }}
       >
         {/* Badge */}
@@ -159,11 +161,12 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35 }}
-      className="rounded-2xl overflow-hidden relative cursor-pointer"
+      className="rounded-2xl overflow-hidden relative cursor-pointer transition-all hover:scale-[1.02] hover:shadow-2xl"
       style={{
+        // V4.0 PREMIUM: sombra profunda y borde sutil — las fotos son las protagonistas
         backgroundColor: theme.background_color,
-        boxShadow: '0 4px 20px rgba(139, 109, 71, 0.1)',
-        border: `1px solid ${theme.primary_color}10`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',
+        border: '1px solid rgba(255,255,255,0.08)',
       }}
     >
       {/* Badge */}

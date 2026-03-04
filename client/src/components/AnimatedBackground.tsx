@@ -1,14 +1,13 @@
 /**
  * AnimatedBackground — "Subtle Aura" Premium Ambient Light.
  *
- * Design rules:
- *   - Uses the restaurant's primary_color for ALL orbes (no hardcoded magenta/cyan)
- *   - Opacity capped at 0.10–0.15 (ambient, NOT radiactive)
- *   - No mix-blend-mode:screen (uses normal blending)
- *   - blur(120-140px) for extreme diffusion
- *   - Overlay rgba(0,0,0,0.6) + backdrop-blur(10px) for text contrast
- *   - pointer-events:none on EVERYTHING
- *   - Fallback: subtle gray #333333 if no restaurant color
+ * V4.0 PREMIUM REDESIGN:
+ *   - Fondo base: #0a0a0a (negro profundo, estilo Uber Eats / Toast)
+ *   - Orbes con opacidad máxima 0.07 (ambient hint, NO neón)
+ *   - Blur extremo: 160-180px para difusión total
+ *   - Sin overlay de cristal (ya no es necesario con opacidades tan bajas)
+ *   - El color de marca solo da un "tinte" casi imperceptible al fondo
+ *   - Las fotos de los platillos son las protagonistas
  */
 import React, { useMemo } from 'react';
 
@@ -17,30 +16,18 @@ interface Props {
 }
 
 export default function AnimatedBackground({ color1 }: Props) {
-  const baseColor = color1 || '#333333';
+  const baseColor = color1 || '#1a1a1a';
 
   const keyframes = useMemo(() => `
     @keyframes floatOrb {
-      0% {
-        transform: translateZ(0) translate(0, 0);
-      }
-      50% {
-        transform: translateZ(0) translate(10vw, 8vh);
-      }
-      100% {
-        transform: translateZ(0) translate(0, 0);
-      }
+      0%   { transform: translateZ(0) translate(0, 0); }
+      50%  { transform: translateZ(0) translate(8vw, 6vh); }
+      100% { transform: translateZ(0) translate(0, 0); }
     }
     @keyframes floatOrbReverse {
-      0% {
-        transform: translateZ(0) translate(0, 0);
-      }
-      50% {
-        transform: translateZ(0) translate(-8vw, -6vh);
-      }
-      100% {
-        transform: translateZ(0) translate(0, 0);
-      }
+      0%   { transform: translateZ(0) translate(0, 0); }
+      50%  { transform: translateZ(0) translate(-6vw, -5vh); }
+      100% { transform: translateZ(0) translate(0, 0); }
     }
   `, []);
 
@@ -51,7 +38,8 @@ export default function AnimatedBackground({ color1 }: Props) {
         inset: 0,
         zIndex: -50,
         overflow: 'hidden',
-        backgroundColor: '#050505',
+        // V4.0: fondo sólido premium — negro profundo estilo Uber Eats
+        backgroundColor: '#0a0a0a',
         pointerEvents: 'none',
       }}
       aria-hidden="true"
@@ -59,52 +47,41 @@ export default function AnimatedBackground({ color1 }: Props) {
       {/* Inject keyframes */}
       <style>{keyframes}</style>
 
-      {/* Overlay de cristal — oscurece para contraste de texto */}
+      {/* Orbe 1 — tinte de marca ultra-sutil, arriba izquierda */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.35)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Orbe 1 — Arriba Izquierda */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-20%',
-          left: '-10%',
-          width: '85vw',
-          height: '85vw',
+          top: '-30%',
+          left: '-15%',
+          width: '80vw',
+          height: '80vw',
           borderRadius: '50%',
           backgroundColor: baseColor,
-          filter: 'blur(120px)',
-          WebkitFilter: 'blur(120px)',
-          opacity: 0.25,
-          animation: 'floatOrb 25s ease-in-out infinite alternate',
+          filter: 'blur(160px)',
+          WebkitFilter: 'blur(160px)',
+          // V4.0: opacidad reducida de 0.25 → 0.07 (ambient hint solamente)
+          opacity: 0.07,
+          animation: 'floatOrb 30s ease-in-out infinite alternate',
           willChange: 'transform',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Orbe 2 — Abajo Derecha (mismo color, diferente posición) */}
+      {/* Orbe 2 — tinte de marca ultra-sutil, abajo derecha */}
       <div
         style={{
           position: 'absolute',
-          bottom: '-20%',
-          right: '-10%',
-          width: '95vw',
-          height: '95vw',
+          bottom: '-30%',
+          right: '-15%',
+          width: '90vw',
+          height: '90vw',
           borderRadius: '50%',
           backgroundColor: baseColor,
-          filter: 'blur(140px)',
-          WebkitFilter: 'blur(140px)',
-          opacity: 0.20,
-          animation: 'floatOrbReverse 30s ease-in-out infinite alternate',
+          filter: 'blur(180px)',
+          WebkitFilter: 'blur(180px)',
+          // V4.0: opacidad reducida de 0.20 → 0.05
+          opacity: 0.05,
+          animation: 'floatOrbReverse 35s ease-in-out infinite alternate',
           willChange: 'transform',
           pointerEvents: 'none',
         }}
