@@ -3,7 +3,7 @@ import type { MenuItem, CartItem } from '@/lib/types';
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: MenuItem, isUpsell?: boolean) => void;
+  addItem: (item: MenuItem, isUpsell?: boolean, upsellSource?: 'ai' | 'static' | null) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -16,17 +16,18 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = useCallback((menuItem: MenuItem, isUpsell?: boolean) => {
+  const addItem = useCallback((menuItem: MenuItem, isUpsell?: boolean, upsellSource?: 'ai' | 'static' | null) => {
     setItems(prev => {
       const existing = prev.find(i => i.menuItem.id === menuItem.id);
       if (existing) {
+        // If item already exists, preserve its upsell_source if it was already tagged
         return prev.map(i =>
           i.menuItem.id === menuItem.id
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
       }
-      return [...prev, { menuItem, quantity: 1, isUpsell: isUpsell || false }];
+      return [...prev, { menuItem, quantity: 1, isUpsell: isUpsell || false, upsell_source: upsellSource || null }];
     });
   }, []);
 

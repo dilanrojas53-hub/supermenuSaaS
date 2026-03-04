@@ -64,7 +64,7 @@ export default function AIUpsellModal({
       created_at: '',
       updated_at: '',
     };
-    addItem(menuItem, true); // isUpsell = true for analytics tracking
+    addItem(menuItem, true, 'ai'); // isUpsell=true, upsell_source='ai' for analytics tracking
     setAddedIds(prev => new Set(Array.from(prev).concat(item.id)));
   };
 

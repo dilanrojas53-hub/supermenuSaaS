@@ -104,6 +104,8 @@ export interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  isUpsell?: boolean;
+  upsell_source?: 'ai' | 'static' | null;
 }
 
 export type OrderStatus = 'pendiente' | 'pago_en_revision' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
@@ -135,6 +137,8 @@ export interface CartItem {
   menuItem: MenuItem;
   quantity: number;
   isUpsell?: boolean;
+  /** 'ai' = suggested by GPT-4o-mini, 'static' = triggered by upsell_item_id on MenuItemCard */
+  upsell_source?: 'ai' | 'static' | null;
 }
 
 export interface TenantData {

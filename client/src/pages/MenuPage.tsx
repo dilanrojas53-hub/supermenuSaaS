@@ -356,6 +356,7 @@ function MenuContent() {
         onClose={() => setCartOpen(false)}
         theme={theme}
         tenant={tenant}
+        allMenuItems={data.menuItems}
       />
 
       {/* Upsell Modal */}

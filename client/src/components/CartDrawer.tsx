@@ -1,13 +1,15 @@
 /*
- * CartDrawer v6: AI Upsell Integration.
- * Flow: 1. Cart  2. Customer info  3. [AI Upsell Modal]  4. Select payment method  5. SINPE details (if SINPE)  6. Confirmation
- * AI: Calls /api/generate-upsell (GPT-4o-mini) to suggest personalized items before payment.
+ * CartDrawer v7: AI Upsell + Static Fallback Integration.
+ * Flow: 1. Cart  2. Customer info  3. [AI Upsell Modal OR Static Fallback]  4. Select payment  5. SINPE details  6. Confirmation
+ * AI: Calls /api/generate-upsell (GPT-4o-mini). On failure → shows static UpsellModal as fallback.
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
-import type { ThemeSettings, Tenant } from '@/lib/types';
+import UpsellModal from './UpsellModal';
+import type { ThemeSettings, Tenant, MenuItem } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
@@ -18,12 +20,14 @@ interface CartDrawerProps {
   onClose: () => void;
   theme: ThemeSettings;
   tenant: Tenant;
+  /** All menu items — used to find static upsell fallback candidates */
+  allMenuItems?: MenuItem[];
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 
-export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawerProps) {
+export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [] }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
   const [sinpeCopied, setSinpeCopied] = useState(false);
@@ -47,6 +51,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
   const [aiSuggestedItems, setAiSuggestedItems] = useState<AISuggestedItem[]>([]);
   const [aiPitchMessage, setAiPitchMessage] = useState<string | null>(null);
 
+  // Static Upsell Fallback state (shown when AI fails)
+  const [showStaticUpsell, setShowStaticUpsell] = useState(false);
+  const [staticUpsellItem, setStaticUpsellItem] = useState<MenuItem | null>(null);
+  const [staticUpsellText, setStaticUpsellText] = useState<string | null>(null);
+
   const handleCopySinpe = useCallback(() => {
     if (tenant.sinpe_number) {
       navigator.clipboard.writeText(tenant.sinpe_number.replace(/-/g, '')).catch(() => {});
@@ -65,13 +74,42 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     }
   };
 
-  // AI Upsell: Call /api/generate-upsell and show modal before proceeding to payment
-  const handleProceedToPayment = useCallback(async () => {
+  // Helper: find the best static upsell candidate from cart items
+  const getStaticUpsellCandidate = useCallback((allMenuItems: MenuItem[]): { item: MenuItem; text: string | null } | null => {
+    for (const ci of items) {
+      if (ci.menuItem.upsell_item_id) {
+        const target = allMenuItems.find(m => m.id === ci.menuItem.upsell_item_id);
+        if (target && target.is_available) {
+          return { item: target, text: ci.menuItem.upsell_text || null };
+        }
+      }
+    }
+    return null;
+  }, [items]);
+
+  // AI Upsell: Call /api/generate-upsell → on failure show static fallback
+  const handleProceedToPayment = useCallback(async (allMenuItems?: MenuItem[]) => {
     // Show modal immediately with loading state
     setShowAIUpsell(true);
     setAiLoading(true);
     setAiSuggestedItems([]);
     setAiPitchMessage(null);
+
+    const goToStaticFallback = () => {
+      setShowAIUpsell(false);
+      setAiLoading(false);
+      // Try to show static upsell if any cart item has upsell_item_id
+      const candidate = allMenuItems ? getStaticUpsellCandidate(allMenuItems) : null;
+      if (candidate) {
+        console.log('[AI Upsell] Showing static fallback for:', candidate.item.name);
+        setStaticUpsellItem(candidate.item);
+        setStaticUpsellText(candidate.text);
+        setShowStaticUpsell(true);
+      } else {
+        console.log('[AI Upsell] No static fallback available, going to payment');
+        setStep('select_payment');
+      }
+    };
 
     try {
       // Send only the fields the API actually needs (no dietary_tags — column doesn't exist)
@@ -81,9 +119,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         price: ci.menuItem.price,
       }));
 
-      console.log('[AI Upsell] Calling /api/generate-upsell with cart:', cartPayload.map(i => i.name).join(', '));
+      console.log('%c[AI Upsell] ► Calling /api/generate-upsell', 'color: #6C63FF; font-weight: bold;', {
+        cart: cartPayload.map(i => i.name),
+        tenant_id: tenant.id,
+        restaurant_name: tenant.name,
+      });
 
-      // Use relative URL so it works in Vercel production (/api is a serverless function)
       const response = await fetch('/api/generate-upsell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -95,39 +136,42 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         signal: AbortSignal.timeout(10000),
       });
 
-      console.log('[AI Upsell] Response status:', response.status);
+      console.log('%c[AI Upsell] HTTP Status:', 'color: #6C63FF;', response.status, response.statusText);
 
       if (response.ok) {
         const data = await response.json();
-        console.log('[AI Upsell] Response data:', JSON.stringify(data));
+        console.log('%c[AI Upsell] Response:', 'color: #10B981; font-weight: bold;', data);
+
         if (!data.fallback && data.suggested_items?.length > 0) {
           setAiSuggestedItems(data.suggested_items as AISuggestedItem[]);
           setAiPitchMessage(data.pitch_message || null);
-          // Keep modal open to show suggestions
+          // Keep AI modal open to show suggestions
         } else {
-          // No suggestions or fallback: close modal and go directly to payment
-          console.log('[AI Upsell] No suggestions, skipping modal. Reason:', data.reason || 'fallback');
-          setShowAIUpsell(false);
-          setStep('select_payment');
+          // AI returned fallback (no API key, Supabase error, etc.)
+          const reason = data.reason || 'no_suggestions';
+          console.warn('%c[AI Upsell] Fallback triggered. Reason:', 'color: #F59E0B; font-weight: bold;', reason);
+          toast.warning(`[DEBUG] AI Upsell fallback: ${reason}`, { duration: 6000 });
+          goToStaticFallback();
           return;
         }
       } else {
         const errText = await response.text().catch(() => 'unknown');
-        console.error('[AI Upsell] API error:', response.status, errText);
-        setShowAIUpsell(false);
-        setStep('select_payment');
+        console.error('%c[AI Upsell] ✖ API Error:', 'color: #EF4444; font-weight: bold;', response.status, errText);
+        toast.error(`[DEBUG] AI Upsell API ${response.status}: ${errText.slice(0, 80)}`, { duration: 8000 });
+        goToStaticFallback();
         return;
       }
-    } catch (err) {
-      // Network error or timeout: log and skip upsell silently
-      console.error('[AI Upsell] Fetch error:', err);
-      setShowAIUpsell(false);
-      setStep('select_payment');
+    } catch (err: any) {
+      // Network error, timeout, CORS, etc.
+      const errMsg = err?.message || String(err);
+      console.error('%c[AI Upsell] ✖ Fetch Error:', 'color: #EF4444; font-weight: bold;', errMsg, err);
+      toast.error(`[DEBUG] AI Upsell error: ${errMsg}`, { duration: 8000 });
+      goToStaticFallback();
       return;
     } finally {
       setAiLoading(false);
     }
-  }, [items, tenant]);
+  }, [items, tenant, getStaticUpsellCandidate]);
 
   const handleAIUpsellContinue = () => {
     setShowAIUpsell(false);
@@ -172,18 +216,24 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         }
       }
 
-      // Include isUpsell flag in order items for analytics tracking
+      // Include isUpsell + upsell_source flags in order items for analytics tracking
       const orderItems = items.map(i => ({
         id: i.menuItem.id,
         name: i.menuItem.name,
         price: i.menuItem.price,
         quantity: i.quantity,
         isUpsell: i.isUpsell || false,
+        upsell_source: i.upsell_source || null, // 'ai' | 'static' | null
       }));
 
-      // Calculate upsell revenue for the order
+      // Calculate total upsell revenue (AI + static combined)
       const upsellRevenue = items
         .filter(i => i.isUpsell)
+        .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
+
+      // Calculate AI-specific upsell revenue for granular analytics
+      const aiUpsellRevenue = items
+        .filter(i => i.upsell_source === 'ai')
         .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
 
       const statusMap: Record<PaymentMethod, string> = {
@@ -207,6 +257,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
           sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
           notes: notes.trim(),
           upsell_revenue: upsellRevenue,
+          ai_upsell_revenue: aiUpsellRevenue,
           upsell_accepted: upsellRevenue > 0,
         })
         .select('id, order_number')
@@ -603,7 +654,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                   <motion.button
-                    onClick={handleProceedToPayment}
+                    onClick={() => handleProceedToPayment(allMenuItems)}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -931,6 +982,20 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
         suggestedItems={aiSuggestedItems}
         pitchMessage={aiPitchMessage}
         isLoading={aiLoading}
+        theme={theme}
+      />
+
+      {/* ─── STATIC UPSELL MODAL (fallback when AI fails) ─── */}
+      <UpsellModal
+        isOpen={showStaticUpsell}
+        onClose={() => {
+          setShowStaticUpsell(false);
+          setStaticUpsellItem(null);
+          setStaticUpsellText(null);
+          setStep('select_payment');
+        }}
+        upsellItem={staticUpsellItem}
+        upsellText={staticUpsellText}
         theme={theme}
       />
     </AnimatePresence>

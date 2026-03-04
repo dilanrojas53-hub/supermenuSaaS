@@ -845,10 +845,20 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     const totalRevenue = month.reduce((s, o) => s + o.total, 0);
     const totalOrders = month.length;
 
-    // Upsell tracking: orders that have upsell_revenue > 0
+    // Upsell tracking: total (AI + static)
     const upsellOrders = month.filter(o => (o as any).upsell_revenue && (o as any).upsell_revenue > 0);
     const upsellRevenue = upsellOrders.reduce((s, o) => s + ((o as any).upsell_revenue || 0), 0);
     const upsellRate = totalOrders > 0 ? Math.round((upsellOrders.length / totalOrders) * 100) : 0;
+
+    // AI-specific upsell revenue (from ai_upsell_revenue field OR items with upsell_source='ai')
+    const aiUpsellRevenue = month.reduce((s, o) => {
+      // Prefer the dedicated field if available
+      if ((o as any).ai_upsell_revenue != null) return s + ((o as any).ai_upsell_revenue || 0);
+      // Fallback: sum items with upsell_source='ai'
+      const aiItems = ((o.items || []) as any[]).filter((i: any) => i.upsell_source === 'ai');
+      return s + aiItems.reduce((acc: number, i: any) => acc + (i.price * i.quantity), 0);
+    }, 0);
+    const staticUpsellRevenue = upsellRevenue - aiUpsellRevenue;
 
     // Item counts
     const itemCounts: Record<string, { name: string; count: number; revenue: number }> = {};
@@ -886,6 +896,7 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     const trendData = Object.entries(dayRevenue).map(([day, total]) => ({ day, total }));
 
     return { totalRevenue, totalOrders, upsellRevenue, upsellRate, upsellOrders: upsellOrders.length,
+      aiUpsellRevenue, staticUpsellRevenue,
       top5, hourlyData, trendData, avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
       visits: tenant.visit_count || 0 };
   }, [orders, tenant]);
@@ -951,29 +962,37 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
           <TrendingUp size={16} className="text-green-400" />
           <h3 className="text-sm font-bold text-white">Prueba de ROI — Este Mes</h3>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign size={14} className="text-amber-400" />
-              <p className="text-xs text-slate-400">Ventas Totales del Mes</p>
+              <p className="text-xs text-slate-400">Ventas Totales</p>
             </div>
-            <p className="text-2xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1">{stats.totalOrders} pedidos completados</p>
+            <p className="text-xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1">{stats.totalOrders} pedidos</p>
+          </div>
+          <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap size={14} className="text-violet-400" />
+              <p className="text-xs text-slate-400">Upsell IA (GPT)</p>
+            </div>
+            <p className="text-xl font-bold text-violet-400">{formatPrice(stats.aiUpsellRevenue)}</p>
+            <p className="text-xs text-slate-500 mt-1">ingresos por IA</p>
           </div>
           <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Zap size={14} className="text-green-400" />
-              <p className="text-xs text-slate-400">Ingresos por Upsells (IA)</p>
+              <TrendingUp size={14} className="text-green-400" />
+              <p className="text-xs text-slate-400">Upsell Estático</p>
             </div>
-            <p className="text-2xl font-bold text-green-400">{formatPrice(stats.upsellRevenue)}</p>
+            <p className="text-xl font-bold text-green-400">{formatPrice(stats.staticUpsellRevenue)}</p>
             <p className="text-xs text-slate-500 mt-1">{stats.upsellOrders} pedidos con upsell</p>
           </div>
           <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Users size={14} className="text-blue-400" />
-              <p className="text-xs text-slate-400">Tasa de Éxito Upselling</p>
+              <p className="text-xs text-slate-400">Tasa de Éxito</p>
             </div>
-            <p className="text-2xl font-bold text-blue-400">{stats.upsellRate}%</p>
+            <p className="text-xl font-bold text-blue-400">{stats.upsellRate}%</p>
             <p className="text-xs text-slate-500 mt-1">de clientes aceptaron</p>
           </div>
         </div>
