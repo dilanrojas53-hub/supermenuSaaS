@@ -717,6 +717,10 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
     const isUrgent = elapsed > 20;
     const hasNewItems = (order as any).has_new_items === true;
+    const isSinpe = order.payment_method === 'sinpe';
+    const isEfectivoOrTarjeta = order.payment_method === 'efectivo' || order.payment_method === 'tarjeta';
+    const isSinpePending = isSinpe && (order.status === 'pendiente' || order.status === 'pago_en_revision');
+    // For SINPE pending orders: only show Aprobar/Rechazar, block 'A Cocina' directly
     const actions = ORDER_STATUS_ACTIONS[order.status] || [];
     const isDelivery = (order as any).delivery_type === 'delivery';
     const isTomorrow = (order as any).scheduled_date === 'tomorrow';
@@ -758,6 +762,22 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           <div className="flex items-center gap-1.5 mb-2 px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40">
             <span className="text-amber-400 text-xs font-black uppercase tracking-wider animate-pulse">
               🆕 ¡NUEVOS ITEMS!
+            </span>
+          </div>
+        )}
+
+        {/* ── SINPE: Bloqueo de pago pendiente ── */}
+        {isSinpePending && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-purple-500/15 border border-purple-500/40">
+            <span className="text-purple-300 text-xs font-black uppercase tracking-wider animate-pulse">⚠️ PENDIENTE VERIFICAR</span>
+          </div>
+        )}
+
+        {/* ── Efectivo/Tarjeta: Badge de cobro ── */}
+        {isEfectivoOrTarjeta && order.status === 'pendiente' && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/30">
+            <span className="text-green-300 text-xs font-bold">
+              {order.payment_method === 'efectivo' ? '💵 COBRAR EN MESA / CAJA' : '💳 COBRAR CON TARJETA'}
             </span>
           </div>
         )}
@@ -1053,9 +1073,23 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     });
     const trendData = Object.entries(dayRevenue).map(([day, total]) => ({ day, total }));
 
+    // ── Picos de Venta: bloques horarios (hoy) ──
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayOrders = valid.filter(o => new Date(o.created_at) >= today);
+    const timeBlocks = {
+      manana: todayOrders.filter(o => new Date(o.created_at).getHours() < 12).length,
+      tarde: todayOrders.filter(o => { const h = new Date(o.created_at).getHours(); return h >= 12 && h < 17; }).length,
+      noche: todayOrders.filter(o => new Date(o.created_at).getHours() >= 17).length,
+    };
+
+    // ── Top 3 platillos más vendidos (completados) ──
+    const top3 = sortedItems.slice(0, 3);
+
     return { totalRevenue, totalOrders, upsellRevenue, upsellRate, upsellOrders: upsellOrders.length,
       aiUpsellRevenue, staticUpsellRevenue,
-      top5, hourlyData, trendData, avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+      top5, top3, hourlyData, trendData, timeBlocks,
+      avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
       visits: tenant.visit_count || 0 };
   }, [orders, tenant]);
 
@@ -1191,6 +1225,66 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Picos de Venta (Hoy) ── */}
+      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl">
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={15} className="text-amber-400" />
+          <h3 className="text-sm font-bold text-white">Picos de Venta — Hoy</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Mañana', sublabel: 'antes 12pm', count: stats.timeBlocks.manana, color: '#F59E0B', emoji: '🌅' },
+            { label: 'Tarde', sublabel: '12pm – 5pm', count: stats.timeBlocks.tarde, color: '#3B82F6', emoji: '☀️' },
+            { label: 'Noche', sublabel: 'después 5pm', count: stats.timeBlocks.noche, color: '#8B5CF6', emoji: '🌙' },
+          ].map(({ label, sublabel, count, color, emoji }) => {
+            const total = stats.timeBlocks.manana + stats.timeBlocks.tarde + stats.timeBlocks.noche;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            return (
+              <div key={label} className="bg-slate-800/60 rounded-2xl p-4 text-center border border-slate-700/40">
+                <div className="text-2xl mb-1">{emoji}</div>
+                <p className="text-xs text-slate-400 font-semibold">{label}</p>
+                <p className="text-[10px] text-slate-600 mb-2">{sublabel}</p>
+                <p className="text-2xl font-bold" style={{ color }}>{count}</p>
+                <p className="text-[10px] text-slate-500 mt-1">{pct}% del día</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Top 3 Platillos del Día ── */}
+      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl">
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy size={15} className="text-amber-400" />
+          <h3 className="text-sm font-bold text-white">Top 3 Platillos Más Vendidos</h3>
+        </div>
+        {stats.top3.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-4">Sin datos aún</p>
+        ) : (
+          <div className="space-y-3">
+            {stats.top3.map((item, i) => {
+              const medals = ['🥇', '🥈', '🥉'];
+              const maxCount = stats.top3[0].count;
+              return (
+                <div key={item.name} className="flex items-center gap-3">
+                  <span className="text-xl w-7 flex-shrink-0">{medals[i]}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold text-white truncate max-w-[160px]">{item.name}</span>
+                      <span className="text-xs font-bold text-amber-400 ml-2 flex-shrink-0">{item.count} uds.</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: ['#F59E0B', '#94A3B8', '#CD7F32'][i] }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Top 5 + Horas Pico ── */}
