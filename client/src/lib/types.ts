@@ -131,6 +131,12 @@ export interface Order {
   completed_at?: string | null;
   upsell_items?: OrderItem[] | null;
   upsell_accepted?: boolean | null;
+  upsell_revenue?: number;
+  ai_upsell_revenue?: number;
+  /** True when new items were added to an existing order (Cuenta Abierta) */
+  has_new_items?: boolean;
+  /** True when admin has verified the SINPE payment */
+  payment_verified?: boolean;
 }
 
 export interface CartItem {

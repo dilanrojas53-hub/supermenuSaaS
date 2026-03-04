@@ -21,6 +21,7 @@ import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
 import PoweredByFooter from '@/components/PoweredByFooter';
+import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -45,6 +46,11 @@ function MenuContent() {
   const features: PlanFeatures = useMemo(() => {
     return data ? getPlanFeatures(data.tenant.plan_tier || 'premium') : getPlanFeatures('premium');
   }, [data]);
+
+  // Save tenant slug for OrderStatus navigation
+  useEffect(() => {
+    if (slug) localStorage.setItem('last_tenant_slug', slug);
+  }, [slug]);
 
   // Set first category as active
   useEffect(() => {
@@ -351,7 +357,8 @@ function MenuContent() {
         allMenuItems={data.menuItems}
       />
 
-      {/* Upsell Modal removed — all upselling now happens at checkout via CartDrawer */}
+      {/* Active Order FAB — shows when customer has an active order */}
+      <ActiveOrderFAB />
 
       {/* Powered by Digital Atlas Footer */}
       <PoweredByFooter bgColor={theme.background_color} textColor={`${theme.text_color}70`} />

@@ -1,11 +1,12 @@
 /*
- * CartDrawer v7: AI Upsell + Static Fallback Integration.
- * Flow: 1. Cart  2. Customer info  3. [AI Upsell Modal OR Static Fallback]  4. Select payment  5. SINPE details  6. Confirmation
- * AI: Calls /api/generate-upsell (GPT-4o-mini). On failure → shows static UpsellModal as fallback.
+ * CartDrawer v8: AI Upsell + Static Fallback + Cuenta Abierta.
+ * Flow: 1. Cart  2. Customer info (skipped in Cuenta Abierta)  3. [AI Upsell]  4. Select payment  5. SINPE  6. Confirmation
+ * Cuenta Abierta: Detects open_tab_order in localStorage → UPDATE existing order instead of INSERT.
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle } from 'lucide-react';
-import { useState, useCallback, useRef } from 'react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
 import UpsellModal from './UpsellModal';
@@ -27,9 +28,24 @@ interface CartDrawerProps {
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 
+// Shape of the open_tab_order stored in localStorage by OrderStatusPage
+interface OpenTabOrder {
+  orderId: string;
+  orderNumber: number;
+  tenantId: string;
+  customerName: string;
+  customerPhone: string;
+  customerTable: string;
+  existingItems: any[];
+  existingTotal: number;
+  existingUpsellRevenue: number;
+  existingAiUpsellRevenue: number;
+}
+
 export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [] }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
+  const [, navigate] = useLocation();
   const [sinpeCopied, setSinpeCopied] = useState(false);
   const [step, setStep] = useState<Step>('cart');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -44,6 +60,29 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [orderId, setOrderId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── CUENTA ABIERTA (Open Tab) ───
+  const [openTab, setOpenTab] = useState<OpenTabOrder | null>(null);
+
+  // Detect open tab order from localStorage when drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const raw = localStorage.getItem('open_tab_order');
+        if (raw) {
+          const parsed = JSON.parse(raw) as OpenTabOrder;
+          // Only use if it belongs to this tenant
+          if (parsed.tenantId === tenant.id) {
+            setOpenTab(parsed);
+            // Pre-fill customer info from existing order
+            setCustomerName(parsed.customerName);
+            setCustomerPhone(parsed.customerPhone);
+            setCustomerTable(parsed.customerTable);
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }, [isOpen, tenant.id]);
 
   // AI Upsell state
   const [showAIUpsell, setShowAIUpsell] = useState(false);
@@ -193,9 +232,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     // efectivo/tarjeta: stay on select_payment, show confirm button
   };
 
-  // BUG 2 FIX: Full try/catch, setUploading(false) in finally, error toast on failure.
+  // Submit order: INSERT new or UPDATE existing (Cuenta Abierta)
   const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
-    if (!customerName.trim()) return;
+    if (!customerName.trim() && !openTab) return;
     setUploading(true);
     setErrorMsg('');
 
@@ -216,25 +255,65 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       }
 
       // Include isUpsell + upsell_source flags in order items for analytics tracking
-      const orderItems = items.map(i => ({
+      const newOrderItems = items.map(i => ({
         id: i.menuItem.id,
         name: i.menuItem.name,
         price: i.menuItem.price,
         quantity: i.quantity,
         isUpsell: i.isUpsell || false,
-        upsell_source: i.upsell_source || null, // 'ai' | 'static' | null
+        upsell_source: i.upsell_source || null,
       }));
 
-      // Calculate total upsell revenue (AI + static combined)
-      const upsellRevenue = items
+      // Calculate upsell revenue for NEW items only
+      const newUpsellRevenue = items
         .filter(i => i.isUpsell)
         .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
-
-      // Calculate AI-specific upsell revenue for granular analytics
-      const aiUpsellRevenue = items
+      const newAiUpsellRevenue = items
         .filter(i => i.upsell_source === 'ai')
         .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
 
+      // ─── CUENTA ABIERTA: UPDATE existing order ───
+      if (openTab) {
+        const mergedItems = [...openTab.existingItems, ...newOrderItems];
+        const mergedTotal = openTab.existingTotal + totalPrice;
+        const mergedUpsellRevenue = (openTab.existingUpsellRevenue || 0) + newUpsellRevenue;
+        const mergedAiUpsellRevenue = (openTab.existingAiUpsellRevenue || 0) + newAiUpsellRevenue;
+
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            items: mergedItems,
+            subtotal: mergedTotal,
+            total: mergedTotal,
+            upsell_revenue: mergedUpsellRevenue,
+            ai_upsell_revenue: mergedAiUpsellRevenue,
+            upsell_accepted: mergedUpsellRevenue > 0,
+            has_new_items: true,
+            notes: notes.trim() ? `${openTab.customerName}: ${notes.trim()}` : undefined,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', openTab.orderId);
+
+        if (updateError) {
+          console.error('Update order error:', updateError);
+          setErrorMsg(lang === 'es'
+            ? `Error al actualizar el pedido: ${updateError.message}`
+            : `Error updating order: ${updateError.message}`);
+          return;
+        }
+
+        // Success — clean up and navigate to order status
+        toast.success(lang === 'es' ? '¡Nuevos platillos agregados a tu pedido!' : 'New items added to your order!');
+        localStorage.removeItem('open_tab_order');
+        clearCart();
+        setOpenTab(null);
+        setStep('cart');
+        onClose();
+        navigate(`/order-status/${openTab.orderId}`);
+        return;
+      }
+
+      // ─── NORMAL: INSERT new order ───
       const statusMap: Record<PaymentMethod, string> = {
         sinpe: receiptUrl ? 'pago_en_revision' : 'pendiente',
         efectivo: 'pendiente',
@@ -248,27 +327,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
           customer_table: customerTable.trim(),
-          items: orderItems,
+          items: newOrderItems,
           subtotal: totalPrice,
           total: totalPrice,
           status: statusMap[method],
           payment_method: method,
           sinpe_receipt_url: method === 'sinpe' ? receiptUrl : null,
           notes: notes.trim(),
-          upsell_revenue: upsellRevenue,
-          ai_upsell_revenue: aiUpsellRevenue,
-          upsell_accepted: upsellRevenue > 0,
+          upsell_revenue: newUpsellRevenue,
+          ai_upsell_revenue: newAiUpsellRevenue,
+          upsell_accepted: newUpsellRevenue > 0,
         })
         .select('id, order_number')
         .single();
 
       if (orderError) {
         console.error('Order error:', orderError);
-        setErrorMsg(
-          lang === 'es'
-            ? `Error al procesar el pedido: ${orderError.message}`
-            : `Error processing order: ${orderError.message}`
-        );
+        setErrorMsg(lang === 'es'
+          ? `Error al procesar el pedido: ${orderError.message}`
+          : `Error processing order: ${orderError.message}`);
         return;
       }
 
@@ -279,13 +356,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       }
     } catch (err: unknown) {
       console.error('Unexpected error:', err);
-      setErrorMsg(
-        lang === 'es'
-          ? 'Ocurrió un error inesperado. Por favor intenta de nuevo.'
-          : 'An unexpected error occurred. Please try again.'
-      );
+      setErrorMsg(lang === 'es'
+        ? 'Ocurrió un error inesperado. Por favor intenta de nuevo.'
+        : 'An unexpected error occurred. Please try again.');
     } finally {
-      // BUG 2 FIX: Always reset loading state, even on error
       setUploading(false);
     }
   };
@@ -333,6 +407,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   }, [items, tenant, totalPrice, orderNumber, customerName, customerPhone, customerTable, notes, receiptFile, t, lang, paymentMethod]);
 
   const handleFinish = () => {
+    // For new orders, save active_order to localStorage and navigate to tracking
+    const finishedOrderId = orderId;
+    const finishedOrderNumber = orderNumber;
     clearCart();
     setStep('cart');
     setPaymentMethod(null);
@@ -345,7 +422,20 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     setOrderNumber(null);
     setOrderId(null);
     setErrorMsg('');
+    setOpenTab(null);
+    localStorage.removeItem('open_tab_order');
     onClose();
+    // Navigate to order tracking if we have an order ID
+    if (finishedOrderId) {
+      // Save active order for FAB
+      localStorage.setItem('active_order', JSON.stringify({
+        orderId: finishedOrderId,
+        orderNumber: finishedOrderNumber,
+        tenantSlug: localStorage.getItem('last_tenant_slug') || '',
+        status: 'pendiente',
+      }));
+      navigate(`/order-status/${finishedOrderId}`);
+    }
   };
 
   const canProceedToPayment = customerName.trim().length > 0;
@@ -558,17 +648,29 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         {formatPrice(totalPrice)}
                       </span>
                     </div>
+                    {openTab && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-2" style={{ backgroundColor: '#F59E0B15', border: '1px solid #F59E0B30' }}>
+                        <RefreshCw size={14} className="text-amber-500" />
+                        <span className="text-xs font-semibold text-amber-500">
+                          Cuenta Abierta — Pedido #{openTab.orderNumber}
+                        </span>
+                      </div>
+                    )}
                     <motion.button
-                      onClick={() => setStep('customer_info')}
+                      onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('customer_info')}
                       whileTap={{ scale: 0.97 }}
                       className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
                       style={{
-                        backgroundColor: theme.primary_color,
-                        boxShadow: `0 4px 16px ${theme.primary_color}40`,
+                        backgroundColor: openTab ? '#F59E0B' : theme.primary_color,
+                        boxShadow: openTab ? '0 4px 16px rgba(245,158,11,0.3)' : `0 4px 16px ${theme.primary_color}40`,
+                        color: openTab ? '#000' : '#fff',
                       }}
                     >
                       <ShoppingBag size={20} />
-                      {t('cart.checkout')}
+                      {openTab
+                        ? (lang === 'es' ? 'Agregar a mi pedido' : 'Add to my order')
+                        : t('cart.checkout')
+                      }
                     </motion.button>
                   </div>
                 )}
@@ -958,13 +1060,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   <motion.button
                     onClick={handleFinish}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full py-3 rounded-2xl font-semibold text-sm transition-all"
+                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
                     style={{
-                      backgroundColor: `${theme.text_color}08`,
-                      color: theme.text_color,
+                      backgroundColor: '#F59E0B',
+                      color: '#000',
+                      boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
                     }}
                   >
-                    {t('confirm.close')}
+                    <ShoppingBag size={20} />
+                    {lang === 'es' ? 'Ver estado de mi pedido' : 'Track my order'}
                   </motion.button>
                 </div>
               </>

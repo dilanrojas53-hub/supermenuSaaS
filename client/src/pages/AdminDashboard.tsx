@@ -693,7 +693,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const now = new Date().toISOString();
-    const extra: Record<string, string> = { updated_at: now };
+    const extra: Record<string, any> = { updated_at: now, has_new_items: false };
     if (newStatus === 'en_cocina') extra.accepted_at = now;
     if (newStatus === 'listo') extra.ready_at = now;
     if (newStatus === 'entregado') extra.completed_at = now;
@@ -714,11 +714,21 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const KanbanCard = ({ order }: { order: Order }) => {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
     const isUrgent = elapsed > 20;
+    const hasNewItems = (order as any).has_new_items === true;
     const actions = ORDER_STATUS_ACTIONS[order.status] || [];
     return (
       <div className={`rounded-2xl p-4 border transition-all ${
+        hasNewItems ? 'bg-amber-500/10 border-amber-500/50 animate-pulse' :
         isUrgent ? 'bg-red-500/5 border-red-500/30' : 'bg-slate-800/60 border-slate-700/50'
       }`}>
+        {/* ¡NUEVOS ITEMS! alert badge */}
+        {hasNewItems && (
+          <div className="flex items-center gap-1.5 mb-2 px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40">
+            <span className="text-amber-400 text-xs font-black uppercase tracking-wider animate-pulse">
+              🆕 ¡NUEVOS ITEMS!
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-2">
           <span className="text-base font-bold text-white">#{order.order_number}</span>
           <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${

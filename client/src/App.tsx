@@ -11,6 +11,7 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Pricing from "./pages/Pricing";
+import OrderStatusPage from "./pages/OrderStatusPage";
 
 function Router() {
   return (
@@ -25,6 +26,8 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/:slug/login" component={() => <AdminLogin mode="admin" />} />
       <Route path="/admin/:slug" component={AdminDashboard} />
+      {/* Order tracking */}
+      <Route path="/order-status/:orderId" component={OrderStatusPage} />
       {/* Public menu route — must be last dynamic route */}
       <Route path="/:slug" component={MenuPage} />
       <Route path="/404" component={NotFound} />
