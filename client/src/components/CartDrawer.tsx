@@ -74,15 +74,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
     setAiPitchMessage(null);
 
     try {
+      // Send only the fields the API actually needs (no dietary_tags — column doesn't exist)
       const cartPayload = items.map(ci => ({
         id: ci.menuItem.id,
         name: ci.menuItem.name,
         price: ci.menuItem.price,
-        category: ci.menuItem.category_id,
-        dietary_tags: (ci.menuItem as any).dietary_tags || [],
       }));
 
-      // Use relative URL so it works both locally (Vite proxy) and in Vercel production
+      console.log('[AI Upsell] Calling /api/generate-upsell with cart:', cartPayload.map(i => i.name).join(', '));
+
+      // Use relative URL so it works in Vercel production (/api is a serverless function)
       const response = await fetch('/api/generate-upsell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,28 +92,35 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant }: CartDrawe
           tenant_id: tenant.id,
           restaurant_name: tenant.name,
         }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(10000),
       });
+
+      console.log('[AI Upsell] Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[AI Upsell] Response data:', JSON.stringify(data));
         if (!data.fallback && data.suggested_items?.length > 0) {
           setAiSuggestedItems(data.suggested_items as AISuggestedItem[]);
           setAiPitchMessage(data.pitch_message || null);
+          // Keep modal open to show suggestions
         } else {
           // No suggestions or fallback: close modal and go directly to payment
+          console.log('[AI Upsell] No suggestions, skipping modal. Reason:', data.reason || 'fallback');
           setShowAIUpsell(false);
           setStep('select_payment');
           return;
         }
       } else {
-        // API error: skip upsell and go to payment
+        const errText = await response.text().catch(() => 'unknown');
+        console.error('[AI Upsell] API error:', response.status, errText);
         setShowAIUpsell(false);
         setStep('select_payment');
         return;
       }
-    } catch {
-      // Network error or timeout: skip upsell silently
+    } catch (err) {
+      // Network error or timeout: log and skip upsell silently
+      console.error('[AI Upsell] Fetch error:', err);
       setShowAIUpsell(false);
       setStep('select_payment');
       return;

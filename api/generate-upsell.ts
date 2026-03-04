@@ -31,31 +31,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { cart, tenant_id, restaurant_name } = req.body;
 
+    console.log(`[AI Upsell] Request received — tenant=${tenant_id}, cart items=${cart?.length}`);
+
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
+      console.log("[AI Upsell] Error: cart is empty or missing");
       return res.status(400).json({ error: "Cart is required" });
     }
 
     if (!tenant_id) {
+      console.log("[AI Upsell] Error: tenant_id is missing");
       return res.status(400).json({ error: "tenant_id is required" });
     }
 
-    // Fetch menu catalog from Supabase
+    if (!process.env.OPENAI_API_KEY) {
+      console.log("[AI Upsell] Error: OPENAI_API_KEY is not set");
+      return res.json({ suggested_item_ids: [], suggested_items: [], pitch_message: null, fallback: true, reason: "no_api_key" });
+    }
+
+    // Fetch menu items + category names via JOIN
+    // NOTE: menu_items does NOT have dietary_tags column — use badge and description instead
     const { data: menuItems, error: menuError } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, dietary_tags, is_available")
+      .select(`
+        id,
+        name,
+        description,
+        price,
+        image_url,
+        badge,
+        is_available,
+        categories!inner(name)
+      `)
       .eq("tenant_id", tenant_id)
       .eq("is_available", true)
       .limit(80);
 
     if (menuError) {
-      console.error("Supabase error:", menuError);
-      return res.json({ suggested_item_ids: [], suggested_items: [], pitch_message: null, fallback: true });
+      console.error("[AI Upsell] Supabase error:", menuError.message);
+      return res.json({ suggested_item_ids: [], suggested_items: [], pitch_message: null, fallback: true, reason: "supabase_error" });
     }
 
-    // Build cart summary
-    const cartSummary = cart
-      .map((item: any) => `- ${item.name} (${item.category || "sin categoría"})`)
-      .join("\n");
+    console.log(`[AI Upsell] Fetched ${menuItems?.length || 0} menu items from Supabase`);
 
     // Exclude cart items from catalog
     const cartItemIds = new Set(cart.map((item: any) => item.id));
@@ -66,33 +82,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id: item.id,
         name: item.name,
         price: item.price,
-        dietary_tags: item.dietary_tags || [],
+        image_url: item.image_url,
         description: (item.description || "").slice(0, 80),
+        category: (item.categories as any)?.name || "Sin categoría",
+        badge: item.badge || "",
       }));
+
+    // Build cart summary using item names (category_id is a UUID, use name instead)
+    const cartSummary = cart
+      .map((item: any) => `- ${item.name}`)
+      .join("\n");
 
     const catalogText = availableCatalog
       .map(
         (item) =>
-          `ID:${item.id} | ${item.name} | ₡${item.price} | Tags: ${item.dietary_tags.join(", ") || "ninguno"} | ${item.description}`
+          `ID:${item.id} | ${item.name} | ₡${item.price} | Categoría: ${item.category}${item.badge ? ` | Badge: ${item.badge}` : ""} | ${item.description}`
       )
       .join("\n");
 
-    // Detect dietary restrictions and drinks
-    const cartHasDietaryRestriction = cart.some(
-      (item: any) =>
-        item.dietary_tags?.includes("vegetariano") ||
-        item.dietary_tags?.includes("vegano") ||
-        item.dietary_tags?.includes("vegetarian") ||
-        item.dietary_tags?.includes("vegan")
-    );
-
+    // Detect if cart has drinks already
     const cartHasDrinks = cart.some(
       (item: any) =>
-        item.category?.toLowerCase().includes("bebida") ||
-        item.category?.toLowerCase().includes("té") ||
-        item.category?.toLowerCase().includes("café") ||
-        item.category?.toLowerCase().includes("drink") ||
-        item.category?.toLowerCase().includes("cafetería")
+        item.name?.toLowerCase().includes("bebida") ||
+        item.name?.toLowerCase().includes("refresco") ||
+        item.name?.toLowerCase().includes("agua") ||
+        item.name?.toLowerCase().includes("jugo") ||
+        item.name?.toLowerCase().includes("café") ||
+        item.name?.toLowerCase().includes("cerveza") ||
+        item.name?.toLowerCase().includes("limonada")
     );
 
     const systemPrompt = `Eres un experto Sommelier y el mejor mesero del mundo trabajando en ${restaurant_name || "este restaurante"}.
@@ -105,22 +122,24 @@ ${catalogText}
 
 Tu tarea es hacer un 'Cross-sell' o 'Up-sell' inteligente y altamente lógico.
 
-REGLAS ESTRICTAS DE LÓGICA:
-1. RESTRICCIÓN DIETÉTICA (CRÍTICO): ${cartHasDietaryRestriction ? "El carrito contiene platos vegetarianos o veganos. TIENES ESTRICTAMENTE PROHIBIDO sugerir cualquier producto que contenga carne." : "No hay restricciones dietéticas detectadas."}
-2. LÓGICA DE BEBIDAS (MARIDAJE): ${!cartHasDrinks ? "El cliente lleva comida pero NO lleva bebidas. DEBES sugerir una o dos bebidas que combinen perfectamente con la comida seleccionada." : "El cliente ya tiene bebidas en su carrito."}
-3. EQUILIBRIO DE SABORES: No ofrezcas más comida pesada si el carrito ya es muy abundante. En su lugar, sugiere un postre ligero o una bebida refrescante.
-4. DUPLICADOS: Nunca sugieras algo que ya está en el carrito.
-5. Sugiere máximo 2 productos.
+REGLAS ESTRICTAS:
+1. BEBIDAS: ${!cartHasDrinks ? "El cliente NO lleva bebidas. DEBES sugerir una bebida que combine perfectamente con su comida." : "El cliente ya tiene bebidas."}
+2. EQUILIBRIO: No ofrezcas más comida pesada si el carrito ya es abundante. Sugiere un postre o bebida.
+3. DUPLICADOS: Nunca sugieras algo que ya está en el carrito.
+4. Sugiere máximo 2 productos.
+5. IMPORTANTE: Los IDs que uses en suggested_item_ids DEBEN ser exactamente los IDs del catálogo de arriba.
 
 Devuelve ESTRICTAMENTE un objeto JSON con este formato exacto (sin markdown, sin texto extra):
 {
   "suggested_item_ids": ["id1", "id2"],
-  "pitch_message": "Mensaje persuasivo, corto y antojador (máximo 20 palabras) justificando por qué esta combinación exacta es perfecta para su pedido."
+  "pitch_message": "Mensaje persuasivo, corto y antojador (máximo 20 palabras) justificando por qué esta combinación es perfecta."
 }`;
 
-    // Race OpenAI call against 4-second timeout
+    console.log(`[AI Upsell] Calling GPT-4o-mini... catalog size=${availableCatalog.length}`);
+
+    // Race OpenAI call against 6-second timeout
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("OpenAI timeout after 4s")), 4000)
+      setTimeout(() => reject(new Error("OpenAI timeout after 6s")), 6000)
     );
 
     const openaiPromise = openai.chat.completions.create({
@@ -134,25 +153,38 @@ Devuelve ESTRICTAMENTE un objeto JSON con este formato exacto (sin markdown, sin
     const completion = await Promise.race([openaiPromise, timeoutPromise]);
 
     const rawContent = completion.choices[0]?.message?.content || "{}";
+    console.log(`[AI Upsell] GPT-4o-mini raw response: ${rawContent}`);
+
     let parsed: { suggested_item_ids?: string[]; pitch_message?: string } = {};
 
     try {
       parsed = JSON.parse(rawContent);
-    } catch {
-      return res.json({ suggested_item_ids: [], suggested_items: [], pitch_message: null, fallback: true });
+    } catch (parseErr) {
+      console.error("[AI Upsell] JSON parse error:", parseErr);
+      return res.json({ suggested_item_ids: [], suggested_items: [], pitch_message: null, fallback: true, reason: "json_parse_error" });
     }
 
     // Validate IDs exist in catalog
     const validIds = new Set(availableCatalog.map((item) => item.id));
     const suggestedIds = (parsed.suggested_item_ids || []).filter((id) => validIds.has(id));
 
-    // Get full item details
+    console.log(`[AI Upsell] Suggested IDs from GPT: ${JSON.stringify(parsed.suggested_item_ids)}`);
+    console.log(`[AI Upsell] Valid IDs after filter: ${JSON.stringify(suggestedIds)}`);
+
+    // Get full item details (including image_url for the modal)
     const suggestedItems = suggestedIds
       .map((id) => menuItems?.find((item) => item.id === id))
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        image_url: item.image_url,
+      }));
 
     console.log(
-      `[AI Upsell] tenant=${tenant_id} suggested=${suggestedIds.length} time=${Date.now() - startTime}ms`
+      `[AI Upsell] Final result — tenant=${tenant_id} suggested=${suggestedIds.length} time=${Date.now() - startTime}ms pitch="${parsed.pitch_message}"`
     );
 
     return res.json({
@@ -162,12 +194,13 @@ Devuelve ESTRICTAMENTE un objeto JSON con este formato exacto (sin markdown, sin
       fallback: false,
     });
   } catch (error: any) {
-    console.error("[AI Upsell] Error:", error.message);
+    console.error("[AI Upsell] Unexpected error:", error.message, error.stack);
     return res.json({
       suggested_item_ids: [],
       suggested_items: [],
       pitch_message: null,
       fallback: true,
+      reason: error.message,
     });
   }
 }
