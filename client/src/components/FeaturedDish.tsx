@@ -1,11 +1,13 @@
 /*
- * Neuro-Ventas: "Platillo de la Semana" con countdown de disponibilidad,
- * spotlight shimmer, copy persuasivo, y contador de pedidos.
+ * V5.0 ÉPICA UI PREMIUM — TAREA 1: Featured Card "Recomendación del Chef"
+ * Design: Glassmorphism floating card con badge premium, shadow-2xl,
+ * bordes rounded-[2rem], shimmer overlay y micro-interacciones.
+ * Neuro-Ventas: countdown de disponibilidad, contador de pedidos.
  * i18n: traduce strings de interfaz dura.
  */
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Check, Users, Clock, Star } from 'lucide-react';
+import { Plus, Check, Users, Clock } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -58,13 +60,14 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className="mx-4 mb-6 rounded-2xl overflow-hidden relative"
+      className="mx-4 mb-6 relative overflow-hidden"
       style={{
-        // V4.0 PREMIUM: fondo sólido del tema, sin gradiente neón
-        // Borde sutil con el color de marca al 20% de opacidad
-        backgroundColor: theme.background_color,
+        /* V5.0 FEATURED CARD: tarjeta flotante con glassmorphism y shadow profunda */
+        backgroundColor: 'var(--bg-surface, ' + theme.background_color + ')',
         border: `1px solid ${theme.primary_color}20`,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.15)',
+        borderRadius: '2rem',
+        padding: '1.5rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.18)',
       }}
     >
       {/* Shimmer overlay */}
@@ -72,30 +75,23 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
           background: `linear-gradient(110deg, transparent 30%, ${theme.primary_color}08 45%, transparent 60%)`,
+          borderRadius: '2rem',
         }}
         animate={{ x: ['-100%', '200%'] }}
         transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut', repeatDelay: 3 }}
       />
 
-      {/* Header badge */}
-      <div
-        className="flex items-center justify-between px-4 py-2.5 relative z-10"
-        style={{ backgroundColor: `${theme.primary_color}12` }}
-      >
-        <div className="flex items-center gap-2">
-          <motion.div
-            animate={{ rotate: [0, 15, -15, 0] }}
-            transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-          >
-            <Star size={16} style={{ color: theme.accent_color }} fill={theme.accent_color} />
-          </motion.div>
-          <span
-            className="text-xs font-bold uppercase tracking-wider"
-            style={{ color: theme.primary_color }}
-          >
-            {t('menu.featured')}
-          </span>
-        </div>
+      {/* V5.0 BADGE: "⭐ Recomendación del Chef" */}
+      <div className="relative z-10 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <span
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+          style={{
+            backgroundColor: theme.primary_color,
+            color: '#fff',
+          }}
+        >
+          ⭐ {lang === 'es' ? 'Recomendación del Chef' : "Chef's Recommendation"}
+        </span>
         {/* Countdown */}
         <div
           className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
@@ -106,27 +102,26 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
         </div>
       </div>
 
-      <div className="p-4 flex gap-4 relative z-10">
+      {/* Content row */}
+      <div className="flex gap-4 relative z-10">
         {/* Image */}
-        <div
-          className="w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 relative"
-          style={{ backgroundColor: `${theme.primary_color}08` }}
-        >
-          {item.image_url ? (
-            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-4xl">👨‍🍳</div>
-          )}
+        {item.image_url && (
           <div
-            className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: theme.accent_color, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+            className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 relative"
+            style={{ backgroundColor: `${theme.primary_color}08` }}
           >
-            <span className="text-xs">👨‍🍳</span>
+            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+            <div
+              className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: theme.primary_color, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+            >
+              <span className="text-xs">👨‍🍳</span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Content */}
-        <div className="flex-1">
+        {/* Text */}
+        <div className="flex-1 min-w-0">
           <h3
             className="text-lg font-bold leading-tight mb-1"
             style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
@@ -164,7 +159,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
             <motion.button
               onClick={handleAdd}
               whileTap={{ scale: 0.92 }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105 active:scale-95"
               style={{
                 backgroundColor: justAdded ? '#38A169' : theme.primary_color,
                 color: '#fff',

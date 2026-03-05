@@ -1,5 +1,14 @@
 /*
- * Design: "Warm Craft" + Neuro-Ventas + i18n + Smart Cart
+ * V5.0 ÉPICA UI PREMIUM — TAREA 2 + TAREA 4
+ * TAREA 2: Micro-interacciones en tarjetas
+ *   - Hover levitación: transition-all duration-300 hover:-translate-y-1 hover:shadow-xl
+ *   - Bordes premium: rounded-3xl + border border-white/5 (dark) / border-black/5 (light)
+ *   - Botón "Agregar": hover:scale-105 active:scale-95 transition-transform (táctil y responsivo)
+ * TAREA 4: Empty States elegantes sin foto
+ *   - Si no hay imagen: ocultar contenedor de imagen, texto y precio ocupan 100% del ancho
+ *   - Diseño tipográfico limpio ideal para coctelerías y vinos
+ *
+ * Design base: "Warm Craft" + Neuro-Ventas + i18n + Smart Cart
  * Cards con sombra sepia, tipografía Lora, badges de prueba social animados,
  * feedback visual al agregar (scale + checkmark flash).
  *
@@ -31,20 +40,20 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
 
-  // Quick Add — no modal, prevent_checkout_upsell stays false (will get checkout AI)
   const handleQuickAdd = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Don't open the detail modal
+    e.stopPropagation();
     addItem(item);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
   }, [addItem, item]);
 
-  // Open detail modal
   const handleOpenDetail = useCallback(() => {
     if (onOpenDetail) {
       onOpenDetail(item);
     }
   }, [onOpenDetail, item]);
+
+  const hasImage = Boolean(item.image_url);
 
   if (viewMode === 'list') {
     return (
@@ -52,14 +61,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex gap-3 p-3 md:p-4 rounded-2xl relative cursor-pointer transition-all hover:scale-[1.01]"
+        /* V5.0 TAREA 2: hover levitación + bordes premium rounded-3xl */
+        className="flex gap-3 p-3 md:p-4 rounded-3xl relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onClick={handleOpenDetail}
         style={{
-          // V4.0 PREMIUM: fondo semitransparente sobre el fondo oscuro del app
-          // Borde sutil blanco/10 en dark, sin colores de marca en el fondo
           backgroundColor: theme.background_color,
           boxShadow: '0 1px 8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          /* V5.0 TAREA 2: borde sutil premium */
+          border: '1px solid rgba(255,255,255,0.05)',
         }}
       >
         {/* Badge */}
@@ -69,22 +78,15 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         )}
 
-        {/* Image */}
-        {item.image_url ? (
+        {/* V5.0 TAREA 4: Solo mostrar imagen si existe */}
+        {hasImage && (
           <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0">
-            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-          </div>
-        ) : (
-          <div
-            className="w-28 h-28 md:w-36 md:h-36 rounded-2xl flex-shrink-0 flex items-center justify-center text-4xl opacity-30"
-            style={{ backgroundColor: `${theme.primary_color}08` }}
-          >
-            🍽️
+            <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
+        {/* Content — ocupa 100% del ancho si no hay imagen (TAREA 4) */}
+        <div className={`flex-1 min-w-0 ${!hasImage ? 'w-full' : ''}`}>
           <h3
             className="text-base font-semibold leading-tight mb-1"
             style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
@@ -100,7 +102,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </p>
           )}
 
-          {/* Social proof counter */}
           {showBadges && item.badge && (
             <div className="mb-1">
               <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} />
@@ -114,10 +115,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             >
               {formatPrice(item.price)}
             </span>
+            {/* V5.0 TAREA 2: botón táctil con hover:scale-105 active:scale-95 */}
             <motion.button
               onClick={handleQuickAdd}
-              whileTap={{ scale: 0.92 }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
               style={{
                 backgroundColor: justAdded ? '#38A169' : theme.primary_color,
                 color: '#fff',
@@ -161,40 +163,36 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35 }}
-      className="rounded-2xl overflow-hidden relative cursor-pointer transition-all hover:scale-[1.02] hover:shadow-2xl"
+      /* V5.0 TAREA 2: hover levitación + bordes premium rounded-3xl */
+      className="rounded-3xl overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       style={{
-        // V4.0 PREMIUM: sombra profunda y borde sutil — las fotos son las protagonistas
         backgroundColor: theme.background_color,
         boxShadow: '0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        /* V5.0 TAREA 2: borde sutil premium */
+        border: '1px solid rgba(255,255,255,0.05)',
       }}
     >
       {/* Badge */}
-        {showBadges && item.badge && (
-          <div className="absolute top-2 left-2 z-10">
-            <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-          </div>
-        )}
+      {showBadges && item.badge && (
+        <div className="absolute top-2 left-2 z-10">
+          <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+        </div>
+      )}
 
-      {/* Image area — clicking opens detail modal */}
-      <div
-        className="w-full h-40 relative"
-        style={{ backgroundColor: `${theme.primary_color}08` }}
-        onClick={handleOpenDetail}
-      >
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">
-            🍽️
-          </div>
-        )}
-      </div>
+      {/* V5.0 TAREA 4: Solo mostrar área de imagen si existe */}
+      {hasImage && (
+        <div
+          className="w-full h-40 relative"
+          style={{ backgroundColor: `${theme.primary_color}08` }}
+          onClick={handleOpenDetail}
+        >
+          <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+        </div>
+      )}
 
       {/* Content */}
-      <div className="p-4">
-        {/* Text area — clicking opens detail modal */}
-        <div onClick={handleOpenDetail}>
+      <div className="p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
+        <div onClick={hasImage ? handleOpenDetail : undefined}>
           <h3
             className="text-sm font-semibold leading-tight mb-1"
             style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
@@ -211,7 +209,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           )}
         </div>
 
-        {/* Social proof counter */}
         {showBadges && item.badge && (
           <div className="mb-2">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} />
@@ -225,11 +222,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           >
             {formatPrice(item.price)}
           </span>
-          {/* Quick Add button — does NOT open modal */}
+          {/* V5.0 TAREA 2: botón táctil con hover:scale-105 active:scale-95 */}
           <motion.button
             onClick={handleQuickAdd}
             whileTap={{ scale: 0.85 }}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
             style={{
               backgroundColor: justAdded ? '#38A169' : theme.primary_color,
               color: '#fff',

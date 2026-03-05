@@ -294,29 +294,32 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Category Tabs - Sticky */}
+      {/* V5.0 TAREA 3: Category Tabs — Sticky Glassmorphism estilo iOS */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-30 overflow-x-auto scrollbar-hide border-b"
+        className="sticky top-0 z-40 overflow-x-auto scrollbar-hide border-b"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderColor: `${theme.text_color}10`,
+          /* V5.0: bg-page/80 + backdrop-blur-md: los platillos se ven borrosos al hacer scroll */
+          backgroundColor: `${theme.background_color}cc`,
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderColor: 'rgba(255,255,255,0.10)',
         }}
       >
-        <div className="flex gap-1 px-4 py-3 min-w-max">
+        <div className="flex gap-2 px-4 py-3 min-w-max">
           {categories.map(cat => {
             const isActive = activeCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all"
+                /* V5.0: rounded-full px-5 py-2, activa con bg-accent text-white shadow-md */
+                className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}08`,
+                  backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}12`,
                   color: isActive ? '#fff' : theme.text_color,
                   fontWeight: isActive ? 600 : 400,
+                  boxShadow: isActive ? `0 2px 8px ${theme.primary_color}40` : 'none',
                 }}
               >
                 {cat.name}
