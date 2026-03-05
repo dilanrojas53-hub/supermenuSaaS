@@ -61,13 +61,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        /* V5.0 TAREA 2: hover levitación + bordes premium rounded-3xl */
         className="flex gap-3 p-3 md:p-4 rounded-3xl relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onClick={handleOpenDetail}
         style={{
           backgroundColor: theme.background_color,
           boxShadow: '0 1px 8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
-          /* V5.0 TAREA 2: borde sutil premium */
           border: '1px solid rgba(255,255,255,0.05)',
         }}
       >
@@ -115,7 +113,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             >
               {formatPrice(item.price)}
             </span>
-            {/* V5.0 TAREA 2: botón táctil con hover:scale-105 active:scale-95 */}
             <motion.button
               onClick={handleQuickAdd}
               whileTap={{ scale: 0.95 }}
@@ -163,12 +160,10 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35 }}
-      /* V5.0 TAREA 2: hover levitación + bordes premium rounded-3xl */
       className="rounded-3xl overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       style={{
         backgroundColor: theme.background_color,
         boxShadow: '0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',
-        /* V5.0 TAREA 2: borde sutil premium */
         border: '1px solid rgba(255,255,255,0.05)',
       }}
     >
@@ -222,7 +217,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           >
             {formatPrice(item.price)}
           </span>
-          {/* V5.0 TAREA 2: botón táctil con hover:scale-105 active:scale-95 */}
           <motion.button
             onClick={handleQuickAdd}
             whileTap={{ scale: 0.85 }}

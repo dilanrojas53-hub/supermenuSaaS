@@ -62,7 +62,6 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       transition={{ duration: 0.5, delay: 0.2 }}
       className="mx-4 mb-6 relative overflow-hidden"
       style={{
-        /* V5.0 FEATURED CARD: tarjeta flotante con glassmorphism y shadow profunda */
         backgroundColor: 'var(--bg-surface, ' + theme.background_color + ')',
         border: `1px solid ${theme.primary_color}20`,
         borderRadius: '2rem',
@@ -81,7 +80,6 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
         transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut', repeatDelay: 3 }}
       />
 
-      {/* V5.0 BADGE: "⭐ Recomendación del Chef" */}
       <div className="relative z-10 mb-4 flex items-center justify-between flex-wrap gap-2">
         <span
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"

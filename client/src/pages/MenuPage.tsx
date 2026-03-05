@@ -294,12 +294,11 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* V5.0 TAREA 3: Category Tabs — Sticky Glassmorphism estilo iOS */}
+      {/* Category Tabs — Sticky Glassmorphism V5.0 */}
       <div
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide border-b"
         style={{
-          /* V5.0: bg-page/80 + backdrop-blur-md: los platillos se ven borrosos al hacer scroll */
           backgroundColor: `${theme.background_color}cc`,
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
@@ -313,7 +312,6 @@ function MenuContent() {
               <button
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                /* V5.0: rounded-full px-5 py-2, activa con bg-accent text-white shadow-md */
                 className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
                   backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}12`,
