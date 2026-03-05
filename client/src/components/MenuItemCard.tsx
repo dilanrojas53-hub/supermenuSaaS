@@ -98,10 +98,49 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </div>
           )}
 
+          {/* V6.0 5A — Barra de popularidad animada */}
+          {item.badge && (
+            <div style={{ width: '100%', marginBottom: '6px', marginTop: '4px' }}>
+              <div style={{
+                height: '3px',
+                borderRadius: '999px',
+                background: 'rgba(255,255,255,0.08)',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min(((item as any).order_count || 60) / 100 * 100, 94)}%`,
+                  background: `linear-gradient(90deg, ${theme.primary_color}cc, ${theme.primary_color})`,
+                  borderRadius: '999px',
+                  transition: 'width 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* V6.0 5B — Badge de escasez */}
+          {(item as any).stock !== null &&
+           (item as any).stock !== undefined &&
+           (item as any).stock <= 5 &&
+           (item as any).stock > 0 && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#ef4444',
+              marginTop: '4px',
+              animation: 'pulse-soft 2s infinite',
+            }}>
+              🔥 Solo quedan {(item as any).stock}
+            </div>
+          )}
+
           <div className="flex items-center justify-between mt-auto">
             <span
               className="text-lg font-bold"
-              style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}
+              style={{ fontFamily: "'Lora', serif", color: preset?.priceColor !== 'inherit' ? preset?.priceColor : theme.primary_color }}
             >
               {formatPrice(item.price)}
             </span>
@@ -167,10 +206,21 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       {hasImage && (
         <div
           className="w-full h-40 relative"
-          style={{ backgroundColor: `${theme.primary_color}08` }}
+          style={{ backgroundColor: `${theme.primary_color}08`, overflow: 'hidden' }}
           onClick={handleOpenDetail}
         >
+          {/* V6.0 5C — Shimmer en imagen grid */}
           <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.07) 50%, transparent 65%)',
+            animation: 'shimmer-slide 3s infinite',
+            pointerEvents: 'none',
+          }} />
         </div>
       )}
 
@@ -198,10 +248,49 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         )}
 
+        {/* V6.0 5A — Barra de popularidad animada (grid) */}
+        {item.badge && (
+          <div style={{ width: '100%', marginBottom: '6px', marginTop: '4px' }}>
+            <div style={{
+              height: '3px',
+              borderRadius: '999px',
+              background: 'rgba(255,255,255,0.08)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.min(((item as any).order_count || 60) / 100 * 100, 94)}%`,
+                background: `linear-gradient(90deg, ${theme.primary_color}cc, ${theme.primary_color})`,
+                borderRadius: '999px',
+                transition: 'width 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
+              }} />
+            </div>
+          </div>
+        )}
+
+        {/* V6.0 5B — Badge de escasez (grid) */}
+        {(item as any).stock !== null &&
+         (item as any).stock !== undefined &&
+         (item as any).stock <= 5 &&
+         (item as any).stock > 0 && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: '#ef4444',
+            marginTop: '4px',
+            animation: 'pulse-soft 2s infinite',
+          }}>
+            🔥 Solo quedan {(item as any).stock}
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <span
             className="text-base font-bold"
-            style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}
+            style={{ fontFamily: "'Lora', serif", color: preset?.priceColor !== 'inherit' ? preset?.priceColor : theme.primary_color }}
           >
             {formatPrice(item.price)}
           </span>
