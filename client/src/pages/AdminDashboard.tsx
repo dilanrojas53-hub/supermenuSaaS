@@ -13,6 +13,7 @@ import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures } from '@/lib/types';
+import { PRESET_LIST } from '@/lib/themes';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
@@ -576,7 +577,8 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     primary_color: theme.primary_color, secondary_color: theme.secondary_color,
     accent_color: theme.accent_color, background_color: theme.background_color,
     text_color: theme.text_color, font_family: theme.font_family,
-    view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || ''
+    view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || '',
+    theme_preset: (theme as any).theme_preset || 'default'
   });
   const [saving, setSaving] = useState(false);
 
@@ -614,6 +616,19 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     document.documentElement.style.setProperty('--bg-page', form.background_color);
     document.documentElement.style.setProperty('--accent', form.primary_color);
     toast.success('Colores personalizados eliminados');
+  };
+
+  const handlePresetChange = async (presetId: string) => {
+    setForm(f => ({ ...f, theme_preset: presetId }));
+    try {
+      await supabase
+        .from('theme_settings')
+        .update({ theme_preset: presetId })
+        .eq('tenant_id', tenant.id);
+      toast.success('Preset aplicado: ' + presetId);
+    } catch (error) {
+      console.error('Error saving preset:', error);
+    }
   };
 
   const handleSave = async () => {
@@ -703,6 +718,47 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         <div className="flex items-center gap-2 mb-4">
           <span className="text-base">🍽️</span>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
+        </div>
+
+        {/* V6.0 — Selector de Tema Preset */}
+        <div className="mb-6">
+          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+            Personalidad Visual del Menú
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {PRESET_LIST.map((p) => {
+              const isActive = (form.theme_preset || 'default') === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handlePresetChange(p.id)}
+                  style={{
+                    padding: '10px 8px',
+                    borderRadius: '12px',
+                    border: isActive
+                      ? `2px solid ${form.primary_color}`
+                      : '2px solid rgba(255,255,255,0.1)',
+                    background: isActive
+                      ? `${form.primary_color}20`
+                      : 'rgba(255,255,255,0.04)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: '20px' }}>{p.emoji}</div>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: isActive ? form.primary_color : 'var(--text-secondary)',
+                    marginTop: '4px'
+                  }}>
+                    {p.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {[
