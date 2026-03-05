@@ -720,12 +720,19 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
         </div>
 
-        {/* V6.0 — Selector de Tema Preset */}
-        <div className="mb-6">
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-            Personalidad Visual del Menú
+        {/* V6.0 — Selector de Preset Compacto (pills) */}
+        <div style={{ marginBottom: '20px' }}>
+          <p style={{
+            fontSize: '12px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--text-secondary)',
+            marginBottom: '10px'
+          }}>
+            Personalidad Visual
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {PRESET_LIST.map((p) => {
               const isActive = (form.theme_preset || 'default') === p.id;
               return (
@@ -733,28 +740,27 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                   key={p.id}
                   onClick={() => handlePresetChange(p.id)}
                   style={{
-                    padding: '10px 8px',
-                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '999px',
                     border: isActive
                       ? `2px solid ${form.primary_color}`
-                      : '2px solid rgba(255,255,255,0.1)',
+                      : '2px solid rgba(128,128,128,0.25)',
                     background: isActive
-                      ? `${form.primary_color}20`
-                      : 'rgba(255,255,255,0.04)',
+                      ? `${form.primary_color}18`
+                      : 'rgba(128,128,128,0.08)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    textAlign: 'center',
+                    fontSize: '13px',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? form.primary_color : 'var(--text-secondary)',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  <div style={{ fontSize: '20px' }}>{p.emoji}</div>
-                  <div style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: isActive ? form.primary_color : 'var(--text-secondary)',
-                    marginTop: '4px'
-                  }}>
-                    {p.label}
-                  </div>
+                  <span style={{ fontSize: '14px' }}>{p.emoji}</span>
+                  <span>{p.label}</span>
                 </button>
               );
             })}

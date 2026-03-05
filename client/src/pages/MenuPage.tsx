@@ -86,10 +86,16 @@ function MenuContent() {
     document.body.style.minHeight = '100vh';
     // V6.0 Fase 3: Aplicar preset visual
     const p = getPreset((t as any)?.theme_preset);
-    document.body.style.backgroundImage = p.bgGradient;
-    document.body.style.backgroundAttachment = 'fixed';
-    document.body.style.fontFamily = p.fontFamily;
-    if (p.googleFontUrl && !document.querySelector(`link[href="${p.googleFontUrl}"]`)) {
+    if (p && p.id !== 'default') {
+      document.body.style.backgroundImage = p.bgGradient;
+      document.body.style.backgroundAttachment = 'fixed';
+      document.body.style.backgroundSize = 'cover';
+    } else {
+      document.body.style.backgroundImage = 'none';
+      document.body.style.backgroundColor = t.background_color || '#0a0a0a';
+    }
+    document.body.style.fontFamily = p?.fontFamily || 'inherit';
+    if (p?.googleFontUrl && !document.querySelector(`link[data-theme-font="true"]`)) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = p.googleFontUrl;
@@ -103,10 +109,12 @@ function MenuContent() {
     if (customAccent) root.style.setProperty('--accent', customAccent);
     // Cleanup al desmontar
     return () => {
-      document.body.style.backgroundColor = '';
-      document.body.style.color = '';
       document.body.style.backgroundImage = '';
+      document.body.style.backgroundAttachment = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundColor = '';
       document.body.style.fontFamily = '';
+      document.body.style.color = '';
     };
   }, [data]);
 
