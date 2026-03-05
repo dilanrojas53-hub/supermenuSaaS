@@ -20,6 +20,7 @@ import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
+import { type ThemePreset } from '@/lib/themes';
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -28,9 +29,10 @@ interface MenuItemCardProps {
   allItems?: MenuItem[];
   showBadges?: boolean;
   onOpenDetail?: (item: MenuItem) => void;
+  preset?: ThemePreset;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail, preset }: MenuItemCardProps) {
   const { addItem } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -51,12 +53,15 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   if (viewMode === 'list') {
     return (
       <div
-        className="flex gap-3 p-3 md:p-4 rounded-3xl relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+        className="flex gap-3 p-3 md:p-4 relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onClick={handleOpenDetail}
         style={{
-          backgroundColor: theme.background_color,
-          boxShadow: '0 1px 8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
-          border: '1px solid rgba(255,255,255,0.05)',
+          background: preset?.cardBackground || 'rgba(255,255,255,0.05)',
+          border: preset?.cardBorder || '1px solid rgba(255,255,255,0.08)',
+          boxShadow: preset?.cardShadow || '0 2px 16px rgba(0,0,0,0.4)',
+          fontFamily: preset?.fontFamily,
+          borderRadius: '1.5rem',
+          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
         }}
       >
         {showBadges && item.badge && (
@@ -143,11 +148,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   // Grid view
   return (
     <div
-      className="rounded-3xl overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+      className="overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       style={{
-        backgroundColor: theme.background_color,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',
-        border: '1px solid rgba(255,255,255,0.05)',
+        background: preset?.cardBackground || 'rgba(255,255,255,0.05)',
+        border: preset?.cardBorder || '1px solid rgba(255,255,255,0.08)',
+        boxShadow: preset?.cardShadow || '0 2px 16px rgba(0,0,0,0.4)',
+        fontFamily: preset?.fontFamily,
+        borderRadius: '1.5rem',
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
       }}
     >
       {showBadges && item.badge && (

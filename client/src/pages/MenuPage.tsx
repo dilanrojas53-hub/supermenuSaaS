@@ -24,7 +24,7 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
-import { applyTheme, getStoredTheme } from '@/lib/themes';
+import { applyTheme, getStoredTheme, getPreset, type ThemePreset } from '@/lib/themes';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -84,6 +84,18 @@ function MenuContent() {
     document.body.style.backgroundColor = t.background_color || '#0a0a0a';
     document.body.style.color = t.text_color || '#ffffff';
     document.body.style.minHeight = '100vh';
+    // V6.0 Fase 3: Aplicar preset visual
+    const p = getPreset((t as any)?.theme_preset);
+    document.body.style.backgroundImage = p.bgGradient;
+    document.body.style.backgroundAttachment = 'fixed';
+    document.body.style.fontFamily = p.fontFamily;
+    if (p.googleFontUrl && !document.querySelector(`link[href="${p.googleFontUrl}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = p.googleFontUrl;
+      link.setAttribute('data-theme-font', 'true');
+      document.head.appendChild(link);
+    }
     // Aplicar color personalizado de fondo si existe en localStorage
     const customBg = localStorage.getItem('custom_bg_color');
     const customAccent = localStorage.getItem('custom_accent_color');
@@ -93,6 +105,8 @@ function MenuContent() {
     return () => {
       document.body.style.backgroundColor = '';
       document.body.style.color = '';
+      document.body.style.backgroundImage = '';
+      document.body.style.fontFamily = '';
     };
   }, [data]);
 
@@ -207,6 +221,8 @@ function MenuContent() {
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
+  // V6.0 Fase 3: Preset visual del restaurante
+  const preset = getPreset((theme as any)?.theme_preset);
 
   // Check if restaurant is closed
   if (!tenant.is_open) {
@@ -404,6 +420,7 @@ function MenuContent() {
                     allItems={data.menuItems}
                     showBadges={features.neuroBadges}
                     onOpenDetail={handleOpenDetail}
+                    preset={preset}
                   />
                 ))}
               </div>
