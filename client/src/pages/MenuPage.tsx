@@ -57,17 +57,21 @@ function MenuContent() {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
 
-  // TAREA 2 V4.0: Inyectar los colores del restaurante (Supabase) como CSS vars
-  // Esto conecta el menú público al motor de theming B2B
+  // V6.0 Fase 1: Propagación global de colores del tema al menú público
   useEffect(() => {
     if (!data) {
-      // Mientras carga, aplicar el tema B2B del localStorage como fallback
       applyTheme(getStoredTheme());
       return;
     }
     const t = data.theme;
     const root = document.documentElement;
-    // Colores del restaurante sobreescriben las CSS vars del motor B2B
+    // Variables CSS globales
+    root.style.setProperty('--color-bg', t.background_color || '#0a0a0a');
+    root.style.setProperty('--color-primary', t.primary_color || '#22c55e');
+    root.style.setProperty('--color-text', t.text_color || '#ffffff');
+    root.style.setProperty('--color-surface', `${t.background_color || '#1a1a1a'}ee`);
+    root.style.setProperty('--color-border', `${t.primary_color || '#22c55e'}25`);
+    // Mantener compat con motor B2B V4.0
     root.style.setProperty('--bg-page', t.background_color);
     root.style.setProperty('--bg-surface', t.background_color);
     root.style.setProperty('--text-primary', t.text_color);
@@ -76,11 +80,20 @@ function MenuContent() {
     root.style.setProperty('--accent-contrast', '#ffffff');
     root.style.setProperty('--border', `${t.text_color}15`);
     root.style.setProperty('--muted', `${t.text_color}60`);
+    // Aplicar al body directamente
+    document.body.style.backgroundColor = t.background_color || '#0a0a0a';
+    document.body.style.color = t.text_color || '#ffffff';
+    document.body.style.minHeight = '100vh';
     // Aplicar color personalizado de fondo si existe en localStorage
     const customBg = localStorage.getItem('custom_bg_color');
     const customAccent = localStorage.getItem('custom_accent_color');
     if (customBg) root.style.setProperty('--bg-page', customBg);
     if (customAccent) root.style.setProperty('--accent', customAccent);
+    // Cleanup al desmontar
+    return () => {
+      document.body.style.backgroundColor = '';
+      document.body.style.color = '';
+    };
   }, [data]);
 
   // Push animation config to global context so App.tsx renders it
@@ -219,9 +232,11 @@ function MenuContent() {
     <div
       className="min-h-screen pb-28 relative z-[1]"
       style={{
-        backgroundColor: 'transparent',
+        minHeight: '100vh',
+        backgroundColor: 'var(--color-bg)',
+        color: 'var(--color-text)',
         fontFamily: bodyFont,
-        color: theme.text_color,
+        transition: 'background-color 0.3s ease',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
@@ -294,15 +309,15 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Category Tabs — Sticky Glassmorphism V5.0 */}
+      {/* Category Tabs — Sticky Glassmorphism V6.0 */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-40 overflow-x-auto scrollbar-hide border-b"
+        className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: `${theme.background_color}cc`,
+          backgroundColor: `${theme.background_color || '#0a0a0a'}dd`,
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderColor: 'rgba(255,255,255,0.10)',
+          borderBottom: `1px solid ${theme.primary_color || '#22c55e'}25`,
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
