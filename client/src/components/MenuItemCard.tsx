@@ -1,23 +1,19 @@
 /*
  * V5.0 ÉPICA UI PREMIUM — TAREA 2 + TAREA 4
- * TAREA 2: Micro-interacciones en tarjetas
- *   - Hover levitación: transition-all duration-300 hover:-translate-y-1 hover:shadow-xl
- *   - Bordes premium: rounded-3xl + border border-white/5 (dark) / border-black/5 (light)
- *   - Botón "Agregar": hover:scale-105 active:scale-95 transition-transform (táctil y responsivo)
+ * TAREA 2: Micro-interacciones con Tailwind puro (sin Framer Motion en tarjetas/botones)
+ *   - motion.div → div en tarjetas (Framer inyecta transform:none que bloquea hover de Tailwind)
+ *   - motion.button → button en botón Agregar (mismo motivo)
+ *   - hover:-translate-y-1 hover:shadow-xl en tarjetas
+ *   - hover:scale-105 active:scale-95 en botones
  * TAREA 4: Empty States elegantes sin foto
- *   - Si no hay imagen: ocultar contenedor de imagen, texto y precio ocupan 100% del ancho
- *   - Diseño tipográfico limpio ideal para coctelerías y vinos
- *
- * Design base: "Warm Craft" + Neuro-Ventas + i18n + Smart Cart
- * Cards con sombra sepia, tipografía Lora, badges de prueba social animados,
- * feedback visual al agregar (scale + checkmark flash).
+ *   - Si no hay imagen: ocultar contenedor, texto y precio al 100% del ancho
  *
  * Smart Cart behavior:
  * - Clicking photo/text → opens ProductDetailModal (with AI upsell)
- * - Clicking + button → Quick Add (no modal, prevent_checkout_upsell = false)
+ * - Clicking + button → Quick Add (no modal)
  */
 import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Check } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -31,7 +27,6 @@ interface MenuItemCardProps {
   viewMode: 'grid' | 'list';
   allItems?: MenuItem[];
   showBadges?: boolean;
-  /** Called when user taps on the photo/text area to open the detail modal */
   onOpenDetail?: (item: MenuItem) => void;
 }
 
@@ -48,19 +43,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   }, [addItem, item]);
 
   const handleOpenDetail = useCallback(() => {
-    if (onOpenDetail) {
-      onOpenDetail(item);
-    }
+    if (onOpenDetail) onOpenDetail(item);
   }, [onOpenDetail, item]);
 
   const hasImage = Boolean(item.image_url);
 
   if (viewMode === 'list') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
+      <div
         className="flex gap-3 p-3 md:p-4 rounded-3xl relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onClick={handleOpenDetail}
         style={{
@@ -69,21 +59,18 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           border: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {/* Badge */}
         {showBadges && item.badge && (
           <div className="absolute -top-3 left-3 z-10">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
           </div>
         )}
 
-        {/* V5.0 TAREA 4: Solo mostrar imagen si existe */}
         {hasImage && (
           <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0">
             <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
           </div>
         )}
 
-        {/* Content — ocupa 100% del ancho si no hay imagen (TAREA 4) */}
         <div className={`flex-1 min-w-0 ${!hasImage ? 'w-full' : ''}`}>
           <h3
             className="text-base font-semibold leading-tight mb-1"
@@ -113,10 +100,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             >
               {formatPrice(item.price)}
             </span>
-            <motion.button
+            <button
               onClick={handleQuickAdd}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95"
               style={{
                 backgroundColor: justAdded ? '#38A169' : theme.primary_color,
                 color: '#fff',
@@ -147,19 +133,16 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                   </motion.span>
                 )}
               </AnimatePresence>
-            </motion.button>
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   // Grid view
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.35 }}
+    <div
       className="rounded-3xl overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       style={{
         backgroundColor: theme.background_color,
@@ -167,14 +150,12 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         border: '1px solid rgba(255,255,255,0.05)',
       }}
     >
-      {/* Badge */}
       {showBadges && item.badge && (
         <div className="absolute top-2 left-2 z-10">
           <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
         </div>
       )}
 
-      {/* V5.0 TAREA 4: Solo mostrar área de imagen si existe */}
       {hasImage && (
         <div
           className="w-full h-40 relative"
@@ -185,7 +166,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         </div>
       )}
 
-      {/* Content */}
       <div className="p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
         <div onClick={hasImage ? handleOpenDetail : undefined}>
           <h3
@@ -217,10 +197,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           >
             {formatPrice(item.price)}
           </span>
-          <motion.button
+          <button
             onClick={handleQuickAdd}
-            whileTap={{ scale: 0.85 }}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95"
             style={{
               backgroundColor: justAdded ? '#38A169' : theme.primary_color,
               color: '#fff',
@@ -247,9 +226,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.button>
+          </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
