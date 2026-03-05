@@ -12,10 +12,12 @@ import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
+import type { ThemePreset } from '@/lib/themes';
 
 interface FeaturedDishProps {
   item: MenuItem;
   theme: ThemeSettings;
+  preset?: ThemePreset;
 }
 
 function getHoursUntilEndOfWeek(): number {
@@ -34,7 +36,7 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
+export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps) {
   const { addItem } = useCart();
   const { lang, t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -124,14 +126,14 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
         <div className="flex-1 min-w-0">
           <h3
             className="text-lg font-bold leading-tight mb-1"
-            style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
+            style={{ fontFamily: preset?.fontFamily || "'Lora', serif", color: preset?.cardTextColor || theme.text_color }}
           >
             {item.name}
           </h3>
           {item.description && (
             <p
               className="text-sm leading-relaxed mb-2 line-clamp-2 opacity-75"
-              style={{ color: theme.text_color }}
+              style={{ color: preset?.cardDescColor || theme.text_color }}
             >
               {item.description}
             </p>
@@ -143,7 +145,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
             className="flex items-center gap-1 text-[11px] font-medium mb-3 opacity-65"
-            style={{ color: theme.text_color }}
+            style={{ color: preset?.cardDescColor || theme.text_color }}
           >
             <Users size={11} />
             <span>{ordersText}</span>

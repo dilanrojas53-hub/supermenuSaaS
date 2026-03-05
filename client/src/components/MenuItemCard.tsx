@@ -73,9 +73,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
     ? '0 2px 12px rgba(0,0,0,0.5)'
     : '0 2px 12px rgba(0,0,0,0.08)';
 
-  // Texto: usar el color del tema directamente
-  const nameColor = textColor;
-  const descColor = textColor;
+  // V6.1: Usar color de texto del preset (garantiza contraste con cardBackground)
+  const nameColor = preset?.cardTextColor || textColor;
+  const descColor = preset?.cardDescColor || `${textColor}b3`;
 
   if (viewMode === 'list') {
     return (

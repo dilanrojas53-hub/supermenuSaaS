@@ -95,6 +95,13 @@ function MenuContent() {
       document.body.style.backgroundColor = t.background_color || '#0a0a0a';
     }
     document.body.style.fontFamily = p?.fontFamily || 'inherit';
+    // V6.1: Si el preset define colores de texto, sobreescribir para garantizar contraste
+    if (p?.cardTextColor) {
+      document.body.style.color = p.cardTextColor;
+      root.style.setProperty('--color-text', p.cardTextColor);
+      root.style.setProperty('--text-primary', p.cardTextColor);
+      root.style.setProperty('--text-secondary', p.cardDescColor || `${p.cardTextColor}99`);
+    }
     if (p?.googleFontUrl && !document.querySelector(`link[data-theme-font="true"]`)) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -338,7 +345,7 @@ function MenuContent() {
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: `${theme.background_color || '#0a0a0a'}dd`,
+          backgroundColor: preset?.categoryBarBg || `${theme.background_color || '#0a0a0a'}dd`,
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderBottom: `1px solid ${theme.primary_color || '#22c55e'}25`,
@@ -354,7 +361,7 @@ function MenuContent() {
                 className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
                   backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}12`,
-                  color: isActive ? '#fff' : theme.text_color,
+                  color: isActive ? '#fff' : (preset?.categoryBarTextColor || theme.text_color),
                   fontWeight: isActive ? 600 : 400,
                   boxShadow: isActive ? `0 2px 8px ${theme.primary_color}40` : 'none',
                 }}
@@ -372,6 +379,7 @@ function MenuContent() {
           <FeaturedDish
             item={translatedMenuItems.find(i => i.id === featuredItem.id) || featuredItem}
             theme={theme}
+            preset={preset}
           />
         </div>
       )}

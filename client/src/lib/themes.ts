@@ -156,7 +156,10 @@ export interface ThemePreset {
   cardBackground: string;
   cardBorder: string;
   cardShadow: string;
+  cardTextColor: string;       // V6.1: color del texto dentro de las tarjetas
+  cardDescColor: string;       // V6.1: color de la descripción dentro de las tarjetas
   categoryBarBg: string;
+  categoryBarTextColor: string; // V6.1: color del texto de categorías inactivas
   heroOverlay: string;
   buttonStyle: 'rounded-full' | 'rounded-lg' | 'rounded-none';
   priceColor: string;
@@ -174,7 +177,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'rgba(255,255,255,0.05)',
     cardBorder: '1px solid rgba(255,255,255,0.08)',
     cardShadow: '0 2px 16px rgba(0,0,0,0.4)',
+    cardTextColor: '#f0f0f0',
+    cardDescColor: 'rgba(240,240,240,0.7)',
     categoryBarBg: 'rgba(10,10,10,0.9)',
+    categoryBarTextColor: '#cccccc',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.75))',
     buttonStyle: 'rounded-full',
     priceColor: 'inherit',
@@ -190,7 +196,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'linear-gradient(135deg, rgba(255,215,100,0.07) 0%, rgba(255,255,255,0.03) 100%)',
     cardBorder: '1px solid rgba(255,215,100,0.18)',
     cardShadow: '0 4px 28px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,215,100,0.08)',
+    cardTextColor: '#f5f0e0',
+    cardDescColor: 'rgba(245,240,224,0.7)',
     categoryBarBg: 'rgba(13,11,8,0.92)',
+    categoryBarTextColor: '#bfb9aa',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(13,8,0,0.88))',
     buttonStyle: 'rounded-none',
     priceColor: '#d4af37',
@@ -206,7 +215,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'rgba(255,255,255,0.04)',
     cardBorder: '1px solid rgba(255,255,255,0.07)',
     cardShadow: '0 2px 20px rgba(0,0,0,0.35)',
+    cardTextColor: '#e8e0d8',
+    cardDescColor: 'rgba(232,224,216,0.65)',
     categoryBarBg: 'rgba(10,26,15,0.88)',
+    categoryBarTextColor: '#b0c4b8',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(10,26,15,0.82))',
     buttonStyle: 'rounded-lg',
     priceColor: 'inherit',
@@ -222,7 +234,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'rgba(255,255,255,0.07)',
     cardBorder: '1px solid rgba(255,255,255,0.12)',
     cardShadow: '0 4px 24px rgba(0,0,0,0.4)',
+    cardTextColor: '#e8f0ff',
+    cardDescColor: 'rgba(232,240,255,0.65)',
     categoryBarBg: 'rgba(10,22,40,0.9)',
+    categoryBarTextColor: '#a0b8d8',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(7,18,32,0.88))',
     buttonStyle: 'rounded-full',
     priceColor: 'inherit',
@@ -238,7 +253,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'rgba(255,255,255,0.04)',
     cardBorder: '1px solid rgba(255,255,255,0.06)',
     cardShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    cardTextColor: '#e0e0e0',
+    cardDescColor: 'rgba(224,224,224,0.6)',
     categoryBarBg: 'rgba(0,0,0,0.95)',
+    categoryBarTextColor: '#999999',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.92))',
     buttonStyle: 'rounded-none',
     priceColor: 'inherit',
@@ -254,7 +272,10 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     cardBackground: 'rgba(255,255,255,0.92)',
     cardBorder: '1px solid rgba(0,0,0,0.07)',
     cardShadow: '0 2px 16px rgba(0,0,0,0.08)',
+    cardTextColor: '#1a1a2e',
+    cardDescColor: 'rgba(26,26,46,0.65)',
     categoryBarBg: 'rgba(248,250,252,0.94)',
+    categoryBarTextColor: '#4a5568',
     heroOverlay: 'linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.55))',
     buttonStyle: 'rounded-full',
     priceColor: 'inherit',
