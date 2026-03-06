@@ -1,8 +1,8 @@
 /*
- * MenuItemCard — V6.0 Cirugía Láser
- * Sistema de 4 colores nativos: --menu-bg, --menu-surface, --menu-text, --menu-accent
- * Sin presets, sin lógica isDark. Todo reacciona a las CSS vars inyectadas.
- * Diseño premium preservado: rounded-3xl, hover:-translate-y-1, backdrop-blur, shadow-xl.
+ * MenuItemCard — V7.0 Premium Refinement
+ * Glassmorphism overlay (dark: black/60, light: white/60) sobre --menu-surface
+ * Acentos solo en CTA y precios. Imágenes protagonistas con rounded-2xl.
+ * 4 CSS vars: --menu-bg, --menu-surface, --menu-text, --menu-accent
  */
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -44,89 +44,104 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   if (viewMode === 'list') {
     return (
       <div
-        className="flex gap-3 p-3 md:p-4 relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+        className="relative cursor-pointer transition-all duration-300 hover:-translate-y-1"
         onClick={handleOpenDetail}
-        style={{
-          background: 'var(--menu-surface)',
-          border: '1px solid var(--menu-text, #fff)15',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-          borderRadius: '1.5rem',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-        }}
+        style={{ borderRadius: '1.5rem', overflow: 'hidden' }}
       >
-        {/* Badge: una sola vez, compacto */}
-        {showBadges && item.badge && (
-          <div className="absolute -top-3 left-3 z-10">
-            <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-          </div>
-        )}
+        {/* Base surface layer */}
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: 'var(--menu-surface)' }}
+        />
+        {/* Glassmorphism overlay: softens any harsh surface color */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+          }}
+        />
+        {/* Subtle border glow */}
+        <div
+          className="absolute inset-0"
+          style={{
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '1.5rem',
+            pointerEvents: 'none',
+          }}
+        />
 
-        {hasImage && (
-          <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0">
-            <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-          </div>
-        )}
+        {/* Content */}
+        <div className="relative z-10 flex gap-3 p-3 md:p-4" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+          {/* Badge */}
+          {showBadges && item.badge && (
+            <div className="absolute -top-3 left-3 z-20">
+              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+            </div>
+          )}
 
-        <div className={`flex-1 min-w-0 flex flex-col justify-between ${!hasImage ? 'w-full' : ''}`}>
-          <div>
-            <h3
-              className="text-base font-semibold leading-tight mb-1"
-              style={{ color: 'var(--menu-text)' }}
-            >
-              {item.name}
-            </h3>
-            {item.description && (
-              <p
-                className="text-sm leading-relaxed mb-2 line-clamp-2"
-                style={{ color: 'var(--menu-text)', opacity: 0.65 }}
+          {/* Image — protagonist, no filters */}
+          {hasImage && (
+            <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg">
+              <img
+                src={item.image_url!}
+                alt={item.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          <div className={`flex-1 min-w-0 flex flex-col justify-between ${!hasImage ? 'w-full' : ''}`}>
+            <div>
+              <h3
+                className="text-base font-semibold leading-tight mb-1"
+                style={{ color: 'var(--menu-text)' }}
               >
-                {item.description}
-              </p>
-            )}
-          </div>
+                {item.name}
+              </h3>
+              {item.description && (
+                <p
+                  className="text-sm leading-relaxed mb-2 line-clamp-2"
+                  style={{ color: 'var(--menu-text)', opacity: 0.6 }}
+                >
+                  {item.description}
+                </p>
+              )}
+            </div>
 
-          <div className="flex items-center justify-between mt-auto pt-1">
-            <span
-              className="text-lg font-bold"
-              style={{ color: 'var(--menu-accent)' }}
-            >
-              {formatPrice(item.price)}
-            </span>
-            <button
-              onClick={handleQuickAdd}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95"
-              style={{
-                backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-                color: '#fff',
-              }}
-            >
-              <AnimatePresence mode="wait">
-                {justAdded ? (
-                  <motion.span
-                    key="check"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="flex items-center gap-1"
-                  >
-                    <Check size={16} />
-                    {t('menu.added')}
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="add"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus size={16} />
-                    {t('menu.add')}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
+            <div className="flex items-center justify-between mt-auto pt-1">
+              {/* Price — accent color, bold */}
+              <span
+                className="text-lg font-bold"
+                style={{ color: 'var(--menu-accent)' }}
+              >
+                {formatPrice(item.price)}
+              </span>
+              {/* CTA button — accent bg, hover brightness */}
+              <button
+                onClick={handleQuickAdd}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
+                style={{
+                  backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
+                  color: '#fff',
+                  boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {justAdded ? (
+                    <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
+                      <Check size={16} /> {t('menu.added')}
+                    </motion.span>
+                  ) : (
+                    <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
+                      <Plus size={16} /> {t('menu.add')}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -136,33 +151,58 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   // ── GRID VIEW ──
   return (
     <div
-      className="overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-      style={{
-        background: 'var(--menu-surface)',
-        border: '1px solid var(--menu-text, #fff)15',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-        borderRadius: '1.5rem',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-      }}
+      className="relative cursor-pointer transition-all duration-300 hover:-translate-y-1"
+      style={{ borderRadius: '1.5rem', overflow: 'hidden' }}
     >
-      {/* Badge: una sola vez, compacto */}
+      {/* Base surface layer */}
+      <div
+        className="absolute inset-0"
+        style={{ backgroundColor: 'var(--menu-surface)' }}
+      />
+      {/* Glassmorphism overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+        }}
+      />
+      {/* Subtle border */}
+      <div
+        className="absolute inset-0"
+        style={{
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '1.5rem',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Badge */}
       {showBadges && item.badge && (
-        <div className="absolute top-2 left-2 z-10">
+        <div className="absolute top-2 left-2 z-20">
           <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
         </div>
       )}
 
+      {/* Image — protagonist, clean, no overlays */}
       {hasImage && (
         <div
-          className="w-full h-40 relative overflow-hidden"
+          className="relative z-10 w-full h-40 overflow-hidden"
           onClick={handleOpenDetail}
+          style={{ borderRadius: '1.5rem 1.5rem 0 0' }}
         >
-          <img src={item.image_url!} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+          <img
+            src={item.image_url!}
+            alt={item.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
         </div>
       )}
 
-      <div className="p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
+      {/* Text content */}
+      <div className="relative z-10 p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
         <div onClick={hasImage ? handleOpenDetail : undefined}>
           <h3
             className="text-sm font-semibold leading-tight mb-1"
@@ -173,7 +213,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           {item.description && (
             <p
               className="text-xs leading-relaxed mb-2 line-clamp-2"
-              style={{ color: 'var(--menu-text)', opacity: 0.55 }}
+              style={{ color: 'var(--menu-text)', opacity: 0.5 }}
             >
               {item.description}
             </p>
@@ -181,37 +221,30 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         </div>
 
         <div className="flex items-center justify-between">
+          {/* Price — accent */}
           <span
             className="text-base font-bold"
             style={{ color: 'var(--menu-accent)' }}
           >
             {formatPrice(item.price)}
           </span>
+          {/* CTA — accent */}
           <button
             onClick={handleQuickAdd}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 hover:brightness-110 active:scale-95"
             style={{
               backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
               color: '#fff',
+              boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
             }}
           >
             <AnimatePresence mode="wait">
               {justAdded ? (
-                <motion.div
-                  key="check"
-                  initial={{ scale: 0, rotate: -90 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  exit={{ scale: 0 }}
-                >
+                <motion.div key="check" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
                   <Check size={18} />
                 </motion.div>
               ) : (
-                <motion.div
-                  key="plus"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                >
+                <motion.div key="plus" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                   <Plus size={18} />
                 </motion.div>
               )}

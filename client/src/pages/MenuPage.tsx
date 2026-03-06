@@ -238,10 +238,10 @@ function MenuContent() {
     <div
       className="min-h-screen pb-28 relative z-[1]"
       style={{
-        backgroundColor: 'var(--menu-bg)',
+        background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
         fontFamily: bodyFont,
-        transition: 'background-color 0.3s ease',
+        transition: 'background 0.3s ease',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
@@ -318,10 +318,10 @@ function MenuContent() {
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: 'var(--menu-bg)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: `1px solid var(--menu-accent, #E63946)25`,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
