@@ -27,14 +27,17 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-/* Solid badge style — fondo sólido accent, texto accent-contrast, sin blur */
+/* V12.0 FIX AGRESIVO: fondo sólido, text-white hardcodeado, sin glassmorphism, sin backdrop-blur */
 const solidBadgeStyle: React.CSSProperties = {
   backgroundColor: 'var(--menu-accent)',
-  color: 'var(--menu-accent-contrast)',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+  color: '#ffffff',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+  opacity: 1,
 };
 
-const badgeTextClass = 'text-xs font-bold tracking-wide uppercase px-3 py-1 rounded-full shadow-md';
+// V12.0: rounded-md, text-white hardcodeado, opacity-100, sin glassmorphism
+// El posicionamiento absolute top-2 left-2 z-10 lo maneja el wrapper en MenuItemCard
+const badgeTextClass = 'px-3 py-1 rounded-md text-xs font-bold shadow-lg opacity-100 flex items-center gap-1.5';
 
 export default function SocialProofBadge({ badge, theme, itemId, compact = false }: SocialProofBadgeProps) {
   const [showCounter, setShowCounter] = useState(false);

@@ -35,6 +35,8 @@ function MenuContent() {
   const [cartOpen, setCartOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  // V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas
+  const [masterTab, setMasterTab] = useState<'food' | 'drinks'>('food');
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
@@ -218,6 +220,19 @@ function MenuContent() {
   const tenant = lang === 'en' ? { ...rawTenant, ...translatedData.tenant } : rawTenant;
   const categories = translatedData.categories.length ? translatedData.categories : data.categories;
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
+
+  // V12.0 Macro-Categorías: clasificación de bebidas
+  const DRINK_CATEGORIES = ['Bebidas', 'Cócteles', 'Licores y Destilados', 'Vinos', 'Cafetería', 'Té y Bebidas Naturales'];
+  const hasDrinks = categories.some(cat => DRINK_CATEGORIES.includes(cat.name));
+  const hasFood = categories.some(cat => !DRINK_CATEGORIES.includes(cat.name));
+  // Filtrar categorías según el tab activo
+  const visibleCategories = (hasDrinks && hasFood)
+    ? categories.filter(cat =>
+        masterTab === 'drinks'
+          ? DRINK_CATEGORIES.includes(cat.name)
+          : !DRINK_CATEGORIES.includes(cat.name)
+      )
+    : categories;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
 
@@ -320,6 +335,66 @@ function MenuContent() {
         </div>
       </div>
 
+      {/* V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas */}
+      {hasDrinks && hasFood && (
+        <div
+          style={{ display: 'flex', gap: '8px', padding: '12px 16px' }}
+        >
+          <button
+            onClick={() => { setMasterTab('food'); setActiveCategory(null); }}
+            style={masterTab === 'food' ? {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '16px',
+              backgroundColor: theme.primary_color,
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            } : {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '16px',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              color: theme.text_color,
+              border: '1px solid rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+            }}
+          >
+            🍽️ Comidas
+          </button>
+          <button
+            onClick={() => { setMasterTab('drinks'); setActiveCategory(null); }}
+            style={masterTab === 'drinks' ? {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '16px',
+              backgroundColor: theme.primary_color,
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            } : {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '16px',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              color: theme.text_color,
+              border: '1px solid rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+            }}
+          >
+            🍹 Bebidas
+          </button>
+        </div>
+      )}
+
       {/* Category Tabs — Sticky Glassmorphism */}
       <div
         ref={tabsRef}
@@ -332,7 +407,7 @@ function MenuContent() {
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
-          {categories.map(cat => {
+          {visibleCategories.map(cat => {
             const isActive = activeCategory === cat.id;
             return (
               <button
@@ -366,7 +441,7 @@ function MenuContent() {
 
       {/* Menu Items by Category */}
       <div className="px-4 mt-2">
-        {categories.map(cat => {
+        {visibleCategories.map(cat => {
           const catItems = itemsByCategory[cat.id] || [];
           if (catItems.length === 0) return null;
 
