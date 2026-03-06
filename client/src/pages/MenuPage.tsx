@@ -136,10 +136,17 @@ function MenuContent() {
     }
   }, [data, activeCategory]);
 
-  // Featured item (is_featured = true)
+  // V13.0 Featured item contextual al masterTab — solo de visibleCategories
   const featuredItem = useMemo(() => {
-    return data?.menuItems.find(item => item.is_featured) || null;
-  }, [data]);
+    if (!data) return null;
+    const allItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
+    const visibleCategoryIds = new Set(visibleCategories.map(cat => cat.id));
+    const featured = allItems.find(item =>
+      item.is_featured === true &&
+      visibleCategoryIds.has(item.category_id)
+    );
+    return featured || null;
+  }, [data, translatedData.menuItems, visibleCategories, masterTab]);
 
   // Items grouped by category
   const itemsByCategory = useMemo(() => {
