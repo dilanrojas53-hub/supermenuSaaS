@@ -1,7 +1,7 @@
 /*
- * FeaturedDish — V7.0 Premium Refinement
- * Glassmorphism overlay sobre --menu-surface.
- * Acentos solo en badge, precio y CTA. Imagen protagonista.
+ * FeaturedDish — V8.0 Polímata Visual
+ * Inner Glow, Neon Glass badge, Jerarquía tipográfica.
+ * 4 CSS vars: --menu-bg, --menu-surface, --menu-text, --menu-accent
  */
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,7 +59,11 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
       className="mx-4 mb-6 relative overflow-hidden"
-      style={{ borderRadius: '2rem' }}
+      style={{
+        borderRadius: '1.5rem',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.35)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
     >
       {/* Base surface */}
       <div className="absolute inset-0" style={{ backgroundColor: 'var(--menu-surface)' }} />
@@ -67,18 +71,9 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       <div
         className="absolute inset-0"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.4)',
+          backgroundColor: 'rgba(0,0,0,0.45)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-        }}
-      />
-      {/* Premium border */}
-      <div
-        className="absolute inset-0"
-        style={{
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '2rem',
-          pointerEvents: 'none',
         }}
       />
 
@@ -86,31 +81,35 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
       <motion.div
         className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.04) 45%, transparent 60%)',
-          borderRadius: '2rem',
+          background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.03) 45%, transparent 60%)',
+          borderRadius: '1.5rem',
         }}
         animate={{ x: ['-100%', '200%'] }}
         transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut', repeatDelay: 3 }}
       />
 
       {/* Content */}
-      <div className="relative z-10 p-5" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
-        {/* Header: badge + countdown */}
+      <div className="relative z-10 p-5">
+        {/* Header: Neon Glass badge + countdown */}
         <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+          {/* Neon Glass badge */}
           <span
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide uppercase"
             style={{
-              backgroundColor: 'var(--menu-accent)',
-              color: '#fff',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              backgroundColor: 'color-mix(in srgb, var(--menu-accent) 15%, transparent)',
+              color: 'var(--menu-accent)',
+              border: '1px solid color-mix(in srgb, var(--menu-accent) 30%, transparent)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
             }}
           >
             ⭐ {lang === 'es' ? 'Recomendación del Chef' : "Chef's Recommendation"}
           </span>
+          {/* Countdown — subtle */}
           <div
-            className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full"
+            className="flex items-center gap-1 text-[10px] font-semibold tracking-wide px-2.5 py-1 rounded-full"
             style={{
-              backgroundColor: 'rgba(255,255,255,0.08)',
+              backgroundColor: 'rgba(255,255,255,0.06)',
               color: 'var(--menu-accent)',
             }}
           >
@@ -123,11 +122,14 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
         <div className="flex gap-4">
           {/* Image — protagonist */}
           {item.image_url && (
-            <div className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg relative">
+            <div className="w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 shadow-lg relative">
               <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
               <div
                 className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
-                style={{ backgroundColor: 'var(--menu-accent)' }}
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--menu-accent) 20%, transparent)',
+                  backdropFilter: 'blur(4px)',
+                }}
               >
                 <span className="text-xs">👨‍🍳</span>
               </div>
@@ -136,38 +138,40 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
 
           {/* Text */}
           <div className="flex-1 min-w-0">
+            {/* Title — bold, lg */}
             <h3
               className="text-lg font-bold leading-tight mb-1"
-              style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}
+              style={{ color: 'var(--menu-text)' }}
             >
               {item.name}
             </h3>
+            {/* Description — 60% opacity */}
             {item.description && (
               <p
                 className="text-sm leading-relaxed mb-2 line-clamp-2"
-                style={{ color: 'var(--menu-text)', opacity: 0.65 }}
+                style={{ color: 'var(--menu-text)', opacity: 0.6 }}
               >
                 {item.description}
               </p>
             )}
 
-            {/* Social proof */}
+            {/* Social proof — subtle */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
               className="flex items-center gap-1 text-[11px] font-medium mb-3"
-              style={{ color: 'var(--menu-text)', opacity: 0.5 }}
+              style={{ color: 'var(--menu-text)', opacity: 0.45 }}
             >
               <Users size={11} />
               <span>{ordersText}</span>
             </motion.div>
 
             <div className="flex items-center justify-between">
-              {/* Price — accent */}
+              {/* Price — accent, extrabold */}
               <span
-                className="text-xl font-bold"
-                style={{ fontFamily: "'Lora', serif", color: 'var(--menu-accent)' }}
+                className="text-xl font-extrabold"
+                style={{ color: 'var(--menu-accent)' }}
               >
                 {formatPrice(item.price)}
               </span>
@@ -175,7 +179,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
               <motion.button
                 onClick={handleAdd}
                 whileTap={{ scale: 0.92 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105 hover:brightness-110 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:brightness-110"
                 style={{
                   backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
                   color: '#fff',

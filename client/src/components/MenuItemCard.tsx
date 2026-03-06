@@ -1,7 +1,8 @@
 /*
- * MenuItemCard — V7.0 Premium Refinement
- * Glassmorphism overlay (dark: black/60, light: white/60) sobre --menu-surface
- * Acentos solo en CTA y precios. Imágenes protagonistas con rounded-2xl.
+ * MenuItemCard — V8.0 Polímata Visual
+ * Inner Glow (inset shadow top), border white/5, jerarquía tipográfica.
+ * Badges posicionados sobre la imagen (absolute top-2 left-2).
+ * Precios: text-accent font-extrabold. Descripciones: text-main/60.
  * 4 CSS vars: --menu-bg, --menu-surface, --menu-text, --menu-accent
  */
 import { useState, useCallback } from 'react';
@@ -40,67 +41,73 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
   const hasImage = Boolean(item.image_url);
 
+  /* Shared card container styles — Inner Glow + subtle border */
+  const cardContainerStyle: React.CSSProperties = {
+    borderRadius: '1.25rem',
+    overflow: 'hidden',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.25)',
+    border: '1px solid rgba(255,255,255,0.05)',
+  };
+
+  /* Card background layers as inline style — surface + dark overlay */
+  const cardBgStyle: React.CSSProperties = {
+    backgroundColor: 'var(--menu-surface)',
+  };
+  const cardOverlayStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+  };
+
   // ── LIST VIEW ──
   if (viewMode === 'list') {
     return (
       <div
-        className="relative cursor-pointer transition-all duration-300 hover:-translate-y-1"
+        className="relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
         onClick={handleOpenDetail}
-        style={{ borderRadius: '1.5rem', overflow: 'hidden' }}
+        style={cardContainerStyle}
       >
-        {/* Base surface layer */}
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: 'var(--menu-surface)' }}
-        />
-        {/* Glassmorphism overlay: softens any harsh surface color */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundColor: 'rgba(0,0,0,0.35)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-          }}
-        />
-        {/* Subtle border glow */}
-        <div
-          className="absolute inset-0"
-          style={{
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '1.5rem',
-            pointerEvents: 'none',
-          }}
-        />
+        {/* Background layers */}
+        <div className="absolute inset-0" style={cardBgStyle} />
+        <div className="absolute inset-0" style={cardOverlayStyle} />
 
         {/* Content */}
-        <div className="relative z-10 flex gap-3 p-3 md:p-4" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
-          {/* Badge */}
-          {showBadges && item.badge && (
-            <div className="absolute -top-3 left-3 z-20">
-              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-            </div>
-          )}
-
-          {/* Image — protagonist, no filters */}
+        <div className="relative z-10 flex gap-3 p-3 md:p-4">
+          {/* Image with badge overlay */}
           {hasImage && (
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg">
+            <div className="relative w-28 h-28 md:w-32 md:h-32 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
               <img
                 src={item.image_url!}
                 alt={item.name}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
+              {/* Badge floats on image */}
+              {showBadges && item.badge && (
+                <div className="absolute top-2 left-2 z-10">
+                  <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+                </div>
+              )}
             </div>
           )}
 
-          <div className={`flex-1 min-w-0 flex flex-col justify-between ${!hasImage ? 'w-full' : ''}`}>
+          {/* Badge outside if no image */}
+          {!hasImage && showBadges && item.badge && (
+            <div className="absolute top-3 left-3 z-10">
+              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+            </div>
+          )}
+
+          <div className={`flex-1 min-w-0 flex flex-col justify-between ${!hasImage ? 'pt-8 w-full' : ''}`}>
             <div>
+              {/* Title — bold, lg */}
               <h3
-                className="text-base font-semibold leading-tight mb-1"
+                className="text-lg font-bold leading-tight mb-1"
                 style={{ color: 'var(--menu-text)' }}
               >
                 {item.name}
               </h3>
+              {/* Description — 60% opacity for harmony */}
               {item.description && (
                 <p
                   className="text-sm leading-relaxed mb-2 line-clamp-2"
@@ -112,14 +119,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </div>
 
             <div className="flex items-center justify-between mt-auto pt-1">
-              {/* Price — accent color, bold */}
+              {/* Price — accent, extrabold */}
               <span
-                className="text-lg font-bold"
+                className="text-lg font-extrabold"
                 style={{ color: 'var(--menu-accent)' }}
               >
                 {formatPrice(item.price)}
               </span>
-              {/* CTA button — accent bg, hover brightness */}
+              {/* CTA — accent bg */}
               <button
                 onClick={handleQuickAdd}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
@@ -151,46 +158,19 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   // ── GRID VIEW ──
   return (
     <div
-      className="relative cursor-pointer transition-all duration-300 hover:-translate-y-1"
-      style={{ borderRadius: '1.5rem', overflow: 'hidden' }}
+      className="relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
+      style={cardContainerStyle}
     >
-      {/* Base surface layer */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'var(--menu-surface)' }}
-      />
-      {/* Glassmorphism overlay */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: 'rgba(0,0,0,0.35)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-        }}
-      />
-      {/* Subtle border */}
-      <div
-        className="absolute inset-0"
-        style={{
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '1.5rem',
-          pointerEvents: 'none',
-        }}
-      />
+      {/* Background layers */}
+      <div className="absolute inset-0" style={cardBgStyle} />
+      <div className="absolute inset-0" style={cardOverlayStyle} />
 
-      {/* Badge */}
-      {showBadges && item.badge && (
-        <div className="absolute top-2 left-2 z-20">
-          <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-        </div>
-      )}
-
-      {/* Image — protagonist, clean, no overlays */}
+      {/* Image with badge overlay */}
       {hasImage && (
         <div
-          className="relative z-10 w-full h-40 overflow-hidden"
+          className="relative z-10 w-full h-44 overflow-hidden"
           onClick={handleOpenDetail}
-          style={{ borderRadius: '1.5rem 1.5rem 0 0' }}
+          style={{ borderRadius: '1.25rem 1.25rem 0 0' }}
         >
           <img
             src={item.image_url!}
@@ -198,22 +178,37 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             className="w-full h-full object-cover"
             loading="lazy"
           />
+          {/* Badge floats on image corner */}
+          {showBadges && item.badge && (
+            <div className="absolute top-2 left-2 z-10">
+              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Badge outside if no image */}
+      {!hasImage && showBadges && item.badge && (
+        <div className="relative z-10 pt-3 pl-3">
+          <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
         </div>
       )}
 
       {/* Text content */}
       <div className="relative z-10 p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
         <div onClick={hasImage ? handleOpenDetail : undefined}>
+          {/* Title — bold */}
           <h3
-            className="text-sm font-semibold leading-tight mb-1"
+            className="text-base font-bold leading-tight mb-1"
             style={{ color: 'var(--menu-text)' }}
           >
             {item.name}
           </h3>
+          {/* Description — 60% opacity */}
           {item.description && (
             <p
-              className="text-xs leading-relaxed mb-2 line-clamp-2"
-              style={{ color: 'var(--menu-text)', opacity: 0.5 }}
+              className="text-xs leading-relaxed mb-3 line-clamp-2"
+              style={{ color: 'var(--menu-text)', opacity: 0.6 }}
             >
               {item.description}
             </p>
@@ -221,14 +216,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         </div>
 
         <div className="flex items-center justify-between">
-          {/* Price — accent */}
+          {/* Price — accent, extrabold */}
           <span
-            className="text-base font-bold"
+            className="text-lg font-extrabold"
             style={{ color: 'var(--menu-accent)' }}
           >
             {formatPrice(item.price)}
           </span>
-          {/* CTA — accent */}
+          {/* CTA — accent circle */}
           <button
             onClick={handleQuickAdd}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 hover:brightness-110 active:scale-95"
