@@ -1,10 +1,16 @@
 /**
- * PoweredByFooter — V13.0 Smart Footer Vectorizado
- * Logo vectorizado inline (sin imágenes externas), fondo transparente.
- * Texto adaptado al color del tema del restaurante.
+ * PoweredByFooter — Branding obligatorio "Powered by Digital Atlas"
  * Aparece en TODOS los menús públicos y en la Landing Page.
+ * Usa dos versiones del logo con fondo transparente:
+ *   - Versión oscura (navy) para fondos claros
+ *   - Versión blanca para fondos oscuros
+ * Acepta un `bgColor` opcional para adaptarse al tema del restaurante.
+ * Es un enlace clickeable que lleva a la Landing Page (/).
  */
 import { Link } from "wouter";
+
+const LOGO_DARK = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/ofjAIdphsUtYXacD.png";
+const LOGO_WHITE = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663241686300/OmbbPNnVFlwOoZKI.png";
 
 interface PoweredByFooterProps {
   /** "light" | "dark" — se puede pasar directamente o dejar que se auto-detecte via bgColor */
@@ -37,57 +43,48 @@ export default function PoweredByFooter({ variant, bgColor, textColor }: Powered
       ? isColorDark(bgColor)
       : false;
 
-  // Color del texto: usar textColor si se pasa, sino adaptar al fondo
-  const resolvedTextColor = textColor
+  const logoSrc = isDark ? LOGO_WHITE : LOGO_DARK;
+
+  // When bgColor is provided (restaurant menu), blend with the restaurant's theme
+  // When not provided (landing/pricing), use the default styled backgrounds
+  const footerStyle: React.CSSProperties = bgColor
+    ? {
+        backgroundColor: bgColor,
+        borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+      }
+    : {};
+
+  const defaultBgClass = bgColor
+    ? ''
+    : isDark
+      ? 'bg-gray-900 border-t border-gray-800'
+      : 'bg-white/80 backdrop-blur-sm border-t border-gray-200';
+
+  const poweredByColor = textColor
     ? textColor
     : isDark
-      ? 'rgba(255,255,255,0.6)'
-      : 'rgba(0,0,0,0.5)';
+      ? 'rgba(255,255,255,0.45)'
+      : 'rgba(0,0,0,0.4)';
 
   return (
     <footer
-      className="w-full"
-      style={{ backgroundColor: 'transparent' }}
+      className={`w-full py-10 px-4 ${defaultBgClass}`}
+      style={footerStyle}
     >
       <Link href="/">
-        <div
-          className="flex flex-col items-center justify-center py-10 cursor-pointer"
-          style={{ opacity: 0.5, transition: 'opacity 0.3s ease' }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
-        >
-          {/* "Powered by" label */}
+        <div className="flex flex-col items-center gap-4 cursor-pointer group">
           <span
-            className="text-[10px] tracking-[0.2em] uppercase mb-2 font-bold"
-            style={{ color: resolvedTextColor }}
+            className="text-xs font-semibold tracking-[0.2em] uppercase"
+            style={{ fontFamily: "'Nunito', sans-serif", color: poweredByColor }}
           >
             Powered by
           </span>
-
-          {/* Logo vectorizado Digital Atlas — sin imágenes externas */}
-          <div
-            className="flex items-center gap-2"
-            style={{ color: resolvedTextColor }}
-          >
-            {/* Ícono vectorizado: círculo con líneas (atlas/pin) */}
-            <div
-              className="w-7 h-7 rounded-full border-2 border-current flex items-center justify-center"
-              style={{ flexShrink: 0 }}
-            >
-              <div className="flex flex-col items-center justify-center">
-                <div className="h-0.5 w-3 bg-current rounded-full mb-0.5" />
-                <div className="h-2.5 w-0.5 bg-current rounded-full" />
-              </div>
-            </div>
-
-            {/* Wordmark */}
-            <span
-              className="font-extrabold tracking-tight text-xl"
-              style={{ color: resolvedTextColor, fontFamily: "'Nunito', sans-serif" }}
-            >
-              Digital Atlas
-            </span>
-          </div>
+          <img
+            src={logoSrc}
+            alt="Digital Atlas"
+            className="object-contain group-hover:scale-105 transition-transform duration-300"
+            style={{ width: '180px', height: 'auto' }}
+          />
         </div>
       </Link>
     </footer>

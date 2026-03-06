@@ -47,43 +47,44 @@ type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
-// ─── V13.0 MOTOR DE MARIDAJE FIX AGRESIVO: Clasificación SOLO por nombre de categoría ───
-// NUNCA usar keywords de nombre de producto (ej: 'milkshake' en el nombre del item)
-// Solo se clasifica por el NOMBRE DE LA CATEGORÍA a la que pertenece el item
-const DRINK_CATEGORIES_V13 = [
-  'Bebidas', 'Cafetería', 'Cócteles',
-  'Licores y Destilados', 'Té y Bebidas Naturales', 'Vinos',
-  'Vinos (Botella)', 'Vinos por Copa',
-  'Bebidas Frías', 'Bebidas Calientes', 'Jugos', 'Smoothies', 'Cervezas',
+// ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
+// Categorías de bebidas (disparan sugerencias de comida/postre)
+const DRINK_CATEGORY_NAMES = [
+  'Bebidas', 'Cafetería', 'Cócteles', 'Licores y Destilados', 'Té y Bebidas Naturales',
+  'Bebidas Frías', 'Bebidas Calientes', 'Jugos', 'Smoothies', 'Cervezas', 'Vinos',
 ];
-const FOOD_CATEGORIES_V13 = [
-  'Entradas', 'Platos Principales', 'Hamburguesas',
-  'Acompañamientos', 'Tablas para Compartir', 'Platos Fuertes',
+// Categorías de comida (disparan sugerencias de bebida/postre)
+const FOOD_CATEGORY_NAMES = [
+  'Entradas', 'Platos Principales', 'Hamburguesas', 'Acompañamientos', 'Tablas para Compartir',
   'Pizzas', 'Pastas', 'Tacos', 'Sushi', 'Ensaladas', 'Wraps', 'Bowls', 'Sandwiches',
-  'Pollo', 'Carnes', 'Mariscos', 'Vegetariano', 'Vegano', 'Guarniciones', 'Menú Infantil',
+  'Pollo', 'Carnes', 'Mariscos', 'Vegetariano', 'Vegano',
 ];
-const DESSERT_CATEGORIES_V13 = [
-  'Postres', 'Dulces & Postres', 'Dulces', 'Helados', 'Pasteles', 'Tortas',
+// Categorías de postres (complementan tanto bebidas como comida)
+const DESSERT_CATEGORY_NAMES = [
+  'Postres', 'Dulces', 'Helados', 'Pasteles', 'Tortas',
 ];
+// Keywords de fallback (si el nombre exacto no coincide)
+const DRINK_KEYWORDS = ['bebida', 'drink', 'refresco', 'jugo', 'licor', 'vino', 'cerveza', 'cóctel', 'cocktail', 'café', 'coffee', 'té', 'tea', 'agua', 'water', 'smoothie', 'milkshake'];
+const FOOD_KEYWORDS = ['hamburguesa', 'burger', 'plato', 'entrada', 'principal', 'sándwich', 'sandwich', 'pizza', 'pasta', 'taco', 'burritos', 'sushi', 'ramen', 'pollo', 'chicken', 'carne', 'meat', 'pescado', 'fish', 'mariscos', 'seafood', 'vegano', 'vegan', 'vegetariano', 'vegetarian', 'bowl', 'wrap', 'casado', 'gallo', 'arroz', 'rice'];
+const DESSERT_KEYWORDS = ['postre', 'dessert', 'dulce', 'sweet', 'helado', 'ice cream', 'pastel', 'cake', 'torta', 'pie', 'brownie', 'chocolate', 'flan', 'cheesecake'];
+const SIDE_KEYWORDS = ['acompañamiento', 'side', 'guarnición', 'garnish', 'papas', 'fries', 'nachos', 'sopa', 'soup', 'tabla', 'share', 'compartir'];
 
 /**
- * classifyCategoryName — V13.0 FIX AGRESIVO
- * Clasifica SOLO por nombre de categoría (includes case-insensitive).
- * NO usa keywords de nombre de producto para evitar falsos positivos.
- * Ejemplo: 'Milkshake Oreo' en categoría 'Postres' → dessert (no drink).
+ * classifyCategoryName — V11.0 Maridaje
+ * Primero intenta coincidencia exacta (case-insensitive) con las listas de nombres.
+ * Si no hay coincidencia, usa keywords como fallback.
  */
 const classifyCategoryName = (catName: string): 'drink' | 'food' | 'dessert' | 'side' | 'other' => {
   const lower = catName.toLowerCase().trim();
-  // Coincidencia exacta o parcial por nombre de categoría
-  if (DRINK_CATEGORIES_V13.some(n => lower === n.toLowerCase() || lower.includes(n.toLowerCase()))) return 'drink';
-  if (DESSERT_CATEGORIES_V13.some(n => lower === n.toLowerCase() || lower.includes(n.toLowerCase()))) return 'dessert';
-  if (FOOD_CATEGORIES_V13.some(n => lower === n.toLowerCase() || lower.includes(n.toLowerCase()))) return 'food';
-  // Fallback mínimo: solo palabras que son inequívocamente categorías de bebida
-  if (['bebida', 'drink', 'vino', 'licor', 'cóctel', 'cocktail', 'café', 'coffee', 'cerveza'].some(k => lower.includes(k))) return 'drink';
-  // Fallback mínimo: postres
-  if (['postre', 'dessert', 'dulce', 'helado'].some(k => lower.includes(k))) return 'dessert';
-  // Fallback mínimo: acompañamientos
-  if (['acompañamiento', 'guarnición'].some(k => lower.includes(k))) return 'side';
+  // 1º: Coincidencia exacta por nombre de categoría
+  if (DRINK_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'drink';
+  if (FOOD_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'food';
+  if (DESSERT_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'dessert';
+  // 2º: Fallback por keywords
+  if (DRINK_KEYWORDS.some(k => lower.includes(k))) return 'drink';
+  if (DESSERT_KEYWORDS.some(k => lower.includes(k))) return 'dessert';
+  if (SIDE_KEYWORDS.some(k => lower.includes(k))) return 'side';
+  if (FOOD_KEYWORDS.some(k => lower.includes(k))) return 'food';
   return 'other';
 };
 

@@ -267,18 +267,8 @@ export default function OrderStatusPage() {
 
   return (
     <div className="min-h-screen text-white" style={{ backgroundColor: 'transparent' }}>
-      {/* Header — V13.0 fix: z-50 + fondo sólido para evitar que el contenido traspase al hacer scroll */}
-      <div
-        className="border-b border-slate-800/50"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          backgroundColor: 'var(--color-bg, #0a0a0a)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
-      >
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-black/60 backdrop-blur-md border-b border-slate-800/50">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
