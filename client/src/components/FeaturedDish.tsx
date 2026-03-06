@@ -182,7 +182,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:brightness-110"
                 style={{
                   backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-                  color: '#fff',
+                  color: 'var(--menu-accent-contrast)',
                   boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
                 }}
               >

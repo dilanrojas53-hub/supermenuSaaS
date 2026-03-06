@@ -39,7 +39,7 @@ export default function FloatingCart({ theme, onOpen }: FloatingCartProps) {
             className="w-full flex items-center justify-between px-6 py-4 rounded-2xl shadow-xl transition-all active:scale-[0.98]"
             style={{
               backgroundColor: theme.primary_color,
-              color: '#fff',
+              color: 'var(--menu-accent-contrast)',
               boxShadow: `0 8px 32px ${theme.primary_color}40`,
             }}
           >

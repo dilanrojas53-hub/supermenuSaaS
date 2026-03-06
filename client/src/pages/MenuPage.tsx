@@ -14,6 +14,7 @@ import { useMenuTranslation } from '@/hooks/useMenuTranslation';
 import { CartProvider } from '@/contexts/CartContext';
 import { I18nProvider, useI18n } from '@/contexts/I18nContext';
 import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
+import { getContrastColor } from '@/lib/utils';
 import type { MenuItem, PlanFeatures } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
@@ -79,13 +80,19 @@ function MenuContent() {
     root.style.setProperty('--menu-text', textColor);
     root.style.setProperty('--menu-accent', accentColor);
 
+    // V9.0: Motor de Contraste Automático YIQ
+    const accentContrast = getContrastColor(accentColor);
+    const bgContrast = getContrastColor(bgColor);
+    root.style.setProperty('--menu-accent-contrast', accentContrast);
+    root.style.setProperty('--menu-bg-contrast', bgContrast);
+
     // Compat con motor B2B V4.0
     root.style.setProperty('--bg-page', bgColor);
     root.style.setProperty('--bg-surface', bgColor);
     root.style.setProperty('--text-primary', textColor);
     root.style.setProperty('--text-secondary', `${textColor}99`);
     root.style.setProperty('--accent', accentColor);
-    root.style.setProperty('--accent-contrast', '#ffffff');
+    root.style.setProperty('--accent-contrast', accentContrast);
     root.style.setProperty('--border', `${textColor}15`);
     root.style.setProperty('--muted', `${textColor}60`);
 
@@ -334,7 +341,7 @@ function MenuContent() {
                 className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
                   backgroundColor: isActive ? 'var(--menu-accent)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--menu-text)',
+                  color: isActive ? 'var(--menu-accent-contrast)' : 'var(--menu-text)',
                   fontWeight: isActive ? 600 : 400,
                   boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
                   opacity: isActive ? 1 : 0.7,

@@ -132,7 +132,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
                 style={{
                   backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-                  color: '#fff',
+                  color: 'var(--menu-accent-contrast)',
                   boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
                 }}
               >
@@ -229,7 +229,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 hover:brightness-110 active:scale-95"
             style={{
               backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-              color: '#fff',
+              color: 'var(--menu-accent-contrast)',
               boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
             }}
           >

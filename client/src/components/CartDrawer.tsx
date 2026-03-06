@@ -660,7 +660,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                             style={{ backgroundColor: theme.primary_color }}
                           >
-                            <Plus size={13} className="text-white" />
+                            <Plus size={13} style={{ color: 'var(--menu-accent-contrast)' }} />
                           </button>
                         </div>
                       </motion.div>
@@ -689,11 +689,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <motion.button
                       onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('customer_info')}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
                       style={{
                         backgroundColor: openTab ? '#F59E0B' : theme.primary_color,
                         boxShadow: openTab ? '0 4px 16px rgba(245,158,11,0.3)' : `0 4px 16px ${theme.primary_color}40`,
-                        color: openTab ? '#000' : '#fff',
+                        color: openTab ? '#000' : 'var(--menu-accent-contrast)',
                       }}
                     >
                       <ShoppingBag size={20} />
@@ -921,10 +921,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     onClick={() => handleProceedToPayment(allMenuItems)}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: theme.primary_color,
                       boxShadow: canProceedToPayment ? `0 4px 16px ${theme.primary_color}40` : 'none',
+                      color: 'var(--menu-accent-contrast)',
                     }}
                   >
                     {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
@@ -1018,7 +1019,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                       style={{
                         backgroundColor: theme.primary_color,
-                        color: '#fff',
+                        color: 'var(--menu-accent-contrast)',
                         boxShadow: `0 4px 16px ${theme.primary_color}40`,
                       }}
                     >
