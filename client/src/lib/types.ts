@@ -74,6 +74,7 @@ export interface ThemeSettings {
   accent_color: string;
   background_color: string;
   text_color: string;
+  surface_color: string;
   font_family: string;
   view_mode: 'grid' | 'list';
   hero_image_url: string | null;

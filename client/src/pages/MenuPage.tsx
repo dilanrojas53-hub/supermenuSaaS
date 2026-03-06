@@ -1,5 +1,6 @@
 /*
  * Design: "Warm Craft" + Neuro-Ventas completo + i18n ES/EN.
+ * V6.0 Cirugía Láser: Sistema de 4 colores nativos (bg, surface, text, accent).
  * Theming dinámico, scroll spy, platillo de la semana,
  * social proof toasts, upsell condicionado con delay,
  * carrito flotante con checkout SINPE/WhatsApp.
@@ -16,7 +17,6 @@ import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types'
 import type { MenuItem, PlanFeatures } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
-// UpsellModal removed — all upselling now happens at checkout via CartDrawer
 import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
@@ -24,7 +24,7 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
-import { applyTheme, getStoredTheme, getPreset, type ThemePreset } from '@/lib/themes';
+import { applyTheme, getStoredTheme } from '@/lib/themes';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -34,12 +34,11 @@ function MenuContent() {
   const [cartOpen, setCartOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  // Upsell state removed — all upselling now happens at checkout
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
 
-  // Dynamic translation of ALL DB content (tenant info, categories, dish names/descriptions)
+  // Dynamic translation of ALL DB content
   const { translatedData, isTranslating } = useMenuTranslation(
     data ? { name: data.tenant.name, description: data.tenant.description, address: data.tenant.address } : { name: '' },
     data?.categories || [],
@@ -57,7 +56,9 @@ function MenuContent() {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
 
-  // V6.0 Fase 1: Propagación global de colores del tema al menú público
+  // ═══════════════════════════════════════════════════════════════
+  // V6.0 CIRUGÍA LÁSER: Inyección directa de 4 colores nativos
+  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!data) {
       applyTheme(getStoredTheme());
@@ -65,67 +66,48 @@ function MenuContent() {
     }
     const t = data.theme;
     const root = document.documentElement;
-    // Variables CSS globales
-    root.style.setProperty('--color-bg', t.background_color || '#0a0a0a');
-    root.style.setProperty('--color-primary', t.primary_color || '#22c55e');
-    root.style.setProperty('--color-text', t.text_color || '#ffffff');
-    root.style.setProperty('--color-surface', `${t.background_color || '#1a1a1a'}ee`);
-    root.style.setProperty('--color-border', `${t.primary_color || '#22c55e'}25`);
-    // Mantener compat con motor B2B V4.0
-    root.style.setProperty('--bg-page', t.background_color);
-    root.style.setProperty('--bg-surface', t.background_color);
-    root.style.setProperty('--text-primary', t.text_color);
-    root.style.setProperty('--text-secondary', `${t.text_color}99`);
-    root.style.setProperty('--accent', t.primary_color);
+
+    // Las 4 variables maestras del menú público
+    const bgColor = t.background_color || '#0a0a0a';
+    const surfaceColor = t.surface_color || (isLightColor(bgColor) ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.06)');
+    const textColor = t.text_color || '#ffffff';
+    const accentColor = t.primary_color || '#E63946';
+
+    // Inyectar las 4 vars maestras
+    root.style.setProperty('--menu-bg', bgColor);
+    root.style.setProperty('--menu-surface', surfaceColor);
+    root.style.setProperty('--menu-text', textColor);
+    root.style.setProperty('--menu-accent', accentColor);
+
+    // Compat con motor B2B V4.0
+    root.style.setProperty('--bg-page', bgColor);
+    root.style.setProperty('--bg-surface', bgColor);
+    root.style.setProperty('--text-primary', textColor);
+    root.style.setProperty('--text-secondary', `${textColor}99`);
+    root.style.setProperty('--accent', accentColor);
     root.style.setProperty('--accent-contrast', '#ffffff');
-    root.style.setProperty('--border', `${t.text_color}15`);
-    root.style.setProperty('--muted', `${t.text_color}60`);
+    root.style.setProperty('--border', `${textColor}15`);
+    root.style.setProperty('--muted', `${textColor}60`);
+
     // Aplicar al body directamente
-    document.body.style.backgroundColor = t.background_color || '#0a0a0a';
-    document.body.style.color = t.text_color || '#ffffff';
+    document.body.style.backgroundColor = bgColor;
+    document.body.style.color = textColor;
     document.body.style.minHeight = '100vh';
-    // V6.0 Fase 3: Aplicar preset visual
-    const p = getPreset((t as any)?.theme_preset);
-    if (p && p.id !== 'default') {
-      document.body.style.backgroundImage = p.bgGradient;
-      document.body.style.backgroundAttachment = 'fixed';
-      document.body.style.backgroundSize = 'cover';
-    } else {
-      document.body.style.backgroundImage = 'none';
-      document.body.style.backgroundColor = t.background_color || '#0a0a0a';
-    }
-    document.body.style.fontFamily = p?.fontFamily || 'inherit';
-    // V6.1: Si el preset define colores de texto, sobreescribir para garantizar contraste
-    if (p?.cardTextColor) {
-      document.body.style.color = p.cardTextColor;
-      root.style.setProperty('--color-text', p.cardTextColor);
-      root.style.setProperty('--text-primary', p.cardTextColor);
-      root.style.setProperty('--text-secondary', p.cardDescColor || `${p.cardTextColor}99`);
-    }
-    if (p?.googleFontUrl && !document.querySelector(`link[data-theme-font="true"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = p.googleFontUrl;
-      link.setAttribute('data-theme-font', 'true');
-      document.head.appendChild(link);
-    }
-    // Aplicar color personalizado de fondo si existe en localStorage
-    const customBg = localStorage.getItem('custom_bg_color');
-    const customAccent = localStorage.getItem('custom_accent_color');
-    if (customBg) root.style.setProperty('--bg-page', customBg);
-    if (customAccent) root.style.setProperty('--accent', customAccent);
+
+    // Font del restaurante
+    const fontFamily = getFontFamily(t.font_family);
+    document.body.style.fontFamily = fontFamily;
+
     // Cleanup al desmontar
     return () => {
-      document.body.style.backgroundImage = '';
-      document.body.style.backgroundAttachment = '';
-      document.body.style.backgroundSize = '';
       document.body.style.backgroundColor = '';
       document.body.style.fontFamily = '';
       document.body.style.color = '';
+      document.body.style.minHeight = '';
     };
   }, [data]);
 
-  // Push animation config to global context so App.tsx renders it
+  // Push animation config to global context
   const { setAnimationConfig } = useAnimationConfig();
   useEffect(() => {
     if (data) {
@@ -150,7 +132,7 @@ function MenuContent() {
     return data?.menuItems.find(item => item.is_featured) || null;
   }, [data]);
 
-  // Items grouped by category — uses translated items when EN is active
+  // Items grouped by category
   const itemsByCategory = useMemo(() => {
     if (!data) return {};
     const grouped: Record<string, MenuItem[]> = {};
@@ -172,7 +154,6 @@ function MenuContent() {
     }
   };
 
-  // Open ProductDetailModal when user taps on photo/text area of a card
   const handleOpenDetail = (item: MenuItem) => {
     setDetailItem(item);
     setDetailOpen(true);
@@ -181,7 +162,6 @@ function MenuContent() {
   // Scroll spy for categories
   useEffect(() => {
     if (!data) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
@@ -192,22 +172,20 @@ function MenuContent() {
       },
       { rootMargin: '-150px 0px -60% 0px', threshold: 0 }
     );
-
     Object.values(categoryRefs.current).forEach(el => {
       if (el) observer.observe(el);
     });
-
     return () => observer.disconnect();
   }, [data]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'transparent' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
         >
-          <Loader2 size={32} className="text-amber-700" />
+          <Loader2 size={32} style={{ color: 'var(--menu-accent)' }} />
         </motion.div>
       </div>
     );
@@ -215,13 +193,13 @@ function MenuContent() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'transparent' }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <div className="text-center">
           <p className="text-5xl mb-4">🍽️</p>
-          <h1 className="text-2xl font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {t('menu.closed')}
           </h1>
-          <p className="text-amber-700 opacity-70">
+          <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
             {lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.'}
           </p>
         </div>
@@ -230,28 +208,25 @@ function MenuContent() {
   }
 
   const { tenant: rawTenant, theme } = data;
-  // Use translated content when EN is active, fallback to original
   const tenant = lang === 'en' ? { ...rawTenant, ...translatedData.tenant } : rawTenant;
   const categories = translatedData.categories.length ? translatedData.categories : data.categories;
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
-  // V6.0 Fase 3: Preset visual del restaurante
-  const preset = getPreset((theme as any)?.theme_preset);
 
   // Check if restaurant is closed
   if (!tenant.is_open) {
     return (
       <div
         className="min-h-screen flex items-center justify-center p-6"
-        style={{ backgroundColor: 'transparent', fontFamily: bodyFont }}
+        style={{ backgroundColor: 'var(--menu-bg)', fontFamily: bodyFont }}
       >
         <div className="text-center">
           <p className="text-5xl mb-4">🔒</p>
-          <h1 className="text-2xl font-bold mb-2" style={{ color: theme.text_color, fontFamily: "'Lora', serif" }}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {tenant.name}
           </h1>
-          <p className="opacity-70" style={{ color: theme.text_color }}>
+          <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
             {t('menu.closed')}
           </p>
         </div>
@@ -263,9 +238,8 @@ function MenuContent() {
     <div
       className="min-h-screen pb-28 relative z-[1]"
       style={{
-        minHeight: '100vh',
-        backgroundColor: 'var(--color-bg)',
-        color: 'var(--color-text)',
+        backgroundColor: 'var(--menu-bg)',
+        color: 'var(--menu-text)',
         fontFamily: bodyFont,
         transition: 'background-color 0.3s ease',
       }}
@@ -289,7 +263,7 @@ function MenuContent() {
           }}
         />
 
-        {/* i18n Toggle — only for pro/premium */}
+        {/* i18n Toggle */}
         {features.i18n && (
           <button
             onClick={toggleLang}
@@ -310,7 +284,6 @@ function MenuContent() {
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-5">
-          {/* Restaurant Logo */}
           {tenant.logo_url && (
             <img
               src={tenant.logo_url}
@@ -340,15 +313,15 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Category Tabs — Sticky Glassmorphism V6.0 */}
+      {/* Category Tabs — Sticky Glassmorphism */}
       <div
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: preset?.categoryBarBg || `${theme.background_color || '#0a0a0a'}dd`,
+          backgroundColor: 'var(--menu-bg)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: `1px solid ${theme.primary_color || '#22c55e'}25`,
+          borderBottom: `1px solid var(--menu-accent, #E63946)25`,
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
@@ -360,10 +333,11 @@ function MenuContent() {
                 onClick={() => handleCategoryClick(cat.id)}
                 className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}12`,
-                  color: isActive ? '#fff' : (preset?.categoryBarTextColor || theme.text_color),
+                  backgroundColor: isActive ? 'var(--menu-accent)' : 'transparent',
+                  color: isActive ? '#fff' : 'var(--menu-text)',
                   fontWeight: isActive ? 600 : 400,
-                  boxShadow: isActive ? `0 2px 8px ${theme.primary_color}40` : 'none',
+                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+                  opacity: isActive ? 1 : 0.7,
                 }}
               >
                 {cat.name}
@@ -373,13 +347,12 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Featured Dish (Platillo de la Semana) — only for pro/premium */}
+      {/* Featured Dish (Platillo de la Semana) */}
       {features.featuredDish && featuredItem && (
         <div className="mt-4">
           <FeaturedDish
             item={translatedMenuItems.find(i => i.id === featuredItem.id) || featuredItem}
             theme={theme}
-            preset={preset}
           />
         </div>
       )}
@@ -401,17 +374,17 @@ function MenuContent() {
               <div className="mb-4 mt-2">
                 <h2
                   className="text-xl font-bold"
-                  style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
+                  style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}
                 >
                   {cat.name}
                 </h2>
                 {cat.description && (
-                  <p className="text-sm opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--menu-text)', opacity: 0.6 }}>
                     {cat.description}
                   </p>
                 )}
                 {/* Organic divider */}
-                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: theme.primary_color }}>
+                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: 'var(--menu-accent)' }}>
                   <path
                     d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4"
                     fill="none"
@@ -436,7 +409,6 @@ function MenuContent() {
                     allItems={data.menuItems}
                     showBadges={features.neuroBadges}
                     onOpenDetail={handleOpenDetail}
-                    preset={preset}
                   />
                 ))}
               </div>
@@ -457,7 +429,7 @@ function MenuContent() {
         allMenuItems={data.menuItems}
       />
 
-      {/* Product Detail Modal — opens when user taps on item photo/text */}
+      {/* Product Detail Modal */}
       <ProductDetailModal
         item={detailItem}
         isOpen={detailOpen}
@@ -466,13 +438,23 @@ function MenuContent() {
         tenant={tenant}
       />
 
-      {/* Active Order FAB — shows when customer has an active order */}
+      {/* Active Order FAB */}
       <ActiveOrderFAB />
 
-      {/* Powered by Digital Atlas Footer */}
-      <PoweredByFooter bgColor={theme.background_color} textColor={`${theme.text_color}70`} />
+      {/* Powered By Footer */}
+      <PoweredByFooter />
     </div>
   );
+}
+
+// Helper: detectar si un color hex es claro
+function isLightColor(hex: string): boolean {
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return false;
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
 }
 
 export default function MenuPage() {

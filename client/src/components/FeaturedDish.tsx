@@ -1,9 +1,7 @@
 /*
- * V5.0 ÉPICA UI PREMIUM — TAREA 1: Featured Card "Recomendación del Chef"
- * Design: Glassmorphism floating card con badge premium, shadow-2xl,
- * bordes rounded-[2rem], shimmer overlay y micro-interacciones.
- * Neuro-Ventas: countdown de disponibilidad, contador de pedidos.
- * i18n: traduce strings de interfaz dura.
+ * FeaturedDish — V6.0 Cirugía Láser
+ * Sistema de 4 colores nativos: --menu-bg, --menu-surface, --menu-text, --menu-accent
+ * Diseño premium preservado: rounded-[2rem], glassmorphism, shadow-xl, shimmer.
  */
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,12 +10,10 @@ import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
-import type { ThemePreset } from '@/lib/themes';
 
 interface FeaturedDishProps {
   item: MenuItem;
   theme: ThemeSettings;
-  preset?: ThemePreset;
 }
 
 function getHoursUntilEndOfWeek(): number {
@@ -36,7 +32,7 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps) {
+export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
   const { addItem } = useCart();
   const { lang, t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -64,20 +60,20 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
       transition={{ duration: 0.5, delay: 0.2 }}
       className="mx-4 mb-6 relative overflow-hidden"
       style={{
-        background: preset?.cardBackground || 'rgba(255,255,255,0.08)',
+        background: 'var(--menu-surface)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        border: preset?.cardBorder || '1px solid rgba(255,255,255,0.15)',
+        border: '1px solid var(--menu-text, #fff)15',
         borderRadius: '2rem',
         padding: '1.5rem',
-        boxShadow: preset?.cardShadow || '0 8px 32px rgba(0,0,0,0.3)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
       }}
     >
       {/* Shimmer overlay */}
       <motion.div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
-          background: `linear-gradient(110deg, transparent 30%, ${theme.primary_color}08 45%, transparent 60%)`,
+          background: `linear-gradient(110deg, transparent 30%, var(--menu-accent)08 45%, transparent 60%)`,
           borderRadius: '2rem',
         }}
         animate={{ x: ['-100%', '200%'] }}
@@ -88,7 +84,7 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
         <span
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
           style={{
-            backgroundColor: theme.primary_color,
+            backgroundColor: 'var(--menu-accent)',
             color: '#fff',
           }}
         >
@@ -97,7 +93,7 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
         {/* Countdown */}
         <div
           className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full"
-          style={{ backgroundColor: `${theme.primary_color}15`, color: theme.primary_color }}
+          style={{ backgroundColor: 'var(--menu-accent)15', color: 'var(--menu-accent)' }}
         >
           <Clock size={10} />
           <span>{remainingText}</span>
@@ -110,12 +106,12 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
         {item.image_url && (
           <div
             className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 relative"
-            style={{ backgroundColor: `${theme.primary_color}08` }}
+            style={{ backgroundColor: 'var(--menu-accent)08' }}
           >
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
             <div
               className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: theme.primary_color, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+              style={{ backgroundColor: 'var(--menu-accent)', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
             >
               <span className="text-xs">👨‍🍳</span>
             </div>
@@ -126,14 +122,14 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
         <div className="flex-1 min-w-0">
           <h3
             className="text-lg font-bold leading-tight mb-1"
-            style={{ fontFamily: preset?.fontFamily || "'Lora', serif", color: preset?.cardTextColor || theme.text_color }}
+            style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}
           >
             {item.name}
           </h3>
           {item.description && (
             <p
-              className="text-sm leading-relaxed mb-2 line-clamp-2 opacity-75"
-              style={{ color: preset?.cardDescColor || theme.text_color }}
+              className="text-sm leading-relaxed mb-2 line-clamp-2"
+              style={{ color: 'var(--menu-text)', opacity: 0.7 }}
             >
               {item.description}
             </p>
@@ -144,8 +140,8 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
-            className="flex items-center gap-1 text-[11px] font-medium mb-3 opacity-65"
-            style={{ color: preset?.cardDescColor || theme.text_color }}
+            className="flex items-center gap-1 text-[11px] font-medium mb-3"
+            style={{ color: 'var(--menu-text)', opacity: 0.6 }}
           >
             <Users size={11} />
             <span>{ordersText}</span>
@@ -154,7 +150,7 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
           <div className="flex items-center justify-between">
             <span
               className="text-xl font-bold"
-              style={{ fontFamily: "'Lora', serif", color: theme.primary_color }}
+              style={{ fontFamily: "'Lora', serif", color: 'var(--menu-accent)' }}
             >
               {formatPrice(item.price)}
             </span>
@@ -163,9 +159,9 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
               whileTap={{ scale: 0.92 }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105 active:scale-95"
               style={{
-                backgroundColor: justAdded ? '#38A169' : theme.primary_color,
+                backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
                 color: '#fff',
-                boxShadow: justAdded ? '0 2px 8px rgba(56,161,105,0.3)' : `0 2px 8px ${theme.primary_color}30`,
+                boxShadow: justAdded ? '0 2px 8px rgba(56,161,105,0.3)' : '0 2px 8px rgba(0,0,0,0.2)',
               }}
             >
               <AnimatePresence mode="wait">

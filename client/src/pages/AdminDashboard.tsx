@@ -13,7 +13,6 @@ import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures } from '@/lib/types';
-import { PRESET_LIST } from '@/lib/themes';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
@@ -576,66 +575,27 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   const [form, setForm] = useState({
     primary_color: theme.primary_color, secondary_color: theme.secondary_color,
     accent_color: theme.accent_color, background_color: theme.background_color,
-    text_color: theme.text_color, font_family: theme.font_family,
+    text_color: theme.text_color, surface_color: (theme as any).surface_color || '',
+    font_family: theme.font_family,
     view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || '',
-    theme_preset: (theme as any).theme_preset || 'default'
   });
   const [saving, setSaving] = useState(false);
 
-  // TAREA 3: Color pickers de personalización libre
-  const [customBg, setCustomBg] = useState<string>(
-    localStorage.getItem('custom_bg_color') || ''
-  );
-  const [customAccent, setCustomAccent] = useState<string>(
-    localStorage.getItem('custom_accent_color') || ''
-  );
-
-  const handleCustomBgChange = (color: string) => {
-    setCustomBg(color);
-    localStorage.setItem('custom_bg_color', color);
-    document.documentElement.style.setProperty('--bg-page', color);
-    document.documentElement.style.setProperty('--bg-surface', color);
-    // También actualiza el form para que el botón Guardar lo persista en Supabase
-    setForm(f => ({ ...f, background_color: color }));
-  };
-
-  const handleCustomAccentChange = (color: string) => {
-    setCustomAccent(color);
-    localStorage.setItem('custom_accent_color', color);
-    document.documentElement.style.setProperty('--accent', color);
-    // También actualiza el form para que el botón Guardar lo persista en Supabase
-    setForm(f => ({ ...f, primary_color: color }));
-  };
-
-  const handleClearCustomColors = () => {
-    localStorage.removeItem('custom_bg_color');
-    localStorage.removeItem('custom_accent_color');
-    setCustomBg('');
-    setCustomAccent('');
-    // Restaurar los colores del tema del restaurante
-    document.documentElement.style.setProperty('--bg-page', form.background_color);
-    document.documentElement.style.setProperty('--accent', form.primary_color);
-    toast.success('Colores personalizados eliminados');
-  };
-
-  const handlePresetChange = async (presetId: string) => {
-    setForm(f => ({ ...f, theme_preset: presetId }));
-    try {
-      await supabase
-        .from('theme_settings')
-        .update({ theme_preset: presetId })
-        .eq('tenant_id', tenant.id);
-      toast.success('Preset aplicado: ' + presetId);
-    } catch (error) {
-      console.error('Error saving preset:', error);
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from('theme_settings').update({
-      ...form, hero_image_url: form.hero_image_url || null, updated_at: new Date().toISOString()
-    }).eq('tenant_id', tenant.id);
+    const payload = {
+      primary_color: form.primary_color,
+      secondary_color: form.secondary_color,
+      accent_color: form.accent_color,
+      background_color: form.background_color,
+      text_color: form.text_color,
+      surface_color: form.surface_color,
+      font_family: form.font_family,
+      view_mode: form.view_mode,
+      hero_image_url: form.hero_image_url || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('theme_settings').update(payload).eq('tenant_id', tenant.id);
     setSaving(false);
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('Tema actualizado'); onRefresh();
@@ -713,72 +673,36 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
       </div>
 
-      {/* ── COLORES DEL MENÚ PÚBLICO (Supabase) ── */}
+      {/* ── COLORES DEL MENÚ PÚBLICO (V6.0 Cirugía Láser: 4 Colores Nativos) ── */}
       <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <span className="text-base">🍽️</span>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
         </div>
+        <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>
+          Estos 4 colores controlan toda la apariencia del menú que ven tus clientes. Los cambios se aplican al guardar.
+        </p>
 
-        {/* V6.0 — Selector de Preset Compacto (pills) */}
-        <div style={{ marginBottom: '20px' }}>
-          <p style={{
-            fontSize: '12px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--text-secondary)',
-            marginBottom: '10px'
-          }}>
-            Personalidad Visual
-          </p>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {PRESET_LIST.map((p) => {
-              const isActive = (form.theme_preset || 'default') === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handlePresetChange(p.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '999px',
-                    border: isActive
-                      ? `2px solid ${form.primary_color}`
-                      : '2px solid rgba(128,128,128,0.25)',
-                    background: isActive
-                      ? `${form.primary_color}18`
-                      : 'rgba(128,128,128,0.08)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '13px',
-                    fontWeight: isActive ? 700 : 500,
-                    color: isActive ? form.primary_color : 'var(--text-secondary)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span style={{ fontSize: '14px' }}>{p.emoji}</span>
-                  <span>{p.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-5 mb-6">
           {[
-            { key: 'primary_color', label: 'Primario' },
-            { key: 'secondary_color', label: 'Secundario' },
-            { key: 'accent_color', label: 'Acento' },
-            { key: 'background_color', label: 'Fondo' },
-            { key: 'text_color', label: 'Texto' },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex flex-col items-center gap-1.5">
-              <input type="color" value={(form as any)[key]}
+            { key: 'background_color', label: 'Fondo', desc: 'Color de fondo general', icon: '🎨' },
+            { key: 'surface_color', label: 'Superficie', desc: 'Tarjetas, modales y nav', icon: '📋' },
+            { key: 'text_color', label: 'Texto', desc: 'Textos principales', icon: '✍️' },
+            { key: 'primary_color', label: 'Acento', desc: 'Botones, badges y destacados', icon: '✨' },
+          ].map(({ key, label, desc, icon }) => (
+            <div key={key} className="flex items-center gap-3">
+              <input type="color" value={(form as any)[key] || '#000000'}
                 onChange={e => setForm({ ...form, [key]: e.target.value })}
-                className="w-12 h-12 rounded-xl border-2 border-slate-600 cursor-pointer bg-transparent hover:border-slate-400 transition-colors" />
-              <span className="text-xs text-slate-400">{label}</span>
+                className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent hover:border-slate-400 transition-colors flex-shrink-0"
+                style={{ borderColor: 'var(--border)' }}
+              />
+              <div>
+                <p className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                  <span>{icon}</span> {label}
+                </p>
+                <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
+                <p className="text-[10px] font-mono" style={{ color: 'var(--text-secondary)' }}>{(form as any)[key]}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -815,65 +739,24 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         <h3 className="text-sm font-semibold text-slate-300 mb-3">Imagen Hero</h3>
         <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url} onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
 
-        {/* TAREA 3: Color Pickers de Personalización Libre */}
-        <div className="mt-6 p-4 rounded-2xl border" style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 5%, var(--bg-page))', borderColor: 'color-mix(in srgb, var(--accent) 30%, transparent)' }}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-base">🎨</span>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Personalización Libre de Colores</h3>
-          </div>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Sobreescribe el fondo y el acento del menú público. Los cambios son instantáneos y se guardan al presionar "Guardar tema".</p>
-          <div className="grid grid-cols-2 gap-4 mb-3">
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Fondo Principal</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={customBg || form.background_color}
-                  onChange={e => handleCustomBgChange(e.target.value)}
-                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
-                  style={{ borderColor: 'var(--border)' }}
-                />
-                <div>
-                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customBg || form.background_color}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --bg-page</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Acento (Botones)</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={customAccent || form.primary_color}
-                  onChange={e => handleCustomAccentChange(e.target.value)}
-                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
-                  style={{ borderColor: 'var(--border)' }}
-                />
-                <div>
-                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customAccent || form.primary_color}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --accent</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          {(customBg || customAccent) && (
-            <button
-              onClick={handleClearCustomColors}
-              className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-            >
-              × Limpiar colores personalizados
-            </button>
-          )}
-        </div>
+        {/* Eliminado: Personalización Libre duplicada — los 4 pickers de arriba ya controlan todo */}
 
         {/* Live Preview */}
-        <div className="mt-6 p-4 rounded-xl border border-slate-600" style={{ backgroundColor: form.background_color }}>
-          <p className="text-xs opacity-50 mb-2" style={{ color: form.text_color }}>Vista previa:</p>
-          <h3 className="text-lg font-bold" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
-          <div className="flex gap-2 mt-2">
-            <span className="px-3 py-1 rounded-full text-xs text-white" style={{ backgroundColor: form.primary_color }}>Categoría</span>
-            <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: `${form.accent_color}30`, color: form.accent_color }}>Badge</span>
+        <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: form.background_color, borderColor: `${form.text_color}20` }}>
+          <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: form.text_color, opacity: 0.4 }}>Vista previa del menú</p>
+          <h3 className="text-lg font-bold mb-1" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
+          {/* Card preview */}
+          <div className="mt-3 p-3 rounded-xl" style={{ backgroundColor: form.surface_color || `${form.text_color}08`, border: `1px solid ${form.text_color}10` }}>
+            <p className="text-sm font-semibold" style={{ color: form.text_color }}>Platillo de ejemplo</p>
+            <p className="text-xs mt-0.5" style={{ color: form.text_color, opacity: 0.6 }}>Descripción del platillo...</p>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-sm font-bold" style={{ color: form.primary_color }}>₡5 500</span>
+              <span className="px-3 py-1 rounded-full text-xs text-white font-semibold" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <span className="px-3 py-1 rounded-full text-xs text-white font-medium" style={{ backgroundColor: form.primary_color }}>Categoría</span>
+            <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: `${form.primary_color}15`, color: form.primary_color }}>Badge</span>
           </div>
         </div>
 

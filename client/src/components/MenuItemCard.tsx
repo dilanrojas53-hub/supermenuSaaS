@@ -1,10 +1,8 @@
 /*
- * MenuItemCard — V6.1 CORRECCIÓN TOTAL
- * - Fondo de tarjeta: usa theme.background_color con ligera elevación (no rgba blanco)
- * - Texto: color forzado oscuro/claro según el fondo del tema
- * - SocialProofBadge: se renderiza UNA sola vez (solo como badge absoluto compacto)
- * - Barra de popularidad y badge de escasez: ELIMINADOS (causaban ruido visual)
- * - Hover: Tailwind puro sin Framer Motion en contenedores
+ * MenuItemCard — V6.0 Cirugía Láser
+ * Sistema de 4 colores nativos: --menu-bg, --menu-surface, --menu-text, --menu-accent
+ * Sin presets, sin lógica isDark. Todo reacciona a las CSS vars inyectadas.
+ * Diseño premium preservado: rounded-3xl, hover:-translate-y-1, backdrop-blur, shadow-xl.
  */
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -14,7 +12,6 @@ import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
-import { type ThemePreset } from '@/lib/themes';
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -23,10 +20,9 @@ interface MenuItemCardProps {
   allItems?: MenuItem[];
   showBadges?: boolean;
   onOpenDetail?: (item: MenuItem) => void;
-  preset?: ThemePreset;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail, preset }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail }: MenuItemCardProps) {
   const { addItem } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -44,53 +40,22 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
   const hasImage = Boolean(item.image_url);
 
-  // Calcular colores de tarjeta basados en el tema real del restaurante
-  const bgColor = theme.background_color || '#0a0a0a';
-  const textColor = theme.text_color || '#ffffff';
-  const primaryColor = theme.primary_color || '#E63946';
-
-  // Determinar si el tema es oscuro o claro para ajustar la tarjeta
-  const isDarkTheme = (() => {
-    const hex = bgColor.replace('#', '');
-    if (hex.length >= 6) {
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return luminance < 0.5;
-    }
-    return true;
-  })();
-
-  // Colores de tarjeta que SIEMPRE contrastan con el fondo
-  const cardBg = isDarkTheme
-    ? 'rgba(255,255,255,0.06)'
-    : 'rgba(0,0,0,0.03)';
-  const cardBorder = isDarkTheme
-    ? '1px solid rgba(255,255,255,0.10)'
-    : '1px solid rgba(0,0,0,0.08)';
-  const cardShadow = isDarkTheme
-    ? '0 2px 12px rgba(0,0,0,0.5)'
-    : '0 2px 12px rgba(0,0,0,0.08)';
-
-  // V6.1: Usar color de texto del preset (garantiza contraste con cardBackground)
-  const nameColor = preset?.cardTextColor || textColor;
-  const descColor = preset?.cardDescColor || `${textColor}b3`;
-
+  // ── LIST VIEW ──
   if (viewMode === 'list') {
     return (
       <div
         className="flex gap-3 p-3 md:p-4 relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         onClick={handleOpenDetail}
         style={{
-          background: preset?.cardBackground || cardBg,
-          border: preset?.cardBorder || cardBorder,
-          boxShadow: preset?.cardShadow || cardShadow,
-          fontFamily: preset?.fontFamily,
+          background: 'var(--menu-surface)',
+          border: '1px solid var(--menu-text, #fff)15',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
           borderRadius: '1.5rem',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
         }}
       >
-        {/* Badge: solo UNA vez, compacto, posición absoluta */}
+        {/* Badge: una sola vez, compacto */}
         {showBadges && item.badge && (
           <div className="absolute -top-3 left-3 z-10">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
@@ -107,14 +72,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <div>
             <h3
               className="text-base font-semibold leading-tight mb-1"
-              style={{ color: nameColor }}
+              style={{ color: 'var(--menu-text)' }}
             >
               {item.name}
             </h3>
             {item.description && (
               <p
                 className="text-sm leading-relaxed mb-2 line-clamp-2"
-                style={{ color: descColor, opacity: 0.7 }}
+                style={{ color: 'var(--menu-text)', opacity: 0.65 }}
               >
                 {item.description}
               </p>
@@ -124,7 +89,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <div className="flex items-center justify-between mt-auto pt-1">
             <span
               className="text-lg font-bold"
-              style={{ color: primaryColor }}
+              style={{ color: 'var(--menu-accent)' }}
             >
               {formatPrice(item.price)}
             </span>
@@ -132,7 +97,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
               onClick={handleQuickAdd}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-transform duration-150 hover:scale-105 active:scale-95"
               style={{
-                backgroundColor: justAdded ? '#38A169' : primaryColor,
+                backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
                 color: '#fff',
               }}
             >
@@ -168,19 +133,20 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
     );
   }
 
-  // Grid view
+  // ── GRID VIEW ──
   return (
     <div
       className="overflow-hidden relative cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       style={{
-        background: preset?.cardBackground || cardBg,
-        border: preset?.cardBorder || cardBorder,
-        boxShadow: preset?.cardShadow || cardShadow,
-        fontFamily: preset?.fontFamily,
+        background: 'var(--menu-surface)',
+        border: '1px solid var(--menu-text, #fff)15',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
         borderRadius: '1.5rem',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
       }}
     >
-      {/* Badge: solo UNA vez, compacto, posición absoluta */}
+      {/* Badge: una sola vez, compacto */}
       {showBadges && item.badge && (
         <div className="absolute top-2 left-2 z-10">
           <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
@@ -200,14 +166,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         <div onClick={hasImage ? handleOpenDetail : undefined}>
           <h3
             className="text-sm font-semibold leading-tight mb-1"
-            style={{ color: nameColor }}
+            style={{ color: 'var(--menu-text)' }}
           >
             {item.name}
           </h3>
           {item.description && (
             <p
               className="text-xs leading-relaxed mb-2 line-clamp-2"
-              style={{ color: descColor, opacity: 0.6 }}
+              style={{ color: 'var(--menu-text)', opacity: 0.55 }}
             >
               {item.description}
             </p>
@@ -217,7 +183,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         <div className="flex items-center justify-between">
           <span
             className="text-base font-bold"
-            style={{ color: primaryColor }}
+            style={{ color: 'var(--menu-accent)' }}
           >
             {formatPrice(item.price)}
           </span>
@@ -225,7 +191,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             onClick={handleQuickAdd}
             className="w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95"
             style={{
-              backgroundColor: justAdded ? '#38A169' : primaryColor,
+              backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
               color: '#fff',
             }}
           >
