@@ -64,13 +64,13 @@ export default function FeaturedDish({ item, theme, preset }: FeaturedDishProps)
       transition={{ duration: 0.5, delay: 0.2 }}
       className="mx-4 mb-6 relative overflow-hidden"
       style={{
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        background: preset?.cardBackground || 'rgba(255,255,255,0.08)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.15)',
+        border: preset?.cardBorder || '1px solid rgba(255,255,255,0.15)',
         borderRadius: '2rem',
         padding: '1.5rem',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        boxShadow: preset?.cardShadow || '0 8px 32px rgba(0,0,0,0.3)',
       }}
     >
       {/* Shimmer overlay */}
