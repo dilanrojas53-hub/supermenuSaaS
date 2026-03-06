@@ -259,7 +259,7 @@ export default function AIUpsellModal({
                             className="flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold flex-shrink-0 transition-all"
                             style={{
                               backgroundColor: isAdded ? theme.primary_color : `${theme.primary_color}12`,
-                              color: isAdded ? '#fff' : theme.primary_color,
+                              color: isAdded ? 'var(--menu-accent-contrast)' : theme.primary_color,
                             }}
                           >
                             {isAdded ? (
@@ -320,7 +320,7 @@ export default function AIUpsellModal({
                       className="flex-[1.5] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
                       style={{
                         backgroundColor: hasAddedAny ? theme.primary_color : `${theme.primary_color}15`,
-                        color: hasAddedAny ? '#fff' : theme.primary_color,
+                        color: hasAddedAny ? 'var(--menu-accent-contrast)' : theme.primary_color,
                         boxShadow: hasAddedAny ? `0 4px 16px ${theme.primary_color}35` : 'none',
                       }}
                     >
