@@ -891,24 +891,46 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const deliveryAddress = (order as any).delivery_address;
     const deliveryPhone = (order as any).delivery_phone;
 
-    const isGoogleMapsLink = deliveryAddress &&
-      (deliveryAddress.includes('google.com/maps') || deliveryAddress.includes('maps.app.goo.gl'));
+    // Extraer el link de Google Maps de la cadena delivery_address si existe
+    const extractGoogleMapsLink = (addr: string): string | null => {
+      if (!addr) return null;
+      const match = addr.match(/(https?:\/\/(?:maps\.google\.com|goo\.gl|maps\.app\.goo\.gl)[^\s|]+)/);
+      return match ? match[1] : null;
+    };
+    const googleMapsLink = deliveryAddress ? extractGoogleMapsLink(deliveryAddress) : null;
+    const hasNavigationLink = !!googleMapsLink || (deliveryAddress && deliveryAddress.includes('http'));
+    const isGoogleMapsLink = !!googleMapsLink;
 
     const handleWaze = () => {
       if (!deliveryAddress) return;
-      if (isGoogleMapsLink) {
-        // Use the Google Maps link directly as Waze destination
-        window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      if (googleMapsLink) {
+        // Extraer lat/lon del link de Google Maps para Waze
+        const coordMatch = googleMapsLink.match(/q=([\d.-]+),([\d.-]+)/);
+        if (coordMatch) {
+          window.open(`https://waze.com/ul?ll=${coordMatch[1]},${coordMatch[2]}&navigate=yes`, '_blank');
+        } else {
+          window.open(`https://waze.com/ul?q=${encodeURIComponent(googleMapsLink)}&navigate=yes`, '_blank');
+        }
       } else {
+        // Dirección de texto — solo navegar si tiene texto válido
         window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      }
+    };
+
+    const handleGoogleMaps = () => {
+      if (googleMapsLink) {
+        window.open(googleMapsLink, '_blank');
+      } else if (deliveryAddress) {
+        window.open(`https://maps.google.com/?q=${encodeURIComponent(deliveryAddress)}`, '_blank');
       }
     };
 
     const handleWhatsAppDelivery = () => {
       if (!deliveryPhone) return;
+      const gpsLine = googleMapsLink ? `\n🗺️ ${googleMapsLink}` : '';
       const msg =
-        `🛕 *Pedido #${order.order_number}* listo para entrega\n` +
-        `📍 ${deliveryAddress || ''}\n` +
+        `🛵 *Pedido #${order.order_number}* listo para entrega\n` +
+        `📍 ${deliveryAddress || ''}${gpsLine}\n` +
         `⏰ ${isTomorrow ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
         `💰 Total: ${formatPrice(order.total)}`;
       const url = buildWhatsAppUrl(deliveryPhone, msg);
@@ -982,7 +1004,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 <Clock size={11} className="text-slate-400" />
                 {/* V4.0: mostrar 'ASAP' como 'Lo antes posible' en el Kanban */}
                 <span className="text-xs text-slate-300">
-                  {scheduledTime === 'ASAP' ? '\uD83D\uDEF5 Lo antes posible' : `Hoy ${scheduledTime}`}
+                  {scheduledTime === 'ASAP' ? '🛵 Lo antes posible' : `Hoy ${scheduledTime}`}
                 </span>
               </div>
             )}
@@ -1013,17 +1035,29 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </button>
         )}
 
-        {/* ── Waze + WhatsApp for delivery ── */}
+        {/* ── Waze + Google Maps + WhatsApp for delivery ── */}
+        {/* Waze y Google Maps SOLO si la dirección contiene un link GPS */}
         {isDelivery && (
           <div className="flex gap-2 mb-2">
-            {deliveryAddress && (
-              <button
-                onClick={handleWaze}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
-                style={{ backgroundColor: '#06B6D420', color: '#06B6D4', border: '2px solid #06B6D440' }}
-              >
-                <Navigation size={13} /> Waze
-              </button>
+            {hasNavigationLink && (
+              <>
+                <button
+                  onClick={handleWaze}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                  style={{ backgroundColor: '#06B6D420', color: '#06B6D4', border: '2px solid #06B6D440' }}
+                  title="Navegar con Waze"
+                >
+                  <Navigation size={13} /> Waze
+                </button>
+                <button
+                  onClick={handleGoogleMaps}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                  style={{ backgroundColor: '#4285F420', color: '#4285F4', border: '2px solid #4285F440' }}
+                  title="Abrir en Google Maps"
+                >
+                  <MapPin size={13} /> Maps
+                </button>
+              </>
             )}
             {deliveryPhone && (
               <button

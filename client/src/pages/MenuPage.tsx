@@ -434,6 +434,7 @@ function MenuContent() {
         theme={theme}
         tenant={tenant}
         allMenuItems={data.menuItems}
+        allCategories={data.categories}
       />
 
       {/* Product Detail Modal */}
