@@ -7,12 +7,31 @@
  */
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, GlassWater, Wine, UtensilsCrossed } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
+
+// V11.0: Clasificación rápida para placeholder icon (sin acceso a allCategories)
+const DRINK_ICON_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
+const WINE_ICON_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
+
+/**
+ * Devuelve el ícono Lucide apropiado según el nombre del item o su categoría.
+ * Bebidas no alcohólicas → GlassWater | Alcohólicas → Wine | Comida → UtensilsCrossed
+ */
+const getPlaceholderIcon = (itemName: string, categoryName?: string): React.ReactNode => {
+  const combined = `${itemName} ${categoryName || ''}`.toLowerCase();
+  if (WINE_ICON_KEYWORDS.some(k => combined.includes(k))) {
+    return <Wine className="text-accent/40 hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  if (DRINK_ICON_KEYWORDS.some(k => combined.includes(k))) {
+    return <GlassWater className="hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  return <UtensilsCrossed className="hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+};
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -91,14 +110,27 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </div>
           )}
 
-          {/* Badge outside if no image */}
-          {!hasImage && showBadges && item.badge && (
-            <div className="absolute top-3 left-3 z-10">
-              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+          {/* Placeholder inteligente si no hay imagen (V11.0) */}
+          {!hasImage && (
+            <div
+              className="relative w-28 h-28 md:w-32 md:h-32 rounded-xl flex-shrink-0 flex items-center justify-center"
+              style={{
+                backgroundColor: 'var(--menu-surface)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                opacity: 0.5,
+              }}
+            >
+              {getPlaceholderIcon(item.name)}
+              {/* Badge sobre el placeholder */}
+              {showBadges && item.badge && (
+                <div className="absolute top-2 left-2 z-10">
+                  <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+                </div>
+              )}
             </div>
           )}
 
-          <div className={`flex-1 min-w-0 flex flex-col justify-between ${!hasImage ? 'pt-8 w-full' : ''}`}>
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
             <div>
               {/* Title — bold, lg */}
               <h3
@@ -187,16 +219,30 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         </div>
       )}
 
-      {/* Badge outside if no image */}
-      {!hasImage && showBadges && item.badge && (
-        <div className="relative z-10 pt-3 pl-3">
-          <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+      {/* Placeholder inteligente si no hay imagen (V11.0) */}
+      {!hasImage && (
+        <div
+          className="relative z-10 w-full h-44 flex items-center justify-center cursor-pointer"
+          onClick={handleOpenDetail}
+          style={{
+            backgroundColor: 'var(--menu-surface)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            borderRadius: '1.25rem 1.25rem 0 0',
+          }}
+        >
+          {getPlaceholderIcon(item.name)}
+          {/* Badge sobre el placeholder */}
+          {showBadges && item.badge && (
+            <div className="absolute top-2 left-2 z-10">
+              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+            </div>
+          )}
         </div>
       )}
 
       {/* Text content */}
-      <div className="relative z-10 p-4" onClick={!hasImage ? handleOpenDetail : undefined}>
-        <div onClick={hasImage ? handleOpenDetail : undefined}>
+      <div className="relative z-10 p-4" onClick={handleOpenDetail}>
+        <div>
           {/* Title — bold */}
           <h3
             className="text-base font-bold leading-tight mb-1"

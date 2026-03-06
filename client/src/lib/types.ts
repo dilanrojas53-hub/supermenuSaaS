@@ -175,6 +175,11 @@ export interface CartItem {
   parent_cart_item_id?: string | null;
   /** True if user already saw/accepted/rejected upsell in ProductDetailModal — skip at checkout */
   prevent_checkout_upsell?: boolean;
+  // ─── V11.0 Telemetría Local (SOLO en memoria, NUNCA a Supabase) ───
+  /** ID del item que disparó esta sugerencia de maridaje */
+  trigger_item_id?: string | null;
+  /** Timestamp ISO del momento en que el usuario aceptó la sugerencia */
+  upsell_accepted_at?: string | null;
 }
 
 export interface TenantData {

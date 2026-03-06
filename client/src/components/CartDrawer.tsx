@@ -3,12 +3,27 @@
  * Flow: 1. Cart  2. Customer info (skipped in Cuenta Abierta)  3. [AI Upsell]  4. Select payment  5. SINPE  6. Confirmation
  * Cuenta Abierta: Detects open_tab_order in localStorage → UPDATE existing order instead of INSERT.
  */
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package } from 'lucide-react';
-import { buildWhatsAppUrl } from '@/lib/phone';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package, GlassWater, Wine } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
+import { buildWhatsAppUrl } from '@/lib/phone';
+
+// V11.0: Placeholder icon para items del carrito sin imagen
+const CART_DRINK_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
+const CART_WINE_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
+const getCartPlaceholderIcon = (itemName: string): React.ReactNode => {
+  const lower = itemName.toLowerCase();
+  if (CART_WINE_KEYWORDS.some(k => lower.includes(k))) {
+    return <Wine size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  if (CART_DRINK_KEYWORDS.some(k => lower.includes(k))) {
+    return <GlassWater size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  return <UtensilsCrossed size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+};
+
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
 import UpsellModal from './UpsellModal';
 import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
@@ -32,13 +47,40 @@ type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
-// ─── CROSS-SELLING: Palabras clave para clasificar categorías (module-level, no re-creadas en cada render) ───
+// ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
+// Categorías de bebidas (disparan sugerencias de comida/postre)
+const DRINK_CATEGORY_NAMES = [
+  'Bebidas', 'Cafetería', 'Cócteles', 'Licores y Destilados', 'Té y Bebidas Naturales',
+  'Bebidas Frías', 'Bebidas Calientes', 'Jugos', 'Smoothies', 'Cervezas', 'Vinos',
+];
+// Categorías de comida (disparan sugerencias de bebida/postre)
+const FOOD_CATEGORY_NAMES = [
+  'Entradas', 'Platos Principales', 'Hamburguesas', 'Acompañamientos', 'Tablas para Compartir',
+  'Pizzas', 'Pastas', 'Tacos', 'Sushi', 'Ensaladas', 'Wraps', 'Bowls', 'Sandwiches',
+  'Pollo', 'Carnes', 'Mariscos', 'Vegetariano', 'Vegano',
+];
+// Categorías de postres (complementan tanto bebidas como comida)
+const DESSERT_CATEGORY_NAMES = [
+  'Postres', 'Dulces', 'Helados', 'Pasteles', 'Tortas',
+];
+// Keywords de fallback (si el nombre exacto no coincide)
 const DRINK_KEYWORDS = ['bebida', 'drink', 'refresco', 'jugo', 'licor', 'vino', 'cerveza', 'cóctel', 'cocktail', 'café', 'coffee', 'té', 'tea', 'agua', 'water', 'smoothie', 'milkshake'];
-const FOOD_KEYWORDS = ['hamburguesa', 'burger', 'plato', 'entrada', 'principal', 'sándwich', 'sandwich', 'pizza', 'pasta', 'taco', 'burritos', 'sushi', 'ramen', 'ensalada', 'salad', 'pollo', 'chicken', 'carne', 'meat', 'pescado', 'fish', 'mariscos', 'seafood', 'vegano', 'vegan', 'vegetariano', 'vegetarian', 'bowl', 'wrap', 'casado', 'gallo', 'arroz', 'rice'];
+const FOOD_KEYWORDS = ['hamburguesa', 'burger', 'plato', 'entrada', 'principal', 'sándwich', 'sandwich', 'pizza', 'pasta', 'taco', 'burritos', 'sushi', 'ramen', 'pollo', 'chicken', 'carne', 'meat', 'pescado', 'fish', 'mariscos', 'seafood', 'vegano', 'vegan', 'vegetariano', 'vegetarian', 'bowl', 'wrap', 'casado', 'gallo', 'arroz', 'rice'];
 const DESSERT_KEYWORDS = ['postre', 'dessert', 'dulce', 'sweet', 'helado', 'ice cream', 'pastel', 'cake', 'torta', 'pie', 'brownie', 'chocolate', 'flan', 'cheesecake'];
-const SIDE_KEYWORDS = ['acompañamiento', 'side', 'guarnición', 'garnish', 'papas', 'fries', 'nachos', 'ensalada', 'salad', 'sopa', 'soup', 'tabla', 'share', 'compartir'];
+const SIDE_KEYWORDS = ['acompañamiento', 'side', 'guarnición', 'garnish', 'papas', 'fries', 'nachos', 'sopa', 'soup', 'tabla', 'share', 'compartir'];
+
+/**
+ * classifyCategoryName — V11.0 Maridaje
+ * Primero intenta coincidencia exacta (case-insensitive) con las listas de nombres.
+ * Si no hay coincidencia, usa keywords como fallback.
+ */
 const classifyCategoryName = (catName: string): 'drink' | 'food' | 'dessert' | 'side' | 'other' => {
-  const lower = catName.toLowerCase();
+  const lower = catName.toLowerCase().trim();
+  // 1º: Coincidencia exacta por nombre de categoría
+  if (DRINK_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'drink';
+  if (FOOD_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'food';
+  if (DESSERT_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'dessert';
+  // 2º: Fallback por keywords
   if (DRINK_KEYWORDS.some(k => lower.includes(k))) return 'drink';
   if (DESSERT_KEYWORDS.some(k => lower.includes(k))) return 'dessert';
   if (SIDE_KEYWORDS.some(k => lower.includes(k))) return 'side';
@@ -204,43 +246,69 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   }, [allCategories]);
 
   /**
-   * Smart Cross-Sell: filtra sugerencias basadas en lo que ya hay en el carrito.
-   * - Si el carrito tiene comida (food/side) → sugiere bebidas y postres
-   * - Si el carrito tiene solo bebidas → sugiere comida y acompañamientos
-   * - Excluye ítems que ya están en el carrito
+   * getSmartCrossSellCandidates — V11.0 Motor de Maridaje
+   *
+   * Regla de Opuestos (JAMAS recomienda del mismo grupo):
+   * - Si el disparador está en drinkCategories → recomendar SOLO de foodCategories o Postres
+   * - Si el disparador está en foodCategories → recomendar SOLO de drinkCategories o Postres
+   * Anti-Repetición: excluye cualquier producto que ya esté en el carrito.
+   *
    * NO modifica el carrito ni escribe en Supabase.
    */
   const getSmartCrossSellCandidates = useCallback((allItems: MenuItem[], maxCount = 3): MenuItem[] => {
+    // Anti-repetición: IDs ya en el carrito
     const cartItemIds = new Set(items.map(ci => ci.menuItem.id));
-    const cartCategoryTypes = new Set(items.map(ci => getCategoryType(ci.menuItem.category_id)));
 
-    const hasFood = cartCategoryTypes.has('food') || cartCategoryTypes.has('side');
-    const hasDrink = cartCategoryTypes.has('drink');
-    const hasDessert = cartCategoryTypes.has('dessert');
+    // Clasificar cada item del carrito
+    const cartTypes = items.map(ci => getCategoryType(ci.menuItem.category_id));
+    const hasFood = cartTypes.some(t => t === 'food' || t === 'side');
+    const hasDrink = cartTypes.some(t => t === 'drink');
+    const hasDessert = cartTypes.some(t => t === 'dessert');
 
-    // Determinar qué tipos sugerir
+    // Regla de Opuestos: determinar qué tipos sugerir
     const typesToSuggest = new Set<string>();
-    if (hasFood && !hasDrink) typesToSuggest.add('drink');
-    if (hasFood && !hasDessert) typesToSuggest.add('dessert');
-    if (hasDrink && !hasFood) { typesToSuggest.add('food'); typesToSuggest.add('side'); }
-    if (!hasFood && !hasDrink) { typesToSuggest.add('drink'); typesToSuggest.add('side'); }
 
-    // Filtrar ítems candidatos
+    if (hasDrink && !hasFood) {
+      // Carrito con bebidas → sugerir comida y postres (JAMAS otra bebida)
+      typesToSuggest.add('food');
+      typesToSuggest.add('side');
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else if (hasFood && !hasDrink) {
+      // Carrito con comida → sugerir bebidas y postres (JAMAS otra comida)
+      typesToSuggest.add('drink');
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else if (hasFood && hasDrink) {
+      // Carrito mixto → sugerir postres si no los tiene
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else {
+      // Carrito vacío o sin clasificar → sugerir bebida + acompañamiento
+      typesToSuggest.add('drink');
+      typesToSuggest.add('side');
+    }
+
+    // Filtrar candidatos: disponibles, no en carrito, del tipo correcto
     const candidates = allItems.filter(item => {
       if (!item.is_available) return false;
-      if (cartItemIds.has(item.id)) return false;
+      if (cartItemIds.has(item.id)) return false; // Anti-repetición
       const type = getCategoryType(item.category_id);
       return typesToSuggest.has(type);
     });
 
-    // Priorizar: badge mas_pedido > chef_recomienda > nuevo > resto
-    const priority = (item: MenuItem) => {
+    // Priorizar: mas_pedido > chef_recomienda > nuevo > resto
+    const priority = (item: MenuItem): number => {
       if (item.badge === 'mas_pedido') return 0;
       if (item.badge === 'chef_recomienda') return 1;
       if (item.badge === 'nuevo') return 2;
       return 3;
     };
     candidates.sort((a, b) => priority(a) - priority(b));
+
+    console.log(
+      '%c[V11.0 Maridaje] Tipos en carrito:', 'color: #F59E0B; font-weight: bold;',
+      { hasFood, hasDrink, hasDessert },
+      '| Sugiriendo:', Array.from(typesToSuggest),
+      '| Candidatos:', candidates.slice(0, maxCount).map(i => i.name)
+    );
 
     return candidates.slice(0, maxCount);
   }, [items, getCategoryType]);
@@ -275,6 +343,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         if (crossSellItems.length > 0) {
           console.log('%c[Cross-Sell] Sugerencias por categoría:', 'color: #10B981; font-weight: bold;', crossSellItems.map(i => i.name));
           const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
+            trigger_item_id: items[0]?.menuItem.id || null, // ID del primer item del carrito como disparador
             id: item.id,
             name: item.name,
             description: item.description,
@@ -426,15 +495,27 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         console.log('[SINPE Upload] Success:', receiptUrl);
       }
 
-      // Include isUpsell + upsell_source flags in order items for analytics tracking
-      const newOrderItems = items.map(i => ({
-        id: i.menuItem.id,
-        name: i.menuItem.name,
-        price: i.menuItem.price,
-        quantity: i.quantity,
-        isUpsell: i.isUpsell || false,
-        upsell_source: i.upsell_source || null,
-      }));
+      // V11.0 Telemetría Local: Limpieza del payload antes de Supabase.
+      // Los campos trigger_item_id y upsell_accepted_at son metadata temporal en memoria.
+      // Se excluyen explícitamente con destructuring — NUNCA llegan a la tabla orders.
+      const newOrderItems = items.map(i => {
+        // Destructuring explícito: extraer y descartar campos de telemetría local
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          trigger_item_id: _tid,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          upsell_accepted_at: _uat,
+          ...cleanCartItem
+        } = i;
+        return {
+          id: cleanCartItem.menuItem.id,
+          name: cleanCartItem.menuItem.name,
+          price: cleanCartItem.menuItem.price,
+          quantity: cleanCartItem.quantity,
+          isUpsell: cleanCartItem.isUpsell || false,
+          upsell_source: cleanCartItem.upsell_source || null,
+        };
+      });
 
       // Calculate upsell revenue for NEW items only
       const newUpsellRevenue = items
@@ -769,12 +850,23 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         className="flex items-center gap-3 rounded-2xl p-3"
                         style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}08` }}
                       >
-                        {ci.menuItem.image_url && (
+                        {ci.menuItem.image_url ? (
                           <img
                             src={ci.menuItem.image_url}
                             alt={ci.menuItem.name}
                             className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                           />
+                        ) : (
+                          /* V11.0 Placeholder inteligente en el carrito */
+                          <div
+                            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1px solid ${theme.text_color}08`,
+                            }}
+                          >
+                            {getCartPlaceholderIcon(ci.menuItem.name)}
+                          </div>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
