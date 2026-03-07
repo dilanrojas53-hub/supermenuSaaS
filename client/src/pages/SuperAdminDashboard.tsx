@@ -42,7 +42,7 @@ export default function SuperAdminDashboard() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-    address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
+    address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '',
     plan_tier: 'basic' as 'basic' | 'pro' | 'premium',
     subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
@@ -131,40 +131,61 @@ export default function SuperAdminDashboard() {
 
   const handleCreate = async () => {
     if (!form.name || !form.slug) { toast.error('Nombre y slug son obligatorios'); return; }
-    const { data: existing } = await supabase.from('tenants').select('id').eq('slug', form.slug).single();
-    if (existing) { toast.error('Ese slug ya está en uso'); return; }
+    if (!form.admin_email || !form.admin_password) { toast.error('Email y contraseña del admin son obligatorios'); return; }
+    if (form.admin_password.length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
 
-    const { data: newTenant, error: tenantError } = await supabase.from('tenants').insert({
-      name: form.name, slug: form.slug, description: form.description || null,
-      phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
-      address: form.address || null, sinpe_number: form.sinpe_number || null,
-      sinpe_owner: form.sinpe_owner || null, admin_email: form.admin_email || null,
-      plan_tier: form.plan_tier,
-      subscription_expires_at: form.subscription_expires_at ? `${form.subscription_expires_at}T23:59:59Z` : null,
-      is_active: true
-    }).select().single();
+    setIsCreating(true);
+    try {
+      const response = await fetch('/api/admin/create-tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          slug: form.slug,
+          description: form.description || null,
+          phone: form.phone || null,
+          whatsapp_number: form.whatsapp_number || null,
+          address: form.address || null,
+          sinpe_number: form.sinpe_number || null,
+          sinpe_owner: form.sinpe_owner || null,
+          admin_email: form.admin_email,
+          admin_password: form.admin_password,
+          plan_tier: form.plan_tier,
+          subscription_expires_at: form.subscription_expires_at || null,
+          primary_color: form.primary_color,
+          secondary_color: form.secondary_color,
+          accent_color: form.accent_color,
+          background_color: form.background_color,
+          text_color: form.text_color,
+          font_family: form.font_family,
+          view_mode: form.view_mode,
+        }),
+      });
 
-    if (tenantError || !newTenant) { toast.error('Error al crear: ' + (tenantError?.message || 'Unknown')); return; }
+      const data = await response.json();
 
-    const { error: themeError } = await supabase.from('theme_settings').insert({
-      tenant_id: newTenant.id, primary_color: form.primary_color,
-      secondary_color: form.secondary_color, accent_color: form.accent_color,
-      background_color: form.background_color, text_color: form.text_color,
-      font_family: form.font_family, view_mode: form.view_mode
-    });
+      if (!response.ok) {
+        toast.error(`Error: ${data.error || 'Failed to create tenant'}`);
+        setIsCreating(false);
+        return;
+      }
 
-    if (themeError) { toast.error('Tenant creado pero error en tema: ' + themeError.message); }
-    toast.success(`"${form.name}" creado exitosamente`);
-    setIsCreating(false);
-    setForm({
-      name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-      address: '', sinpe_number: '', sinpe_owner: '', admin_email: '',
-      plan_tier: 'basic',
-      subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
-      background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid'
-    });
-    fetchData();
+      toast.success(`"${form.name}" creado exitosamente con admin ${form.admin_email}`);
+      setIsCreating(false);
+      setForm({
+        name: '', slug: '', description: '', phone: '', whatsapp_number: '',
+        address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '',
+        plan_tier: 'basic',
+        subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
+        background_color: '#FFFFFF', text_color: '#1A1A2E', font_family: 'Inter', view_mode: 'grid'
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error creating tenant:', error);
+      toast.error('Error al crear el restaurante: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      setIsCreating(false);
+    }
   };
 
   const copySlug = (slug: string) => {
@@ -419,6 +440,11 @@ export default function SuperAdminDashboard() {
                     <label className="block text-xs text-slate-400 mb-1">Email del Admin</label>
                     <input type="email" value={form.admin_email} onChange={e => setForm({ ...form, admin_email: e.target.value })}
                       placeholder="admin@restaurante.com" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Contraseña del Admin</label>
+                    <input type="password" value={form.admin_password} onChange={e => setForm({ ...form, admin_password: e.target.value })}
+                      placeholder="Mínimo 6 caracteres" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
                   </div>
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Plan</label>
