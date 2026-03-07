@@ -42,7 +42,7 @@ export default function SuperAdminDashboard() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-    address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '',
+    address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '', admin_password_confirm: '',
     plan_tier: 'basic' as 'basic' | 'pro' | 'premium',
     subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
@@ -133,6 +133,7 @@ export default function SuperAdminDashboard() {
     if (!form.name || !form.slug) { toast.error('Nombre y slug son obligatorios'); return; }
     if (!form.admin_email || !form.admin_password) { toast.error('Email y contraseña del admin son obligatorios'); return; }
     if (form.admin_password.length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (form.admin_password !== form.admin_password_confirm) { toast.error('Las contraseñas no coinciden'); return; }
 
     setIsCreating(true);
     try {
@@ -174,7 +175,7 @@ export default function SuperAdminDashboard() {
       setIsCreating(false);
       setForm({
         name: '', slug: '', description: '', phone: '', whatsapp_number: '',
-        address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '',
+        address: '', sinpe_number: '', sinpe_owner: '', admin_email: '', admin_password: '', admin_password_confirm: '',
         plan_tier: 'basic',
         subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         primary_color: '#FF6B35', secondary_color: '#004E89', accent_color: '#F7C948',
@@ -386,7 +387,7 @@ export default function SuperAdminDashboard() {
 
             {/* Create form */}
             {isCreating && (
-              <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 mb-6">
+              <div className="bg-slate-800/50 border border-purple-500/30 rounded-2xl p-6 mb-6 overflow-y-auto pb-32" style={{ maxHeight: '80vh' }}>
                 <h3 className="text-white font-bold mb-4">Crear nuevo restaurante</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -445,6 +446,11 @@ export default function SuperAdminDashboard() {
                     <label className="block text-xs text-slate-400 mb-1">Contraseña del Admin</label>
                     <input type="password" value={form.admin_password} onChange={e => setForm({ ...form, admin_password: e.target.value })}
                       placeholder="Mínimo 6 caracteres" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Confirmar Contraseña</label>
+                    <input type="password" value={form.admin_password_confirm} onChange={e => setForm({ ...form, admin_password_confirm: e.target.value })}
+                      placeholder="Repite la contraseña" className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none" />
                   </div>
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Plan</label>
