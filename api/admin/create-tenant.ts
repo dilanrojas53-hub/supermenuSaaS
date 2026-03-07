@@ -36,7 +36,8 @@ const supabaseUrl = process.env.VITE_FRONTEND_FORGE_API_URL || "https://zddytync
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseServiceKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  console.error("[create-tenant] CRITICAL: SUPABASE_SERVICE_ROLE_KEY is not set in environment");
+  // Don't throw here, handle in the handler
 }
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -61,6 +62,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Check if service role key is available
+    if (!supabaseServiceKey) {
+      console.error("[create-tenant] CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing");
+      return res.status(500).json({
+        error: "Server configuration error",
+        details: "SUPABASE_SERVICE_ROLE_KEY is not configured. Contact support.",
+      });
+    }
+
     const {
       name,
       slug,
