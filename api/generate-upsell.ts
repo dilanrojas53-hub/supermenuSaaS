@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
-    const { cart, tenant_id, restaurant_name } = req.body;
+    const { cart, tenant_id, restaurant_name, trigger_category_id } = req.body;
 
     console.log(`[AI Upsell v2] Request — tenant=${tenant_id}, cart items=${cart?.length}`);
 
@@ -71,6 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         image_url,
         badge,
         is_available,
+        category_id,
         categories!inner(name)
       `)
       .eq("tenant_id", tenant_id)
@@ -85,9 +86,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[AI Upsell v2] Fetched ${menuItems?.length || 0} menu items`);
 
     // Exclude cart items from catalog
+    // V16.6: also exclude items from the same category as the trigger item (no recomendar bebida con bebida)
     const cartItemIds = new Set(cart.map((item: any) => item.id));
+    const cartCategoryIds = new Set(cart.map((item: any) => item.category_id).filter(Boolean));
+    // If trigger_category_id is provided, exclude that category from suggestions
+    const excludedCategoryIds = trigger_category_id
+      ? new Set([trigger_category_id, ...cartCategoryIds])
+      : cartCategoryIds;
     const availableCatalog = (menuItems || [])
-      .filter((item) => !cartItemIds.has(item.id))
+      .filter((item) => {
+        if (cartItemIds.has(item.id)) return false;
+        // Exclude items from the same category as the trigger item
+        if (excludedCategoryIds.size > 0 && excludedCategoryIds.has(item.category_id)) return false;
+        return true;
+      })
       .slice(0, 50)
       .map((item) => ({
         id: item.id,
@@ -111,30 +123,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       .join("\n");
 
-    // Detect if cart has drinks
-    const drinkKeywords = ["bebida", "refresco", "agua", "jugo", "café", "cerveza", "limonada", "té", "smoothie", "batido"];
+    // Detect if cart has drinks (by category name)
+    const drinkCategoryKeywords = ["bebida", "refresco", "agua", "jugo", "café", "cerveza", "limonada", "té", "smoothie", "batido", "coctel", "cóctel", "vino", "licor", "drink"];
     const cartHasDrinks = cart.some(
-      (item: any) => drinkKeywords.some(kw => item.name?.toLowerCase().includes(kw))
+      (item: any) => drinkCategoryKeywords.some(kw => item.name?.toLowerCase().includes(kw))
+    );
+    // Detect if the trigger item is a drink
+    const triggerItem = cart[0];
+    const triggerIsDrink = triggerItem && drinkCategoryKeywords.some(
+      (kw: string) => triggerItem.name?.toLowerCase().includes(kw)
     );
 
     const systemPrompt = `Eres un experto Sommelier y el mejor mesero del mundo trabajando en ${restaurant_name || "este restaurante"}.
 
-El cliente tiene esto en su carrito:
+El cliente está viendo este producto:
 ${cartSummary}
 
-Catálogo disponible (NO sugerir lo que ya está en el carrito):
+Catálogo disponible para sugerir (ya filtrado — NO incluye la misma categoría del producto que está viendo):
 ${catalogText}
 
-Tu tarea: Genera recomendaciones INDIVIDUALES de cross-sell/up-sell para cada plato principal del carrito.
+Tu tarea: Genera UNA recomendación de cross-sell que complemente PERFECTAMENTE el producto que el cliente está viendo.
 
-REGLAS:
-1. Analiza CADA item del carrito y genera una sugerencia personalizada para los que tengan sentido.
-2. ${!cartHasDrinks ? "El cliente NO lleva bebidas. Al menos una sugerencia DEBE ser una bebida." : "El cliente ya tiene bebidas."}
-3. No sugieras más comida pesada si el carrito ya es abundante. Prioriza complementos, bebidas o postres.
-4. NUNCA sugieras algo que ya está en el carrito.
-5. Puedes generar entre 1 y ${Math.min(cart.length, 4)} sugerencias. No es obligatorio una por cada item.
+REGLAS CRÍTICAS:
+1. ${triggerIsDrink ? "⚠️ El cliente está viendo una BEBIDA. NUNCA sugieras otra bebida, milkshake, smoothie, jugo, refresco, cóctel, licor ni nada que sea para beber. SOLO sugiere comida: entradas, platos principales, snacks o postres." : "El cliente está viendo comida. Puedes sugerir una bebida o un complemento que combine bien."}
+2. NUNCA sugieras algo de la misma categoría del producto que está viendo.
+3. NUNCA sugieras algo que ya está en el carrito.
+4. El catálogo ya está pre-filtrado — solo elige de él.
+5. Genera EXACTAMENTE 1 sugerencia.
 6. Los IDs DEBEN ser exactamente del catálogo de arriba.
-7. Cada pitch debe ser corto (máximo 15 palabras), persuasivo y específico al trigger_item.
+7. El pitch debe ser corto (máximo 15 palabras), persuasivo y específico.
 
 Devuelve ESTRICTAMENTE un JSON con este formato (sin markdown, sin texto extra):
 {

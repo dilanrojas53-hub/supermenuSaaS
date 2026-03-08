@@ -481,8 +481,11 @@ function MenuContent() {
       {/* Active Order FAB */}
       <ActiveOrderFAB />
 
-      {/* Powered By Footer */}
-      <PoweredByFooter />
+      {/* Powered By Footer — V16.6: adaptado al tema del restaurante */}
+      <PoweredByFooter
+        bgColor={theme.background_color}
+        textColor={theme.text_color}
+      />
     </div>
   );
 }

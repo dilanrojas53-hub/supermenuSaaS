@@ -73,9 +73,11 @@ export default function ProductDetailModal({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cart: [{ id: item.id, name: item.name, price: item.price }],
+            cart: [{ id: item.id, name: item.name, price: item.price, category_id: item.category_id }],
             tenant_id: tenant.id,
             restaurant_name: tenant.name,
+            // V16.6: pasar categoría del ítem para que el API excluya misma categoría
+            trigger_category_id: item.category_id,
           }),
           signal: AbortSignal.timeout(8000),
         });
