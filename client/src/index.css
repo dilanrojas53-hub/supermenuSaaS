@@ -5,7 +5,6 @@
 
 @theme inline {
   /* ── Motor de Theming B2B V4.0 ── */
-  /* Estas vars son inyectadas dinámicamente por applyTheme() en lib/themes.ts */
   --color-page:           var(--bg-page);
   --color-surface:        var(--bg-surface);
   --color-primaryText:    var(--text-primary);
@@ -14,6 +13,11 @@
   --color-accentContrast: var(--accent-contrast);
   --color-borderToken:    var(--border);
   --color-mutedToken:     var(--muted);
+  /* ── V6.0 Cirugía Láser: 4 Variables Maestras del Menú Público ── */
+  --color-menu-bg:        var(--menu-bg);
+  --color-menu-surface:   var(--menu-surface);
+  --color-menu-text:      var(--menu-text);
+  --color-menu-accent:    var(--menu-accent);
   /* ── Radii originales ── */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -56,8 +60,12 @@
 }
 
 :root {
+  /* ── V6.0 Cirugía Láser: 4 Variables Maestras del Menú Público ── */
+  --menu-bg:      #0a0a0a;
+  --menu-surface: rgba(255,255,255,0.06);
+  --menu-text:    #f0f0f0;
+  --menu-accent:  #E63946;
   /* ── Fallback del Motor de Theming B2B (luxury_black_gold por defecto) ── */
-  /* El JS sobreescribe estos valores al cargar con applyTheme() */
   --bg-page:          #0a0a0a;
   --bg-surface:       #101010;
   --text-primary:     #f5f3ee;
@@ -176,4 +184,14 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ── V6.0 Fase 5: Neuromarketing Visual ── */
+@keyframes shimmer-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

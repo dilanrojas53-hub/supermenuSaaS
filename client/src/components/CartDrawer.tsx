@@ -3,15 +3,30 @@
  * Flow: 1. Cart  2. Customer info (skipped in Cuenta Abierta)  3. [AI Upsell]  4. Select payment  5. SINPE  6. Confirmation
  * Cuenta Abierta: Detects open_tab_order in localStorage → UPDATE existing order instead of INSERT.
  */
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package } from 'lucide-react';
-import { buildWhatsAppUrl } from '@/lib/phone';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package, GlassWater, Wine } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
+import { buildWhatsAppUrl } from '@/lib/phone';
+
+// V11.0: Placeholder icon para items del carrito sin imagen
+const CART_DRINK_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
+const CART_WINE_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
+const getCartPlaceholderIcon = (itemName: string): React.ReactNode => {
+  const lower = itemName.toLowerCase();
+  if (CART_WINE_KEYWORDS.some(k => lower.includes(k))) {
+    return <Wine size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  if (CART_DRINK_KEYWORDS.some(k => lower.includes(k))) {
+    return <GlassWater size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  }
+  return <UtensilsCrossed size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+};
+
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
 import UpsellModal from './UpsellModal';
-import type { ThemeSettings, Tenant, MenuItem } from '@/lib/types';
+import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
@@ -24,11 +39,54 @@ interface CartDrawerProps {
   tenant: Tenant;
   /** All menu items — used to find static upsell fallback candidates */
   allMenuItems?: MenuItem[];
+  /** All categories — used for smart cross-selling by category type */
+  allCategories?: Category[];
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
 type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
+
+// ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
+// Categorías de bebidas (disparan sugerencias de comida/postre)
+const DRINK_CATEGORY_NAMES = [
+  'Bebidas', 'Cafetería', 'Cócteles', 'Licores y Destilados', 'Té y Bebidas Naturales',
+  'Bebidas Frías', 'Bebidas Calientes', 'Jugos', 'Smoothies', 'Cervezas', 'Vinos',
+];
+// Categorías de comida (disparan sugerencias de bebida/postre)
+const FOOD_CATEGORY_NAMES = [
+  'Entradas', 'Platos Principales', 'Hamburguesas', 'Acompañamientos', 'Tablas para Compartir',
+  'Pizzas', 'Pastas', 'Tacos', 'Sushi', 'Ensaladas', 'Wraps', 'Bowls', 'Sandwiches',
+  'Pollo', 'Carnes', 'Mariscos', 'Vegetariano', 'Vegano',
+];
+// Categorías de postres (complementan tanto bebidas como comida)
+const DESSERT_CATEGORY_NAMES = [
+  'Postres', 'Dulces', 'Helados', 'Pasteles', 'Tortas',
+];
+// Keywords de fallback (si el nombre exacto no coincide)
+const DRINK_KEYWORDS = ['bebida', 'drink', 'refresco', 'jugo', 'licor', 'vino', 'cerveza', 'cóctel', 'cocktail', 'café', 'coffee', 'té', 'tea', 'agua', 'water', 'smoothie', 'milkshake'];
+const FOOD_KEYWORDS = ['hamburguesa', 'burger', 'plato', 'entrada', 'principal', 'sándwich', 'sandwich', 'pizza', 'pasta', 'taco', 'burritos', 'sushi', 'ramen', 'pollo', 'chicken', 'carne', 'meat', 'pescado', 'fish', 'mariscos', 'seafood', 'vegano', 'vegan', 'vegetariano', 'vegetarian', 'bowl', 'wrap', 'casado', 'gallo', 'arroz', 'rice'];
+const DESSERT_KEYWORDS = ['postre', 'dessert', 'dulce', 'sweet', 'helado', 'ice cream', 'pastel', 'cake', 'torta', 'pie', 'brownie', 'chocolate', 'flan', 'cheesecake'];
+const SIDE_KEYWORDS = ['acompañamiento', 'side', 'guarnición', 'garnish', 'papas', 'fries', 'nachos', 'sopa', 'soup', 'tabla', 'share', 'compartir'];
+
+/**
+ * classifyCategoryName — V11.0 Maridaje
+ * Primero intenta coincidencia exacta (case-insensitive) con las listas de nombres.
+ * Si no hay coincidencia, usa keywords como fallback.
+ */
+const classifyCategoryName = (catName: string): 'drink' | 'food' | 'dessert' | 'side' | 'other' => {
+  const lower = catName.toLowerCase().trim();
+  // 1º: Coincidencia exacta por nombre de categoría
+  if (DRINK_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'drink';
+  if (FOOD_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'food';
+  if (DESSERT_CATEGORY_NAMES.some(n => n.toLowerCase() === lower)) return 'dessert';
+  // 2º: Fallback por keywords
+  if (DRINK_KEYWORDS.some(k => lower.includes(k))) return 'drink';
+  if (DESSERT_KEYWORDS.some(k => lower.includes(k))) return 'dessert';
+  if (SIDE_KEYWORDS.some(k => lower.includes(k))) return 'side';
+  if (FOOD_KEYWORDS.some(k => lower.includes(k))) return 'food';
+  return 'other';
+};
 
 // Shape of the open_tab_order stored in localStorage by OrderStatusPage
 interface OpenTabOrder {
@@ -44,7 +102,7 @@ interface OpenTabOrder {
   existingAiUpsellRevenue: number;
 }
 
-export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [] }: CartDrawerProps) {
+export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [] }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
   const [, navigate] = useLocation();
@@ -69,6 +127,63 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [scheduledTime, setScheduledTime] = useState<string>('');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [deliveryPhone, setDeliveryPhone] = useState<string>('');
+
+  // ─── GPS / GEOLOCALIZACIÓN ───
+  type LocationMode = 'manual' | 'gps';
+  const [locationMode, setLocationMode] = useState<LocationMode>('manual');
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string>('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+
+  const handleRequestGPS = () => {
+    if (!navigator.geolocation) {
+      setGpsError(lang === 'es'
+        ? '⚠️ Tu navegador no soporta geolocalización. Por favor escribe tu dirección manualmente.'
+        : '⚠️ Your browser does not support geolocation. Please type your address manually.');
+      setLocationMode('manual');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError('');
+    setGpsCoords(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setGpsCoords({ lat: latitude, lon: longitude });
+        setGpsLoading(false);
+        setGpsError('');
+      },
+      (err) => {
+        setGpsLoading(false);
+        setGpsCoords(null);
+        const msg = err.code === 1
+          ? (lang === 'es'
+              ? '⚠️ No pudimos obtener tu ubicación. Por favor escribe tu dirección manualmente.'
+              : '⚠️ Could not get your location. Please type your address manually.')
+          : (lang === 'es'
+              ? '⚠️ Error al obtener ubicación. Por favor escribe tu dirección manualmente.'
+              : '⚠️ Error getting location. Please type your address manually.');
+        setGpsError(msg);
+        setLocationMode('manual');
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  // Construir delivery_address final concatenando señas + GPS
+  const buildDeliveryAddress = (): string => {
+    const notes = deliveryNotes.trim();
+    if (locationMode === 'gps' && gpsCoords) {
+      const gpsLink = `https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lon}`;
+      return notes
+        ? `Señas: ${notes} | GPS: ${gpsLink}`
+        : `GPS: ${gpsLink}`;
+    }
+    // Modo manual: usar deliveryAddress directamente
+    const addr = deliveryAddress.trim();
+    return notes ? `${addr} | Señas: ${notes}` : addr;
+  };
 
   // ─── CUENTA ABIERTA (Open Tab) ───
   const [openTab, setOpenTab] = useState<OpenTabOrder | null>(null);
@@ -122,6 +237,82 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     }
   };
 
+  // ─── CROSS-SELLING INTELIGENTE POR CATEGORÍAS ───
+  // Las constantes KEYWORDS están definidas a nivel de módulo para evitar re-creación en cada render.
+  const getCategoryType = useCallback((categoryId: string): 'drink' | 'food' | 'dessert' | 'side' | 'other' => {
+    const cat = allCategories.find(c => c.id === categoryId);
+    if (!cat) return 'other';
+    return classifyCategoryName(cat.name);
+  }, [allCategories]);
+
+  /**
+   * getSmartCrossSellCandidates — V11.0 Motor de Maridaje
+   *
+   * Regla de Opuestos (JAMAS recomienda del mismo grupo):
+   * - Si el disparador está en drinkCategories → recomendar SOLO de foodCategories o Postres
+   * - Si el disparador está en foodCategories → recomendar SOLO de drinkCategories o Postres
+   * Anti-Repetición: excluye cualquier producto que ya esté en el carrito.
+   *
+   * NO modifica el carrito ni escribe en Supabase.
+   */
+  const getSmartCrossSellCandidates = useCallback((allItems: MenuItem[], maxCount = 3): MenuItem[] => {
+    // Anti-repetición: IDs ya en el carrito
+    const cartItemIds = new Set(items.map(ci => ci.menuItem.id));
+
+    // Clasificar cada item del carrito
+    const cartTypes = items.map(ci => getCategoryType(ci.menuItem.category_id));
+    const hasFood = cartTypes.some(t => t === 'food' || t === 'side');
+    const hasDrink = cartTypes.some(t => t === 'drink');
+    const hasDessert = cartTypes.some(t => t === 'dessert');
+
+    // Regla de Opuestos: determinar qué tipos sugerir
+    const typesToSuggest = new Set<string>();
+
+    if (hasDrink && !hasFood) {
+      // Carrito con bebidas → sugerir comida y postres (JAMAS otra bebida)
+      typesToSuggest.add('food');
+      typesToSuggest.add('side');
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else if (hasFood && !hasDrink) {
+      // Carrito con comida → sugerir bebidas y postres (JAMAS otra comida)
+      typesToSuggest.add('drink');
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else if (hasFood && hasDrink) {
+      // Carrito mixto → sugerir postres si no los tiene
+      if (!hasDessert) typesToSuggest.add('dessert');
+    } else {
+      // Carrito vacío o sin clasificar → sugerir bebida + acompañamiento
+      typesToSuggest.add('drink');
+      typesToSuggest.add('side');
+    }
+
+    // Filtrar candidatos: disponibles, no en carrito, del tipo correcto
+    const candidates = allItems.filter(item => {
+      if (!item.is_available) return false;
+      if (cartItemIds.has(item.id)) return false; // Anti-repetición
+      const type = getCategoryType(item.category_id);
+      return typesToSuggest.has(type);
+    });
+
+    // Priorizar: mas_pedido > chef_recomienda > nuevo > resto
+    const priority = (item: MenuItem): number => {
+      if (item.badge === 'mas_pedido') return 0;
+      if (item.badge === 'chef_recomienda') return 1;
+      if (item.badge === 'nuevo') return 2;
+      return 3;
+    };
+    candidates.sort((a, b) => priority(a) - priority(b));
+
+    console.log(
+      '%c[V11.0 Maridaje] Tipos en carrito:', 'color: #F59E0B; font-weight: bold;',
+      { hasFood, hasDrink, hasDessert },
+      '| Sugiriendo:', Array.from(typesToSuggest),
+      '| Candidatos:', candidates.slice(0, maxCount).map(i => i.name)
+    );
+
+    return candidates.slice(0, maxCount);
+  }, [items, getCategoryType]);
+
   // Helper: find the best static upsell candidate from cart items
   const getStaticUpsellCandidate = useCallback((allMenuItems: MenuItem[]): { item: MenuItem; text: string | null } | null => {
     for (const ci of items) {
@@ -145,7 +336,29 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     const goToStaticFallback = () => {
       setShowAIUpsell(false);
       setAiLoading(false);
-      // Try to show static upsell if any cart item has upsell_item_id
+
+      // 1º: Intentar cross-selling inteligente por categorías
+      if (allMenuItems && allCategories.length > 0) {
+        const crossSellItems = getSmartCrossSellCandidates(allMenuItems, 3);
+        if (crossSellItems.length > 0) {
+          console.log('%c[Cross-Sell] Sugerencias por categoría:', 'color: #10B981; font-weight: bold;', crossSellItems.map(i => i.name));
+          const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
+            trigger_item_id: items[0]?.menuItem.id || null, // ID del primer item del carrito como disparador
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            image_url: item.image_url,
+            trigger_item_name: undefined,
+            pitch: lang === 'es' ? 'Complementa perfectamente tu pedido' : 'Perfectly complements your order',
+          }));
+          setAiSuggestedItems(crossSellSuggestions);
+          setShowAIUpsell(true);
+          return;
+        }
+      }
+
+      // 2º: Fallback estático (upsell_item_id en el platillo)
       const candidate = allMenuItems ? getStaticUpsellCandidate(allMenuItems) : null;
       if (candidate) {
         console.log('[AI Upsell] Showing static fallback for:', candidate.item.name);
@@ -153,7 +366,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setStaticUpsellText(candidate.text);
         setShowStaticUpsell(true);
       } else {
-        console.log('[AI Upsell] No static fallback available, going to payment');
+        console.log('[AI Upsell] No fallback available, going to payment');
         setStep('select_payment');
       }
     };
@@ -282,15 +495,27 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         console.log('[SINPE Upload] Success:', receiptUrl);
       }
 
-      // Include isUpsell + upsell_source flags in order items for analytics tracking
-      const newOrderItems = items.map(i => ({
-        id: i.menuItem.id,
-        name: i.menuItem.name,
-        price: i.menuItem.price,
-        quantity: i.quantity,
-        isUpsell: i.isUpsell || false,
-        upsell_source: i.upsell_source || null,
-      }));
+      // V11.0 Telemetría Local: Limpieza del payload antes de Supabase.
+      // Los campos trigger_item_id y upsell_accepted_at son metadata temporal en memoria.
+      // Se excluyen explícitamente con destructuring — NUNCA llegan a la tabla orders.
+      const newOrderItems = items.map(i => {
+        // Destructuring explícito: extraer y descartar campos de telemetría local
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          trigger_item_id: _tid,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          upsell_accepted_at: _uat,
+          ...cleanCartItem
+        } = i;
+        return {
+          id: cleanCartItem.menuItem.id,
+          name: cleanCartItem.menuItem.name,
+          price: cleanCartItem.menuItem.price,
+          quantity: cleanCartItem.quantity,
+          isUpsell: cleanCartItem.isUpsell || false,
+          upsell_source: cleanCartItem.upsell_source || null,
+        };
+      });
 
       // Calculate upsell revenue for NEW items only
       const newUpsellRevenue = items
@@ -371,7 +596,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery')
             ? (scheduledDate === 'today' ? 'ASAP' : (scheduledTime || 'ASAP'))
             : '',
-          delivery_address: deliveryType === 'delivery' ? (deliveryAddress.trim() || '') : '',
+          delivery_address: deliveryType === 'delivery' ? (buildDeliveryAddress() || '') : '',
           delivery_phone: deliveryType === 'delivery' ? (deliveryPhone.trim() || '') : '',
         })
         .select('id, order_number')
@@ -629,12 +854,23 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         className="flex items-center gap-3 rounded-2xl p-3"
                         style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}08` }}
                       >
-                        {ci.menuItem.image_url && (
+                        {ci.menuItem.image_url ? (
                           <img
                             src={ci.menuItem.image_url}
                             alt={ci.menuItem.name}
                             className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                           />
+                        ) : (
+                          /* V11.0 Placeholder inteligente en el carrito */
+                          <div
+                            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1px solid ${theme.text_color}08`,
+                            }}
+                          >
+                            {getCartPlaceholderIcon(ci.menuItem.name)}
+                          </div>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
@@ -664,7 +900,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:opacity-80"
                             style={{ backgroundColor: theme.primary_color }}
                           >
-                            <Plus size={13} className="text-white" />
+                            <Plus size={13} style={{ color: 'var(--menu-accent-contrast)' }} />
                           </button>
                         </div>
                       </motion.div>
@@ -693,11 +929,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <motion.button
                       onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('customer_info')}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
                       style={{
                         backgroundColor: openTab ? '#F59E0B' : theme.primary_color,
                         boxShadow: openTab ? '0 4px 16px rgba(245,158,11,0.3)' : `0 4px 16px ${theme.primary_color}40`,
-                        color: openTab ? '#000' : '#fff',
+                        color: openTab ? '#000' : 'var(--menu-accent-contrast)',
                       }}
                     >
                       <ShoppingBag size={20} />
@@ -777,9 +1013,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             border: `1.5px solid ${theme.primary_color}30`,
                           }}
                         >
-                          <span className="text-base">\uD83D\uDEF5</span>
-                          <p className="text-sm font-semibold" style={{ color: theme.primary_color }}>
-                            {lang === 'es' ? 'Entrega lo m\u00e1s pronto posible (Aprox. 30\u201345 min)' : 'Delivery as soon as possible (Approx. 30\u201345 min)'}
+          <span className="text-base">🛵</span>
+          <p className="text-sm font-semibold" style={{ color: theme.primary_color }}>
+            {lang === 'es' ? 'Entrega lo más pronto posible (Aprox. 30–45 min)' : 'Delivery as soon as possible (Approx. 30–45 min)'}
                           </p>
                         </div>
                       ) : (
@@ -807,24 +1043,105 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   {/* ── Delivery Address + Phone (Delivery only) ── */}
                   {deliveryType === 'delivery' && (
                     <div className="space-y-3">
+                      {/* Selector: ¿A dónde enviamos? */}
+                      <div>
+                        <label className="text-xs font-semibold mb-2 block" style={{ color: `${theme.text_color}80` }}>
+                          <MapPin size={11} className="inline mr-1" />
+                          {lang === 'es' ? '¿A dónde enviamos?' : 'Where do we deliver?'}
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setLocationMode('gps'); handleRequestGPS(); }}
+                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                            style={{
+                              backgroundColor: locationMode === 'gps' ? `${theme.primary_color}20` : `${theme.text_color}06`,
+                              border: `1.5px solid ${locationMode === 'gps' ? theme.primary_color : `${theme.text_color}15`}`,
+                              color: locationMode === 'gps' ? theme.primary_color : `${theme.text_color}70`,
+                            }}
+                          >
+                            {gpsLoading ? <Loader2 size={13} className="animate-spin" /> : <span>📍</span>}
+                            <span>{lang === 'es' ? 'Mi ubicación actual' : 'My current location'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setLocationMode('manual'); setGpsCoords(null); setGpsError(''); }}
+                            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                            style={{
+                              backgroundColor: locationMode === 'manual' ? `${theme.primary_color}20` : `${theme.text_color}06`,
+                              border: `1.5px solid ${locationMode === 'manual' ? theme.primary_color : `${theme.text_color}15`}`,
+                              color: locationMode === 'manual' ? theme.primary_color : `${theme.text_color}70`,
+                            }}
+                          >
+                            <span>📝</span>
+                            <span>{lang === 'es' ? 'Otra dirección' : 'Other address'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Error de GPS */}
+                      {gpsError && (
+                        <div
+                          className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
+                          style={{ backgroundColor: '#EF444415', border: '1.5px solid #EF444440', color: '#EF4444' }}
+                        >
+                          <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
+                          <span>{gpsError}</span>
+                        </div>
+                      )}
+
+                      {/* Confirmación GPS */}
+                      {locationMode === 'gps' && gpsCoords && !gpsError && (
+                        <div
+                          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold"
+                          style={{ backgroundColor: `${theme.primary_color}15`, border: `1.5px solid ${theme.primary_color}40`, color: theme.primary_color }}
+                        >
+                          <MapPin size={13} className="flex-shrink-0" />
+                          <span>{lang === 'es' ? `📍 Ubicación capturada (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lon.toFixed(4)})` : `📍 Location captured (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lon.toFixed(4)})`}</span>
+                        </div>
+                      )}
+
+                      {/* Dirección manual (solo si modo manual) */}
+                      {locationMode === 'manual' && (
+                        <div>
+                          <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                            {lang === 'es' ? 'Dirección' : 'Address'}
+                          </label>
+                          <textarea
+                            value={deliveryAddress}
+                            onChange={e => setDeliveryAddress(e.target.value)}
+                            placeholder={lang === 'es' ? 'Ej: 100m norte del parque, casa azul...' : 'E.g.: 100m north of the park, blue house...'}
+                            rows={2}
+                            className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1.5px solid ${deliveryAddress ? theme.primary_color : `${theme.text_color}15`}`,
+                              color: theme.text_color,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Señas adicionales (siempre visible en modo delivery) */}
                       <div>
                         <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                          <MapPin size={11} className="inline mr-1" />
-                          {lang === 'es' ? 'Señas / Dirección' : 'Delivery Address'}
+                          {lang === 'es' ? 'Señas adicionales (color de casa, número, referencia)' : 'Additional notes (house color, number, landmark)'}
                         </label>
-                        <textarea
-                          value={deliveryAddress}
-                          onChange={e => setDeliveryAddress(e.target.value)}
-                          placeholder={lang === 'es' ? 'Ej: 100m norte del parque, casa azul...' : 'E.g.: 100m north of the park, blue house...'}
-                          rows={2}
-                          className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
+                        <input
+                          type="text"
+                          value={deliveryNotes}
+                          onChange={e => setDeliveryNotes(e.target.value)}
+                          placeholder={lang === 'es' ? 'Ej: Casa amarilla, portón negro...' : 'E.g.: Yellow house, black gate...'}
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                           style={{
                             backgroundColor: `${theme.text_color}06`,
-                            border: `1.5px solid ${deliveryAddress ? theme.primary_color : `${theme.text_color}15`}`,
+                            border: `1.5px solid ${deliveryNotes ? theme.primary_color : `${theme.text_color}15`}`,
                             color: theme.text_color,
                           }}
                         />
                       </div>
+
+                      {/* WhatsApp */}
                       <div>
                         <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
                           {lang === 'es' ? 'WhatsApp para coordinar entrega' : 'WhatsApp for delivery coordination'}
@@ -925,10 +1242,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     onClick={() => handleProceedToPayment(allMenuItems)}
                     disabled={!canProceedToPayment}
                     whileTap={{ scale: 0.97 }}
-                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: theme.primary_color,
                       boxShadow: canProceedToPayment ? `0 4px 16px ${theme.primary_color}40` : 'none',
+                      color: 'var(--menu-accent-contrast)',
                     }}
                   >
                     {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
@@ -1022,7 +1340,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                       style={{
                         backgroundColor: theme.primary_color,
-                        color: '#fff',
+                        color: 'var(--menu-accent-contrast)',
                         boxShadow: `0 4px 16px ${theme.primary_color}40`,
                       }}
                     >

@@ -575,8 +575,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   const [form, setForm] = useState({
     primary_color: theme.primary_color, secondary_color: theme.secondary_color,
     accent_color: theme.accent_color, background_color: theme.background_color,
-    text_color: theme.text_color, font_family: theme.font_family,
-    view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || ''
+    text_color: theme.text_color, surface_color: (theme as any).surface_color || '',
+    font_family: theme.font_family,
+    view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -605,9 +606,19 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from('theme_settings').update({
-      ...form, hero_image_url: form.hero_image_url || null, updated_at: new Date().toISOString()
-    }).eq('tenant_id', tenant.id);
+    const payload = {
+      primary_color: form.primary_color,
+      secondary_color: form.secondary_color,
+      accent_color: form.accent_color,
+      background_color: form.background_color,
+      text_color: form.text_color,
+      surface_color: form.surface_color,
+      font_family: form.font_family,
+      view_mode: form.view_mode,
+      hero_image_url: form.hero_image_url || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('theme_settings').update(payload).eq('tenant_id', tenant.id);
     setSaving(false);
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('Tema actualizado'); onRefresh();
@@ -685,25 +696,36 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
       </div>
 
-      {/* ── COLORES DEL MENÚ PÚBLICO (Supabase) ── */}
+      {/* ── COLORES DEL MENÚ PÚBLICO (V6.0 Cirugía Láser: 4 Colores Nativos) ── */}
       <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <span className="text-base">🍽️</span>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>
+          Estos 4 colores controlan toda la apariencia del menú que ven tus clientes. Los cambios se aplican al guardar.
+        </p>
+
+        <div className="grid grid-cols-2 gap-5 mb-6">
           {[
-            { key: 'primary_color', label: 'Primario' },
-            { key: 'secondary_color', label: 'Secundario' },
-            { key: 'accent_color', label: 'Acento' },
-            { key: 'background_color', label: 'Fondo' },
-            { key: 'text_color', label: 'Texto' },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex flex-col items-center gap-1.5">
-              <input type="color" value={(form as any)[key]}
+            { key: 'background_color', label: 'Fondo', desc: 'Color de fondo general', icon: '🎨' },
+            { key: 'surface_color', label: 'Superficie', desc: 'Tarjetas, modales y nav', icon: '📋' },
+            { key: 'text_color', label: 'Texto', desc: 'Textos principales', icon: '✍️' },
+            { key: 'primary_color', label: 'Acento', desc: 'Botones, badges y destacados', icon: '✨' },
+          ].map(({ key, label, desc, icon }) => (
+            <div key={key} className="flex items-center gap-3">
+              <input type="color" value={(form as any)[key] || '#000000'}
                 onChange={e => setForm({ ...form, [key]: e.target.value })}
-                className="w-12 h-12 rounded-xl border-2 border-slate-600 cursor-pointer bg-transparent hover:border-slate-400 transition-colors" />
-              <span className="text-xs text-slate-400">{label}</span>
+                className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent hover:border-slate-400 transition-colors flex-shrink-0"
+                style={{ borderColor: 'var(--border)' }}
+              />
+              <div>
+                <p className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                  <span>{icon}</span> {label}
+                </p>
+                <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
+                <p className="text-[10px] font-mono" style={{ color: 'var(--text-secondary)' }}>{(form as any)[key]}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -805,12 +827,21 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
 
         {/* Live Preview */}
-        <div className="mt-6 p-4 rounded-xl border border-slate-600" style={{ backgroundColor: form.background_color }}>
-          <p className="text-xs opacity-50 mb-2" style={{ color: form.text_color }}>Vista previa:</p>
-          <h3 className="text-lg font-bold" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
-          <div className="flex gap-2 mt-2">
-            <span className="px-3 py-1 rounded-full text-xs text-white" style={{ backgroundColor: form.primary_color }}>Categoría</span>
-            <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: `${form.accent_color}30`, color: form.accent_color }}>Badge</span>
+        <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: form.background_color, borderColor: `${form.text_color}20` }}>
+          <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: form.text_color, opacity: 0.4 }}>Vista previa del menú</p>
+          <h3 className="text-lg font-bold mb-1" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
+          {/* Card preview */}
+          <div className="mt-3 p-3 rounded-xl" style={{ backgroundColor: form.surface_color || `${form.text_color}08`, border: `1px solid ${form.text_color}10` }}>
+            <p className="text-sm font-semibold" style={{ color: form.text_color }}>Platillo de ejemplo</p>
+            <p className="text-xs mt-0.5" style={{ color: form.text_color, opacity: 0.6 }}>Descripción del platillo...</p>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-sm font-bold" style={{ color: form.primary_color }}>₡5 500</span>
+              <span className="px-3 py-1 rounded-full text-xs text-white font-semibold" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <span className="px-3 py-1 rounded-full text-xs text-white font-medium" style={{ backgroundColor: form.primary_color }}>Categoría</span>
+            <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: `${form.primary_color}15`, color: form.primary_color }}>Badge</span>
           </div>
         </div>
 
@@ -945,24 +976,46 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const deliveryAddress = (order as any).delivery_address;
     const deliveryPhone = (order as any).delivery_phone;
 
-    const isGoogleMapsLink = deliveryAddress &&
-      (deliveryAddress.includes('google.com/maps') || deliveryAddress.includes('maps.app.goo.gl'));
+    // Extraer el link de Google Maps de la cadena delivery_address si existe
+    const extractGoogleMapsLink = (addr: string): string | null => {
+      if (!addr) return null;
+      const match = addr.match(/(https?:\/\/(?:maps\.google\.com|goo\.gl|maps\.app\.goo\.gl)[^\s|]+)/);
+      return match ? match[1] : null;
+    };
+    const googleMapsLink = deliveryAddress ? extractGoogleMapsLink(deliveryAddress) : null;
+    const hasNavigationLink = !!googleMapsLink || (deliveryAddress && deliveryAddress.includes('http'));
+    const isGoogleMapsLink = !!googleMapsLink;
 
     const handleWaze = () => {
       if (!deliveryAddress) return;
-      if (isGoogleMapsLink) {
-        // Use the Google Maps link directly as Waze destination
-        window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      if (googleMapsLink) {
+        // Extraer lat/lon del link de Google Maps para Waze
+        const coordMatch = googleMapsLink.match(/q=([\d.-]+),([\d.-]+)/);
+        if (coordMatch) {
+          window.open(`https://waze.com/ul?ll=${coordMatch[1]},${coordMatch[2]}&navigate=yes`, '_blank');
+        } else {
+          window.open(`https://waze.com/ul?q=${encodeURIComponent(googleMapsLink)}&navigate=yes`, '_blank');
+        }
       } else {
+        // Dirección de texto — solo navegar si tiene texto válido
         window.open(`https://waze.com/ul?q=${encodeURIComponent(deliveryAddress)}&navigate=yes`, '_blank');
+      }
+    };
+
+    const handleGoogleMaps = () => {
+      if (googleMapsLink) {
+        window.open(googleMapsLink, '_blank');
+      } else if (deliveryAddress) {
+        window.open(`https://maps.google.com/?q=${encodeURIComponent(deliveryAddress)}`, '_blank');
       }
     };
 
     const handleWhatsAppDelivery = () => {
       if (!deliveryPhone) return;
+      const gpsLine = googleMapsLink ? `\n🗺️ ${googleMapsLink}` : '';
       const msg =
-        `🛕 *Pedido #${order.order_number}* listo para entrega\n` +
-        `📍 ${deliveryAddress || ''}\n` +
+        `🛵 *Pedido #${order.order_number}* listo para entrega\n` +
+        `📍 ${deliveryAddress || ''}${gpsLine}\n` +
         `⏰ ${isTomorrow ? 'Mañana' : 'Hoy'} ${scheduledTime || ''}\n` +
         `💰 Total: ${formatPrice(order.total)}`;
       const url = buildWhatsAppUrl(deliveryPhone, msg);
@@ -1036,7 +1089,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 <Clock size={11} className="text-slate-400" />
                 {/* V4.0: mostrar 'ASAP' como 'Lo antes posible' en el Kanban */}
                 <span className="text-xs text-slate-300">
-                  {scheduledTime === 'ASAP' ? '\uD83D\uDEF5 Lo antes posible' : `Hoy ${scheduledTime}`}
+                  {scheduledTime === 'ASAP' ? '🛵 Lo antes posible' : `Hoy ${scheduledTime}`}
                 </span>
               </div>
             )}
@@ -1067,17 +1120,29 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </button>
         )}
 
-        {/* ── Waze + WhatsApp for delivery ── */}
+        {/* ── Waze + Google Maps + WhatsApp for delivery ── */}
+        {/* Waze y Google Maps SOLO si la dirección contiene un link GPS */}
         {isDelivery && (
           <div className="flex gap-2 mb-2">
-            {deliveryAddress && (
-              <button
-                onClick={handleWaze}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
-                style={{ backgroundColor: '#06B6D420', color: '#06B6D4', border: '2px solid #06B6D440' }}
-              >
-                <Navigation size={13} /> Waze
-              </button>
+            {hasNavigationLink && (
+              <>
+                <button
+                  onClick={handleWaze}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                  style={{ backgroundColor: '#06B6D420', color: '#06B6D4', border: '2px solid #06B6D440' }}
+                  title="Navegar con Waze"
+                >
+                  <Navigation size={13} /> Waze
+                </button>
+                <button
+                  onClick={handleGoogleMaps}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                  style={{ backgroundColor: '#4285F420', color: '#4285F4', border: '2px solid #4285F440' }}
+                  title="Abrir en Google Maps"
+                >
+                  <MapPin size={13} /> Maps
+                </button>
+              </>
             )}
             {deliveryPhone && (
               <button

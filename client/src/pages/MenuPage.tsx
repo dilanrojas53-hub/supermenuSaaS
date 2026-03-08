@@ -1,5 +1,6 @@
 /*
  * Design: "Warm Craft" + Neuro-Ventas completo + i18n ES/EN.
+ * V6.0 Cirugía Láser: Sistema de 4 colores nativos (bg, surface, text, accent).
  * Theming dinámico, scroll spy, platillo de la semana,
  * social proof toasts, upsell condicionado con delay,
  * carrito flotante con checkout SINPE/WhatsApp.
@@ -13,10 +14,10 @@ import { useMenuTranslation } from '@/hooks/useMenuTranslation';
 import { CartProvider } from '@/contexts/CartContext';
 import { I18nProvider, useI18n } from '@/contexts/I18nContext';
 import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
+import { getContrastColor } from '@/lib/utils';
 import type { MenuItem, PlanFeatures } from '@/lib/types';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
-// UpsellModal removed — all upselling now happens at checkout via CartDrawer
 import FloatingCart from '@/components/FloatingCart';
 import CartDrawer from '@/components/CartDrawer';
 import SocialProofToast from '@/components/SocialProofToast';
@@ -34,12 +35,13 @@ function MenuContent() {
   const [cartOpen, setCartOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  // Upsell state removed — all upselling now happens at checkout
+  // V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas
+  const [masterTab, setMasterTab] = useState<'food' | 'drinks'>('food');
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
 
-  // Dynamic translation of ALL DB content (tenant info, categories, dish names/descriptions)
+  // Dynamic translation of ALL DB content
   const { translatedData, isTranslating } = useMenuTranslation(
     data ? { name: data.tenant.name, description: data.tenant.description, address: data.tenant.address } : { name: '' },
     data?.categories || [],
@@ -71,7 +73,7 @@ function MenuContent() {
     applyBaseWithAccent(storedBase, accent);
   }, [data]);
 
-  // Push animation config to global context so App.tsx renders it
+  // Push animation config to global context
   const { setAnimationConfig } = useAnimationConfig();
   useEffect(() => {
     if (data) {
@@ -96,7 +98,7 @@ function MenuContent() {
     return data?.menuItems.find(item => item.is_featured) || null;
   }, [data]);
 
-  // Items grouped by category — uses translated items when EN is active
+  // Items grouped by category
   const itemsByCategory = useMemo(() => {
     if (!data) return {};
     const grouped: Record<string, MenuItem[]> = {};
@@ -118,7 +120,6 @@ function MenuContent() {
     }
   };
 
-  // Open ProductDetailModal when user taps on photo/text area of a card
   const handleOpenDetail = (item: MenuItem) => {
     setDetailItem(item);
     setDetailOpen(true);
@@ -127,7 +128,6 @@ function MenuContent() {
   // Scroll spy for categories
   useEffect(() => {
     if (!data) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
@@ -138,22 +138,20 @@ function MenuContent() {
       },
       { rootMargin: '-150px 0px -60% 0px', threshold: 0 }
     );
-
     Object.values(categoryRefs.current).forEach(el => {
       if (el) observer.observe(el);
     });
-
     return () => observer.disconnect();
   }, [data]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'transparent' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
         >
-          <Loader2 size={32} className="text-amber-700" />
+          <Loader2 size={32} style={{ color: 'var(--menu-accent)' }} />
         </motion.div>
       </div>
     );
@@ -161,13 +159,13 @@ function MenuContent() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'transparent' }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <div className="text-center">
           <p className="text-5xl mb-4">🍽️</p>
-          <h1 className="text-2xl font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {t('menu.closed')}
           </h1>
-          <p className="text-amber-700 opacity-70">
+          <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
             {lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.'}
           </p>
         </div>
@@ -176,10 +174,22 @@ function MenuContent() {
   }
 
   const { tenant: rawTenant, theme } = data;
-  // Use translated content when EN is active, fallback to original
   const tenant = lang === 'en' ? { ...rawTenant, ...translatedData.tenant } : rawTenant;
   const categories = translatedData.categories.length ? translatedData.categories : data.categories;
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
+
+  // V12.0 Macro-Categorías: clasificación de bebidas
+  const DRINK_CATEGORIES = ['Bebidas', 'Cócteles', 'Licores y Destilados', 'Vinos', 'Cafetería', 'Té y Bebidas Naturales'];
+  const hasDrinks = categories.some(cat => DRINK_CATEGORIES.includes(cat.name));
+  const hasFood = categories.some(cat => !DRINK_CATEGORIES.includes(cat.name));
+  // Filtrar categorías según el tab activo
+  const visibleCategories = (hasDrinks && hasFood)
+    ? categories.filter(cat =>
+        masterTab === 'drinks'
+          ? DRINK_CATEGORIES.includes(cat.name)
+          : !DRINK_CATEGORIES.includes(cat.name)
+      )
+    : categories;
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
 
@@ -188,14 +198,14 @@ function MenuContent() {
     return (
       <div
         className="min-h-screen flex items-center justify-center p-6"
-        style={{ backgroundColor: 'transparent', fontFamily: bodyFont }}
+        style={{ backgroundColor: 'var(--menu-bg)', fontFamily: bodyFont }}
       >
         <div className="text-center">
           <p className="text-5xl mb-4">🔒</p>
-          <h1 className="text-2xl font-bold mb-2" style={{ color: theme.text_color, fontFamily: "'Lora', serif" }}>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {tenant.name}
           </h1>
-          <p className="opacity-70" style={{ color: theme.text_color }}>
+          <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
             {t('menu.closed')}
           </p>
         </div>
@@ -207,9 +217,10 @@ function MenuContent() {
     <div
       className="min-h-screen pb-28 relative z-[1]"
       style={{
-        backgroundColor: 'transparent',
+        background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
+        color: 'var(--menu-text)',
         fontFamily: bodyFont,
-        color: theme.text_color,
+        transition: 'background 0.3s ease',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
@@ -231,7 +242,7 @@ function MenuContent() {
           }}
         />
 
-        {/* i18n Toggle — only for pro/premium */}
+        {/* i18n Toggle */}
         {features.i18n && (
           <button
             onClick={toggleLang}
@@ -252,7 +263,6 @@ function MenuContent() {
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-5">
-          {/* Restaurant Logo */}
           {tenant.logo_url && (
             <img
               src={tenant.logo_url}
@@ -282,29 +292,91 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Category Tabs - Sticky */}
+      {/* V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas */}
+      {hasDrinks && hasFood && (
+        <div
+          style={{ display: 'flex', gap: '8px', padding: '12px 16px' }}
+        >
+          <button
+            onClick={() => { setMasterTab('food'); setActiveCategory(null); }}
+            style={masterTab === 'food' ? {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '16px',
+              backgroundColor: theme.primary_color,
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            } : {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '16px',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              color: theme.text_color,
+              border: '1px solid rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+            }}
+          >
+            🍽️ Comidas
+          </button>
+          <button
+            onClick={() => { setMasterTab('drinks'); setActiveCategory(null); }}
+            style={masterTab === 'drinks' ? {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '16px',
+              backgroundColor: theme.primary_color,
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            } : {
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '16px',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              color: theme.text_color,
+              border: '1px solid rgba(255,255,255,0.1)',
+              cursor: 'pointer',
+            }}
+          >
+            🍹 Bebidas
+          </button>
+        </div>
+      )}
+
+      {/* Category Tabs — Sticky Glassmorphism */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-30 overflow-x-auto scrollbar-hide border-b"
+        className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderColor: `${theme.text_color}10`,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        <div className="flex gap-1 px-4 py-3 min-w-max">
-          {categories.map(cat => {
+        <div className="flex gap-2 px-4 py-3 min-w-max">
+          {visibleCategories.map(cat => {
             const isActive = activeCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all"
+                className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? theme.primary_color : `${theme.primary_color}08`,
-                  color: isActive ? '#fff' : theme.text_color,
+                  backgroundColor: isActive ? 'var(--menu-accent)' : 'transparent',
+                  color: isActive ? 'var(--menu-accent-contrast)' : 'var(--menu-text)',
                   fontWeight: isActive ? 600 : 400,
+                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+                  opacity: isActive ? 1 : 0.7,
                 }}
               >
                 {cat.name}
@@ -314,7 +386,7 @@ function MenuContent() {
         </div>
       </div>
 
-      {/* Featured Dish (Platillo de la Semana) — only for pro/premium */}
+      {/* Featured Dish (Platillo de la Semana) */}
       {features.featuredDish && featuredItem && (
         <div className="mt-4">
           <FeaturedDish
@@ -326,7 +398,7 @@ function MenuContent() {
 
       {/* Menu Items by Category */}
       <div className="px-4 mt-2">
-        {categories.map(cat => {
+        {visibleCategories.map(cat => {
           const catItems = itemsByCategory[cat.id] || [];
           if (catItems.length === 0) return null;
 
@@ -341,17 +413,17 @@ function MenuContent() {
               <div className="mb-4 mt-2">
                 <h2
                   className="text-xl font-bold"
-                  style={{ fontFamily: "'Lora', serif", color: theme.text_color }}
+                  style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}
                 >
                   {cat.name}
                 </h2>
                 {cat.description && (
-                  <p className="text-sm opacity-60 mt-0.5" style={{ color: theme.text_color }}>
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--menu-text)', opacity: 0.6 }}>
                     {cat.description}
                   </p>
                 )}
                 {/* Organic divider */}
-                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: theme.primary_color }}>
+                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: 'var(--menu-accent)' }}>
                   <path
                     d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4"
                     fill="none"
@@ -394,9 +466,10 @@ function MenuContent() {
         theme={theme}
         tenant={tenant}
         allMenuItems={data.menuItems}
+        allCategories={data.categories}
       />
 
-      {/* Product Detail Modal — opens when user taps on item photo/text */}
+      {/* Product Detail Modal */}
       <ProductDetailModal
         item={detailItem}
         isOpen={detailOpen}
@@ -405,13 +478,23 @@ function MenuContent() {
         tenant={tenant}
       />
 
-      {/* Active Order FAB — shows when customer has an active order */}
+      {/* Active Order FAB */}
       <ActiveOrderFAB />
 
-      {/* Powered by Digital Atlas Footer */}
-      <PoweredByFooter bgColor={theme.background_color} textColor={`${theme.text_color}70`} />
+      {/* Powered By Footer */}
+      <PoweredByFooter />
     </div>
   );
+}
+
+// Helper: detectar si un color hex es claro
+function isLightColor(hex: string): boolean {
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return false;
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
 }
 
 export default function MenuPage() {

@@ -175,7 +175,7 @@ export default function UpsellModal({ isOpen, onClose, upsellItem, upsellText, t
                 className="flex-[1.3] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-2 transition-all"
                 style={{
                   backgroundColor: theme.primary_color,
-                  color: '#fff',
+                  color: 'var(--menu-accent-contrast)',
                   boxShadow: `0 4px 16px ${theme.primary_color}30`,
                 }}
               >

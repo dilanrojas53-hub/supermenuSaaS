@@ -278,7 +278,7 @@ export default function ProductDetailModal({
                       className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                       style={{ backgroundColor: theme.primary_color }}
                     >
-                      <Plus size={16} className="text-white" />
+                      <Plus size={16} style={{ color: 'var(--menu-accent-contrast)' }} />
                     </button>
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export default function ProductDetailModal({
                                     className="w-6 h-6 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: theme.primary_color }}
                                   >
-                                    <Plus size={12} className="text-white" />
+                                    <Plus size={12} style={{ color: 'var(--menu-accent-contrast)' }} />
                                   </button>
                                 </div>
 
@@ -402,7 +402,7 @@ export default function ProductDetailModal({
                                   className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
                                   style={{
                                     backgroundColor: theme.primary_color,
-                                    color: '#fff',
+                                    color: 'var(--menu-accent-contrast)',
                                   }}
                                 >
                                   <Plus size={12} />
@@ -443,7 +443,7 @@ export default function ProductDetailModal({
                 className="w-full py-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 transition-all"
                 style={{
                   backgroundColor: mainAdded ? '#38A169' : theme.primary_color,
-                  color: '#fff',
+                  color: mainAdded ? '#fff' : 'var(--menu-accent-contrast)',
                   boxShadow: mainAdded ? 'none' : `0 4px 20px ${theme.primary_color}40`,
                 }}
               >

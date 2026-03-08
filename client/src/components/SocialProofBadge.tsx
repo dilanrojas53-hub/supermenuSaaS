@@ -1,6 +1,8 @@
 /*
- * Neuro-Ventas: Badges de Prueba Social con animaciones + i18n.
- * Sesgos cognitivos: Prueba Social, Escasez, Novedad, Autoridad.
+ * SocialProofBadge — V10.1 Solid Badges
+ * Diseño: Badges sólidos con fondo bg-accent y texto accent-contrast para máxima legibilidad.
+ * Reemplaza el glassmorphism (bg-accent/15 + backdrop-blur) por bg sólido.
+ * Mantiene las micro-animaciones y los contadores de social proof.
  */
 import { motion } from 'framer-motion';
 import { Flame, Zap, Sparkles, Award, Users, Clock } from 'lucide-react';
@@ -25,6 +27,18 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
+/* V12.0 FIX AGRESIVO: fondo sólido, text-white hardcodeado, sin glassmorphism, sin backdrop-blur */
+const solidBadgeStyle: React.CSSProperties = {
+  backgroundColor: 'var(--menu-accent)',
+  color: '#ffffff',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+  opacity: 1,
+};
+
+// V12.0: rounded-md, text-white hardcodeado, opacity-100, sin glassmorphism
+// El posicionamiento absolute top-2 left-2 z-10 lo maneja el wrapper en MenuItemCard
+const badgeTextClass = 'px-3 py-1 rounded-md text-xs font-bold shadow-lg opacity-100 flex items-center gap-1.5';
+
 export default function SocialProofBadge({ badge, theme, itemId, compact = false }: SocialProofBadgeProps) {
   const [showCounter, setShowCounter] = useState(false);
   const { t, lang } = useI18n();
@@ -46,14 +60,10 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
     return (
       <div className="flex flex-col gap-1">
         <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #FF6B35, #F7931E)',
-            color: '#fff',
-            boxShadow: '0 2px 8px rgba(255, 107, 53, 0.35)',
-          }}
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+          className={`flex items-center gap-1.5 ${badgeTextClass}`}
+          style={solidBadgeStyle}
         >
           <Flame size={12} />
           <span>{t('badge.mas_pedido')}</span>
@@ -62,8 +72,8 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-1 text-[10px] font-medium pl-1 opacity-70"
-            style={{ color: theme.text_color }}
+            className="flex items-center gap-1 text-[10px] font-medium pl-1"
+            style={{ color: 'var(--menu-text)', opacity: 0.5 }}
           >
             <Users size={10} />
             <span>{counterText}</span>
@@ -80,14 +90,10 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
     return (
       <div className="flex flex-col gap-1">
         <motion.div
-          animate={{ opacity: [1, 0.7, 1] }}
-          transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #E53E3E, #C53030)',
-            color: '#fff',
-            boxShadow: '0 2px 8px rgba(229, 62, 62, 0.35)',
-          }}
+          animate={{ opacity: [1, 0.85, 1] }}
+          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          className={`flex items-center gap-1.5 ${badgeTextClass}`}
+          style={solidBadgeStyle}
         >
           <Zap size={12} />
           <span>{t('badge.se_agota_rapido')}</span>
@@ -97,7 +103,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-1 text-[10px] font-medium pl-1"
-            style={{ color: '#E53E3E' }}
+            style={{ color: 'var(--menu-accent)' }}
           >
             <Clock size={10} />
             <span>{counterText}</span>
@@ -112,20 +118,17 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
     return (
       <div className="flex flex-col gap-1">
         <motion.div
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #38A169, #2F855A)',
-            color: '#fff',
-            boxShadow: '0 2px 8px rgba(56, 161, 105, 0.35)',
-          }}
+          className={`flex items-center gap-1.5 ${badgeTextClass} relative overflow-hidden`}
+          style={solidBadgeStyle}
         >
+          {/* Subtle shimmer sobre el fondo sólido */}
           <motion.div
-            className="absolute inset-0"
+            className="absolute inset-0 pointer-events-none"
             style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)',
             }}
             animate={{ x: ['-100%', '200%'] }}
-            transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', repeatDelay: 1 }}
+            transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut', repeatDelay: 2 }}
           />
           <Sparkles size={12} />
           <span className="relative z-10">{t('badge.nuevo')}</span>
@@ -134,8 +137,8 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-1 text-[10px] font-medium pl-1 opacity-70"
-            style={{ color: theme.text_color }}
+            className="flex items-center gap-1 text-[10px] font-medium pl-1"
+            style={{ color: 'var(--menu-text)', opacity: 0.5 }}
           >
             <Sparkles size={10} />
             <span>{counterText}</span>
@@ -152,14 +155,10 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
     return (
       <div className="flex flex-col gap-1">
         <motion.div
-          animate={{ rotate: [0, -2, 2, 0] }}
-          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #D69E2E, #B7791F)',
-            color: '#fff',
-            boxShadow: '0 2px 8px rgba(214, 158, 46, 0.35)',
-          }}
+          animate={{ rotate: [0, -1, 1, 0] }}
+          transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
+          className={`flex items-center gap-1.5 ${badgeTextClass}`}
+          style={solidBadgeStyle}
         >
           <Award size={12} />
           <span>{t('badge.chef_recomienda')}</span>
@@ -168,8 +167,8 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-1 text-[10px] font-medium pl-1 opacity-70"
-            style={{ color: theme.text_color }}
+            className="flex items-center gap-1 text-[10px] font-medium pl-1"
+            style={{ color: 'var(--menu-text)', opacity: 0.5 }}
           >
             <Users size={10} />
             <span>{counterText}</span>

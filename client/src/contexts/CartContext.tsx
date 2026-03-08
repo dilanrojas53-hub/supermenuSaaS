@@ -10,6 +10,9 @@ interface AddItemOptions {
   parentCartItemId?: string | null;
   preventCheckoutUpsell?: boolean;
   quantity?: number;
+  // V11.0 Telemetría Local (SOLO en memoria, NUNCA a Supabase)
+  triggerItemId?: string | null;
+  upsellAcceptedAt?: string | null;
 }
 
 interface CartContextType {
@@ -66,6 +69,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       upsell_source: opts?.upsellSource || null,
       parent_cart_item_id: opts?.parentCartItemId || null,
       prevent_checkout_upsell: opts?.preventCheckoutUpsell || false,
+      // V11.0 Telemetría Local — SOLO en memoria, NUNCA llegan a Supabase
+      trigger_item_id: opts?.triggerItemId || null,
+      upsell_accepted_at: opts?.upsellAcceptedAt || null,
     }]);
     return newId;
   }, []);

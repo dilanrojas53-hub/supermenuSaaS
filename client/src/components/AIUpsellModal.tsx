@@ -20,6 +20,8 @@ export interface AISuggestedItem {
   image_url: string | null;
   /** The cart item name that triggered this suggestion */
   trigger_item_name?: string;
+  /** ID del item que disparó esta sugerencia (V11.0 Telemetría Local) */
+  trigger_item_id?: string | null;
   /** AI-generated persuasive pitch specific to this match */
   pitch?: string;
 }
@@ -41,7 +43,7 @@ export default function AIUpsellModal({
   isLoading,
   theme,
 }: AIUpsellModalProps) {
-  const { addItem } = useCart();
+  const { addItemAdvanced } = useCart();
   const { lang } = useI18n();
 
   // Track which items were added
@@ -65,7 +67,14 @@ export default function AIUpsellModal({
       created_at: '',
       updated_at: '',
     };
-    addItem(menuItem, true, 'ai');
+    // V11.0 Telemetría Local: guardar trigger_item_id y upsell_accepted_at SOLO en memoria
+    // Estos campos son limpiados con destructuring ANTES del INSERT a Supabase
+    addItemAdvanced(menuItem, {
+      isUpsell: true,
+      upsellSource: 'ai',
+      triggerItemId: item.trigger_item_id || null,
+      upsellAcceptedAt: new Date().toISOString(),
+    });
     setAddedIds(prev => new Set(Array.from(prev).concat(item.id)));
   };
 
@@ -259,7 +268,7 @@ export default function AIUpsellModal({
                             className="flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold flex-shrink-0 transition-all"
                             style={{
                               backgroundColor: isAdded ? theme.primary_color : `${theme.primary_color}12`,
-                              color: isAdded ? '#fff' : theme.primary_color,
+                              color: isAdded ? 'var(--menu-accent-contrast)' : theme.primary_color,
                             }}
                           >
                             {isAdded ? (
@@ -320,7 +329,7 @@ export default function AIUpsellModal({
                       className="flex-[1.5] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
                       style={{
                         backgroundColor: hasAddedAny ? theme.primary_color : `${theme.primary_color}15`,
-                        color: hasAddedAny ? '#fff' : theme.primary_color,
+                        color: hasAddedAny ? 'var(--menu-accent-contrast)' : theme.primary_color,
                         boxShadow: hasAddedAny ? `0 4px 16px ${theme.primary_color}35` : 'none',
                       }}
                     >
