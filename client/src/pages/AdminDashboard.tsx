@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { useUITheme } from '@/contexts/UIThemeContext';
-import { themes, type ThemeKey } from '@/lib/themes';
+import { themes, type ThemeKey, BASE_PALETTES, type BaseKey, applyBaseWithAccent, saveBase, getStoredBase } from '@/lib/themes';
 import { toast } from 'sonner';
 
 // ─── Toggle Switch ───
@@ -580,40 +580,27 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   });
   const [saving, setSaving] = useState(false);
 
-  // TAREA 3: Color pickers de personalización libre
-  const [customBg, setCustomBg] = useState<string>(
-    localStorage.getItem('custom_bg_color') || ''
+  // V15.0: Designer-in-a-Box — Base Palette + Acento libre
+  const [selectedBase, setSelectedBase] = useState<BaseKey>(
+    (localStorage.getItem('restaurant_base') as BaseKey) || getStoredBase()
   );
-  const [customAccent, setCustomAccent] = useState<string>(
-    localStorage.getItem('custom_accent_color') || ''
+  const [accentColor, setAccentColor] = useState<string>(
+    form.primary_color || '#c6a75e'
   );
 
-  const handleCustomBgChange = (color: string) => {
-    setCustomBg(color);
-    localStorage.setItem('custom_bg_color', color);
-    document.documentElement.style.setProperty('--bg-page', color);
-    document.documentElement.style.setProperty('--bg-surface', color);
-    // También actualiza el form para que el botón Guardar lo persista en Supabase
-    setForm(f => ({ ...f, background_color: color }));
+  const handleBaseSelect = (key: BaseKey) => {
+    setSelectedBase(key);
+    saveBase(key);
+    applyBaseWithAccent(key, accentColor);
+    // Sincronizar con el form para que Guardar lo persista en Supabase
+    const base = BASE_PALETTES.find(b => b.key === key)!;
+    setForm(f => ({ ...f, background_color: base.bg, text_color: base.text }));
   };
 
-  const handleCustomAccentChange = (color: string) => {
-    setCustomAccent(color);
-    localStorage.setItem('custom_accent_color', color);
-    document.documentElement.style.setProperty('--accent', color);
-    // También actualiza el form para que el botón Guardar lo persista en Supabase
-    setForm(f => ({ ...f, primary_color: color }));
-  };
-
-  const handleClearCustomColors = () => {
-    localStorage.removeItem('custom_bg_color');
-    localStorage.removeItem('custom_accent_color');
-    setCustomBg('');
-    setCustomAccent('');
-    // Restaurar los colores del tema del restaurante
-    document.documentElement.style.setProperty('--bg-page', form.background_color);
-    document.documentElement.style.setProperty('--accent', form.primary_color);
-    toast.success('Colores personalizados eliminados');
+  const handleAccentChange = (color: string) => {
+    setAccentColor(color);
+    applyBaseWithAccent(selectedBase, color);
+    setForm(f => ({ ...f, primary_color: color, accent_color: color }));
   };
 
   const handleSave = async () => {
@@ -753,56 +740,68 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         <h3 className="text-sm font-semibold text-slate-300 mb-3">Imagen Hero</h3>
         <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url} onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
 
-        {/* TAREA 3: Color Pickers de Personalización Libre */}
-        <div className="mt-6 p-4 rounded-2xl border" style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 5%, var(--bg-page))', borderColor: 'color-mix(in srgb, var(--accent) 30%, transparent)' }}>
+        {/* V15.0: Designer-in-a-Box — Base del Menú + Acento */}
+        <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-base">🎨</span>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Personalización Libre de Colores</h3>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Menú Público</h3>
           </div>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Sobreescribe el fondo y el acento del menú público. Los cambios son instantáneos y se guardan al presionar "Guardar tema".</p>
-          <div className="grid grid-cols-2 gap-4 mb-3">
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Fondo Principal</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={customBg || form.background_color}
-                  onChange={e => handleCustomBgChange(e.target.value)}
-                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
-                  style={{ borderColor: 'var(--border)' }}
+          <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>Elige la base de colores del menú. Luego personaliza el color de marca. Los cambios son instantáneos.</p>
+
+          {/* Selector de Base — 4 opciones cerradas */}
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Base del Menú</p>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {BASE_PALETTES.map(base => (
+              <button
+                key={base.key}
+                onClick={() => handleBaseSelect(base.key)}
+                className="relative flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left"
+                style={{
+                  backgroundColor: base.bg,
+                  borderColor: selectedBase === base.key ? accentColor : 'transparent',
+                  boxShadow: selectedBase === base.key ? `0 0 0 1px ${accentColor}40` : 'none',
+                }}
+              >
+                {/* Mini preview de superficie */}
+                <div
+                  className="w-full h-8 rounded-lg mb-2 border"
+                  style={{ backgroundColor: base.surface, borderColor: base.border }}
                 />
-                <div>
-                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customBg || form.background_color}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --bg-page</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{base.emoji}</span>
+                  <span className="text-xs font-bold" style={{ color: base.text }}>{base.name}</span>
                 </div>
+                <span className="text-[10px] mt-0.5" style={{ color: base.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.45)' }}>{base.description}</span>
+                {selectedBase === base.key && (
+                  <span
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    style={{ backgroundColor: accentColor, color: '#fff' }}
+                  >✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Selector de Acento — único color libre */}
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Color de Marca / Acento</p>
+          <div className="flex items-center gap-4">
+            <input
+              type="color"
+              value={accentColor}
+              onChange={e => handleAccentChange(e.target.value)}
+              className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-all"
+              style={{ borderColor: 'var(--border)' }}
+            />
+            <div>
+              <p className="text-xs font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{accentColor}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Botones, badges e íconos activos</p>
+              {/* Swatch de preview del acento */}
+              <div className="flex gap-1.5 mt-2">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: accentColor }}>Agregar</span>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: `${accentColor}22`, color: accentColor }}>Badge</span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Color de Acento (Botones)</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={customAccent || form.primary_color}
-                  onChange={e => handleCustomAccentChange(e.target.value)}
-                  className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-colors"
-                  style={{ borderColor: 'var(--border)' }}
-                />
-                <div>
-                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>{customAccent || form.primary_color}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Sobreescribe --accent</p>
-                </div>
-              </div>
-            </div>
           </div>
-          {(customBg || customAccent) && (
-            <button
-              onClick={handleClearCustomColors}
-              className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-            >
-              × Limpiar colores personalizados
-            </button>
-          )}
         </div>
 
         {/* Live Preview */}

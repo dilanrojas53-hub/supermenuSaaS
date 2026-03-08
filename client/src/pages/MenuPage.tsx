@@ -24,7 +24,7 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
-import { applyTheme, getStoredTheme } from '@/lib/themes';
+import { applyBaseWithAccent, getStoredBase } from '@/lib/themes';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -57,30 +57,18 @@ function MenuContent() {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
 
-  // TAREA 2 V4.0: Inyectar los colores del restaurante (Supabase) como CSS vars
-  // Esto conecta el menú público al motor de theming B2B
+  // V15.0: Inyectar Base + Acento del restaurante como CSS vars
   useEffect(() => {
+    // Fallback mientras carga: usar la base guardada en localStorage
+    const storedBase = getStoredBase();
+    const storedAccent = localStorage.getItem('restaurant_accent') || '#c6a75e';
     if (!data) {
-      // Mientras carga, aplicar el tema B2B del localStorage como fallback
-      applyTheme(getStoredTheme());
+      applyBaseWithAccent(storedBase, storedAccent);
       return;
     }
-    const t = data.theme;
-    const root = document.documentElement;
-    // Colores del restaurante sobreescriben las CSS vars del motor B2B
-    root.style.setProperty('--bg-page', t.background_color);
-    root.style.setProperty('--bg-surface', t.background_color);
-    root.style.setProperty('--text-primary', t.text_color);
-    root.style.setProperty('--text-secondary', `${t.text_color}99`);
-    root.style.setProperty('--accent', t.primary_color);
-    root.style.setProperty('--accent-contrast', '#ffffff');
-    root.style.setProperty('--border', `${t.text_color}15`);
-    root.style.setProperty('--muted', `${t.text_color}60`);
-    // Aplicar color personalizado de fondo si existe en localStorage
-    const customBg = localStorage.getItem('custom_bg_color');
-    const customAccent = localStorage.getItem('custom_accent_color');
-    if (customBg) root.style.setProperty('--bg-page', customBg);
-    if (customAccent) root.style.setProperty('--accent', customAccent);
+    // Una vez cargado: aplicar base del localStorage + acento del restaurante (Supabase)
+    const accent = data.theme.primary_color || storedAccent;
+    applyBaseWithAccent(storedBase, accent);
   }, [data]);
 
   // Push animation config to global context so App.tsx renders it

@@ -540,7 +540,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl max-h-[92vh] flex flex-col"
-            style={{ backgroundColor: theme.background_color }}
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+            }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: `${theme.text_color}10` }}>

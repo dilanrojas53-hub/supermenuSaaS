@@ -55,11 +55,10 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         className="flex gap-3 p-3 md:p-4 rounded-2xl relative cursor-pointer transition-all hover:scale-[1.01]"
         onClick={handleOpenDetail}
         style={{
-          // V4.0 PREMIUM: fondo semitransparente sobre el fondo oscuro del app
-          // Borde sutil blanco/10 en dark, sin colores de marca en el fondo
-          backgroundColor: theme.background_color,
-          boxShadow: '0 1px 8px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          // V15.0: micro-bisel premium — bg-surface + border white/5 + shadow-xl
+          backgroundColor: 'var(--bg-surface)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.20)',
+          border: '1px solid rgba(255,255,255,0.05)',
         }}
       >
         {/* Badge */}
@@ -163,10 +162,10 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       transition={{ duration: 0.35 }}
       className="rounded-2xl overflow-hidden relative cursor-pointer transition-all hover:scale-[1.02] hover:shadow-2xl"
       style={{
-        // V4.0 PREMIUM: sombra profunda y borde sutil — las fotos son las protagonistas
-        backgroundColor: theme.background_color,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        // V15.0: micro-bisel premium — bg-surface + border white/5 + shadow-xl
+        backgroundColor: 'var(--bg-surface)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.40), 0 10px 32px rgba(0,0,0,0.25)',
+        border: '1px solid rgba(255,255,255,0.05)',
       }}
     >
       {/* Badge */}

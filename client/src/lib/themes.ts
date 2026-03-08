@@ -1,11 +1,19 @@
 /**
  * Motor de Theming B2B — Digital Atlas Smart Menu
- * V4.0: 4 temas predefinidos con CSS Custom Properties
+ * V15.0: Designer-in-a-Box
  *
- * Uso:
- *   import { applyTheme, getStoredTheme } from '@/lib/themes';
- *   applyTheme('luxury_black_gold');
+ * Dos capas:
+ *   1. BASE_PALETTES — 4 fondos pre-calculados para el menú público (cerrados, a prueba de tontos)
+ *   2. themes        — Temas del panel Admin (sin cambios)
+ *
+ * Uso en Admin:
+ *   import { BASE_PALETTES, applyBase, getStoredBase } from '@/lib/themes';
+ *
+ * Uso en menú público:
+ *   applyBaseWithAccent(getStoredBase(), accentColor);
  */
+
+// ─── ADMIN PANEL THEMES (sin cambios) ────────────────────────────────────────
 
 export type ThemeKey = 'modern_tech' | 'classic_restaurant' | 'minimal_light' | 'luxury_black_gold';
 
@@ -95,13 +103,10 @@ export const themes: Record<ThemeKey, ThemeDefinition> = {
   },
 };
 
-// V4.0: key alineada al brief (era 'da_ui_theme')
+// V4.0: key alineada al brief
 export const THEME_STORAGE_KEY = 'restaurant_theme';
 export const DEFAULT_THEME: ThemeKey = 'luxury_black_gold';
 
-/**
- * Inyecta las CSS vars del tema en document.documentElement
- */
 export function applyTheme(key: ThemeKey): void {
   const theme = themes[key];
   if (!theme) return;
@@ -111,27 +116,117 @@ export function applyTheme(key: ThemeKey): void {
   });
 }
 
-/**
- * Lee el tema guardado en localStorage (o devuelve el default)
- */
 export function getStoredTheme(): ThemeKey {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeKey | null;
     if (stored && themes[stored]) return stored;
-  } catch {
-    // localStorage no disponible
-  }
+  } catch { /* ignore */ }
   return DEFAULT_THEME;
 }
 
-/**
- * Guarda el tema en localStorage y lo aplica
- */
 export function saveAndApplyTheme(key: ThemeKey): void {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, key);
-  } catch {
-    // ignore
-  }
+  try { localStorage.setItem(THEME_STORAGE_KEY, key); } catch { /* ignore */ }
   applyTheme(key);
+}
+
+// ─── V15.0: BASE PALETTES (Menú Público) ─────────────────────────────────────
+
+export type BaseKey = 'midnight' | 'ocean' | 'charcoal' | 'clean';
+
+export interface BasePalette {
+  key: BaseKey;
+  name: string;
+  emoji: string;
+  description: string;
+  bg: string;
+  surface: string;
+  text: string;
+  /** Borde calculado automáticamente según si es dark o light */
+  border: string;
+  /** Sombra calculada para micro-bisel */
+  shadow: string;
+  isDark: boolean;
+}
+
+export const BASE_PALETTES: BasePalette[] = [
+  {
+    key: 'midnight',
+    name: 'Midnight',
+    emoji: '🌑',
+    description: 'Oscuro Puro',
+    bg:      '#09090b',
+    surface: '#18181b',
+    text:    '#fafafa',
+    border:  'rgba(255,255,255,0.05)',
+    shadow:  '0 8px 32px rgba(0,0,0,0.8)',
+    isDark:  true,
+  },
+  {
+    key: 'ocean',
+    name: 'Ocean',
+    emoji: '🌊',
+    description: 'Azul Profundo',
+    bg:      '#020617',
+    surface: '#0f172a',
+    text:    '#f8fafc',
+    border:  'rgba(255,255,255,0.05)',
+    shadow:  '0 8px 32px rgba(2,6,23,0.8)',
+    isDark:  true,
+  },
+  {
+    key: 'charcoal',
+    name: 'Charcoal',
+    emoji: '🪨',
+    description: 'Gris Elegante',
+    bg:      '#1c1917',
+    surface: '#292524',
+    text:    '#fafaf9',
+    border:  'rgba(255,255,255,0.05)',
+    shadow:  '0 8px 32px rgba(10,8,7,0.7)',
+    isDark:  true,
+  },
+  {
+    key: 'clean',
+    name: 'Clean',
+    emoji: '☁️',
+    description: 'Claro Moderno',
+    bg:      '#f8fafc',
+    surface: '#ffffff',
+    text:    '#0f172a',
+    border:  'rgba(0,0,0,0.06)',
+    shadow:  '0 4px 16px rgba(15,23,42,0.06)',
+    isDark:  false,
+  },
+];
+
+export const BASE_STORAGE_KEY = 'restaurant_base';
+export const DEFAULT_BASE: BaseKey = 'midnight';
+
+/**
+ * Inyecta las CSS vars de la base + el acento en document.documentElement
+ */
+export function applyBaseWithAccent(baseKey: BaseKey, accentColor: string): void {
+  const base = BASE_PALETTES.find(b => b.key === baseKey) ?? BASE_PALETTES[0];
+  const root = document.documentElement;
+  root.style.setProperty('--bg-page',        base.bg);
+  root.style.setProperty('--bg-surface',     base.surface);
+  root.style.setProperty('--text-primary',   base.text);
+  root.style.setProperty('--text-secondary', base.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.55)');
+  root.style.setProperty('--border',         base.border);
+  root.style.setProperty('--shadow',         base.shadow);
+  root.style.setProperty('--muted',          base.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)');
+  root.style.setProperty('--accent',         accentColor);
+  root.style.setProperty('--accent-contrast', base.isDark ? '#ffffff' : '#ffffff');
+}
+
+export function getStoredBase(): BaseKey {
+  try {
+    const stored = localStorage.getItem(BASE_STORAGE_KEY) as BaseKey | null;
+    if (stored && BASE_PALETTES.find(b => b.key === stored)) return stored;
+  } catch { /* ignore */ }
+  return DEFAULT_BASE;
+}
+
+export function saveBase(key: BaseKey): void {
+  try { localStorage.setItem(BASE_STORAGE_KEY, key); } catch { /* ignore */ }
 }
