@@ -306,6 +306,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
