@@ -66,6 +66,11 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
   };
 
   const startEdit = (item: MenuItem) => {
+    // V16.5: log para confirmar que el evento se dispara en cualquier dispositivo
+    try {
+      console.log('[V16.5] startEdit fired for item:', item.id, item.name);
+      toast.info('Abriendo editor…', { duration: 800 });
+    } catch { /* ignore toast errors */ }
     setEditingItem(item);
     setIsCreating(false);
     setForm({
@@ -112,12 +117,20 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
   };
 
   const handleToggleAvailable = async (item: MenuItem) => {
-    const { error } = await supabase.from('menu_items').update({
-      is_available: !item.is_available, updated_at: new Date().toISOString()
-    }).eq('id', item.id);
-    if (error) { toast.error('Error: ' + error.message); return; }
-    toast.success(item.is_available ? 'Marcado como agotado' : 'Marcado como disponible');
-    onRefresh();
+    // V16.5: try/catch para nunca tener un fallo silencioso
+    try {
+      console.log('[V16.5] handleToggleAvailable fired for item:', item.id, item.name);
+      toast.info('Actualizando disponibilidad…', { duration: 1200 });
+      const { error } = await supabase.from('menu_items').update({
+        is_available: !item.is_available, updated_at: new Date().toISOString()
+      }).eq('id', item.id);
+      if (error) throw error;
+      toast.success(item.is_available ? 'Marcado como agotado' : 'Marcado como disponible');
+      onRefresh();
+    } catch (err: any) {
+      console.error('[V16.5] handleToggleAvailable error:', err);
+      toast.error('Error al cambiar disponibilidad: ' + (err?.message || String(err)));
+    }
   };
 
   const isEditing = editingItem || isCreating;
@@ -231,19 +244,34 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                       <UtensilsCrossed size={16} className="text-slate-500" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white truncate">{item.name}</span>
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium text-white truncate min-w-0 max-w-[140px] sm:max-w-[200px]">{item.name}</span>
                       {item.badge && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">{item.badge}</span>}
                       {item.is_featured && <Star size={12} className="text-amber-400" />}
                     </div>
                     <span className="text-sm text-amber-400 font-semibold">{formatPrice(item.price)}</span>
                   </div>
-                  {/* Quick toggle */}
-                  <ToggleSwitch checked={item.is_available} onChange={() => handleToggleAvailable(item)} />
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => startEdit(item)} className="p-2 hover:bg-slate-700 rounded-lg"><Pencil size={14} className="text-slate-400" /></button>
-                    <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-red-500/10 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
+                  {/* Quick toggle — V16.5: siempre visible, z-50, pointer-events-auto */}
+                  <div className="relative z-50 pointer-events-auto shrink-0">
+                    <ToggleSwitch checked={item.is_available} onChange={() => handleToggleAvailable(item)} />
+                  </div>
+                  {/* Botones Editar/Eliminar — V16.5: siempre visibles (eliminado opacity-0/group-hover que bloqueaba en pantallas táctiles) */}
+                  <div className="relative z-50 pointer-events-auto shrink-0 flex items-center gap-1">
+                    <button
+                      onClick={() => startEdit(item)}
+                      className="p-2 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors"
+                      title="Editar platillo"
+                    >
+                      <Pencil size={14} className="text-slate-400" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="p-2 hover:bg-red-500/10 active:bg-red-500/20 rounded-lg transition-colors"
+                      title="Eliminar platillo"
+                    >
+                      <Trash2 size={14} className="text-red-400" />
+                    </button>
                   </div>
                 </div>
               ))}
