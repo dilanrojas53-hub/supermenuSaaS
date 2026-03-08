@@ -15,6 +15,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Pricing from "./pages/Pricing";
 import OrderStatusPage from "./pages/OrderStatusPage";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function Router() {
   return (
@@ -64,6 +65,7 @@ function App() {
               <Toaster />
               <GlobalAnimatedBg />
               <Router />
+              <SpeedInsights />
             </TooltipProvider>
           </AnimationProvider>
         </AdminAuthProvider>
