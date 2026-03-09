@@ -148,7 +148,7 @@ REGLAS CRÍTICAS:
 3. NUNCA sugieras algo de la misma categoría del producto que está viendo.
 4. Los ítems marcados con ⭐ PREFERIDO son los que otros clientes han aceptado antes — dales PRIORIDAD.
 5. Los ítems marcados con ❌ RECHAZADO ANTES fueron rechazados — EVÍTALOS a menos que no haya alternativa.
-6. Genera EXACTAMENTE 2 sugerencias distintas. Si no hay suficientes opciones válidas, genera 1.
+6. Genera EXACTAMENTE 2 sugerencias distintas de CATEGORÍAS DIFERENTES entre sí. OBLIGATORIO: siempre retorna 2 objetos en el array upsells.
 7. Los IDs DEBEN ser exactamente del catálogo de arriba.
 8. Cada pitch debe ser corto (máximo 12 palabras), persuasivo y específico.
 
@@ -211,17 +211,33 @@ Devuelve ESTRICTAMENTE un JSON (sin markdown):
         }
       }
 
-      // Second pass: if we still need more, fill with best-scored items from unused categories
+      // Second pass: ALWAYS fill up to 2 items from DIFFERENT categories
+      // This guarantees diversity even if GPT returned 1 or 2 from the same category
       if (finalUpsells.length < 2) {
-        // availableCatalog is already sorted by _score desc
-        for (const candidate of availableCatalog) {
+        // Sort candidates: prefer different category from what's already chosen, then by score
+        const remainingCandidates = availableCatalog
+          .filter(c => !usedIds.has(c.id))
+          .sort((a, b) => {
+            // Prefer items from categories not yet used
+            const aNewCat = !usedCategories.has(a.category_id) ? 1 : 0;
+            const bNewCat = !usedCategories.has(b.category_id) ? 1 : 0;
+            if (aNewCat !== bNewCat) return bNewCat - aNewCat;
+            return b._score - a._score;
+          });
+        for (const candidate of remainingCandidates) {
           if (finalUpsells.length >= 2) break;
           if (usedIds.has(candidate.id)) continue;
-          if (usedCategories.has(candidate.category_id)) continue;
-          // Generate a generic pitch for fallback items
+          // For the second slot, prefer a different category but allow same if no other option
+          const isNewCategory = !usedCategories.has(candidate.category_id);
+          if (!isNewCategory && finalUpsells.length === 1 && remainingCandidates.some(c => !usedCategories.has(c.category_id) && !usedIds.has(c.id))) {
+            // Skip same-category items if there are still different-category options available
+            continue;
+          }
           const fallbackPitch = triggerIsDrink
             ? `Complemento ideal para acompañar`
-            : `Perfecto para completar tu pedido`;
+            : candidate.category_id === availableCatalog.find(c => drinkKeywords.some(kw => c.name?.toLowerCase().includes(kw)))?.category_id
+              ? `La bebida perfecta para tu pedido`
+              : `Perfecto para completar tu pedido`;
           finalUpsells.push({ id: candidate.id, pitch: fallbackPitch, _fromFallback: true });
           usedCategories.add(candidate.category_id);
           usedIds.add(candidate.id);
