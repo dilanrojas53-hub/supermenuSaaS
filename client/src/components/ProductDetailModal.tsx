@@ -1,8 +1,9 @@
 /*
- * ProductDetailModal — Full-screen half-sheet product detail with:
+ * ProductDetailModal — V17.0: 2 recomendaciones IA con aprendizaje
  * - Large photo, full description, quantity selector
- * - In-modal AI upsell: fetches a suggestion specific to this item
- * - Smart Cart integration: marks items with prevent_checkout_upsell
+ * - 2 sugerencias IA de categorías distintas
+ * - Cada sugerencia se puede agregar independientemente
+ * - Feedback (accepted/rejected) se envía al backend para aprendizaje
  */
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +31,29 @@ interface ProductDetailModalProps {
   tenant: Tenant;
 }
 
+/** Registra feedback de upsell al backend (fire-and-forget) */
+function sendUpsellFeedback(
+  tenantId: string,
+  triggerItemId: string,
+  triggerItemName: string,
+  suggestedItemId: string,
+  suggestedItemName: string,
+  action: 'accepted' | 'rejected' | 'ignored'
+) {
+  fetch('/api/upsell-feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      trigger_item_id: triggerItemId,
+      trigger_item_name: triggerItemName,
+      suggested_item_id: suggestedItemId,
+      suggested_item_name: suggestedItemName,
+      action,
+    }),
+  }).catch(() => {/* silent fail — feedback is best-effort */});
+}
+
 export default function ProductDetailModal({
   item,
   isOpen,
@@ -41,32 +65,36 @@ export default function ProductDetailModal({
   const { lang } = useI18n();
 
   const [quantity, setQuantity] = useState(1);
-  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiFetched, setAiFetched] = useState(false);
-  const [suggestionQty, setSuggestionQty] = useState(1);
-  const [suggestionAdded, setSuggestionAdded] = useState(false);
+  // Per-suggestion state: qty and added flag
+  const [suggestionQtys, setSuggestionQtys] = useState<Record<string, number>>({});
+  const [suggestionAdded, setSuggestionAdded] = useState<Record<string, boolean>>({});
   const [mainAdded, setMainAdded] = useState(false);
+  // Track which suggestions were shown (for "ignored" feedback on close)
+  const [shownSuggestionIds, setShownSuggestionIds] = useState<string[]>([]);
 
   // Reset state when item changes
   useEffect(() => {
     if (item && isOpen) {
       setQuantity(1);
-      setAiSuggestion(null);
+      setAiSuggestions([]);
       setAiLoading(false);
       setAiFetched(false);
-      setSuggestionQty(1);
-      setSuggestionAdded(false);
+      setSuggestionQtys({});
+      setSuggestionAdded({});
       setMainAdded(false);
+      setShownSuggestionIds([]);
     }
   }, [item?.id, isOpen]);
 
-  // Fetch AI suggestion for this specific item
+  // Fetch AI suggestions for this specific item
   useEffect(() => {
     if (!item || !isOpen || aiFetched) return;
     setAiFetched(true);
 
-    const fetchSuggestion = async () => {
+    const fetchSuggestions = async () => {
       setAiLoading(true);
       try {
         const response = await fetch('/api/generate-upsell', {
@@ -76,7 +104,6 @@ export default function ProductDetailModal({
             cart: [{ id: item.id, name: item.name, price: item.price, category_id: item.category_id }],
             tenant_id: tenant.id,
             restaurant_name: tenant.name,
-            // V16.6: pasar categoría del ítem para que el API excluya misma categoría
             trigger_category_id: item.category_id,
           }),
           signal: AbortSignal.timeout(8000),
@@ -85,18 +112,20 @@ export default function ProductDetailModal({
         if (response.ok) {
           const data = await response.json();
           if (!data.fallback && data.suggested_items?.length > 0) {
-            // Take the first suggestion
-            const s = data.suggested_items[0];
-            setAiSuggestion({
+            const suggestions: AISuggestion[] = data.suggested_items.slice(0, 2).map((s: any) => ({
               id: s.id,
               name: s.name,
               description: s.description,
               price: s.price,
               image_url: s.image_url,
-              pitch: s.pitch || s.trigger_item_name
-                ? `${lang === 'es' ? 'Perfecto con' : 'Perfect with'} ${item.name}`
-                : undefined,
-            });
+              pitch: s.pitch || `${lang === 'es' ? 'Perfecto con' : 'Perfect with'} ${item.name}`,
+            }));
+            setAiSuggestions(suggestions);
+            setShownSuggestionIds(suggestions.map(s => s.id));
+            // Initialize qty for each suggestion
+            const qtys: Record<string, number> = {};
+            suggestions.forEach(s => { qtys[s.id] = 1; });
+            setSuggestionQtys(qtys);
           }
         }
       } catch {
@@ -106,49 +135,87 @@ export default function ProductDetailModal({
       }
     };
 
-    fetchSuggestion();
+    fetchSuggestions();
   }, [item, isOpen, aiFetched, tenant.id, tenant.name, lang]);
+
+  // Send "ignored" feedback for suggestions not added when modal closes
+  const handleClose = useCallback(() => {
+    if (item && shownSuggestionIds.length > 0) {
+      shownSuggestionIds.forEach(sugId => {
+        if (!suggestionAdded[sugId]) {
+          const suggestion = aiSuggestions.find(s => s.id === sugId);
+          if (suggestion) {
+            sendUpsellFeedback(
+              tenant.id, item.id, item.name,
+              sugId, suggestion.name, 'ignored'
+            );
+          }
+        }
+      });
+    }
+    onClose();
+  }, [item, shownSuggestionIds, suggestionAdded, aiSuggestions, tenant.id, onClose]);
+
+  const handleAddSuggestion = useCallback((suggestion: AISuggestion) => {
+    if (!item) return;
+    const qty = suggestionQtys[suggestion.id] || 1;
+    const suggestionMenuItem: MenuItem = {
+      id: suggestion.id,
+      tenant_id: tenant.id,
+      category_id: '',
+      name: suggestion.name,
+      description: suggestion.description,
+      price: suggestion.price,
+      image_url: suggestion.image_url,
+      is_available: true,
+      is_featured: false,
+      badge: null,
+      upsell_item_id: null,
+      upsell_text: null,
+      sort_order: 0,
+      created_at: '',
+      updated_at: '',
+    };
+    addItemAdvanced(suggestionMenuItem, {
+      quantity: qty,
+      isUpsell: true,
+      upsellSource: 'ai',
+      preventCheckoutUpsell: true,
+    });
+    setSuggestionAdded(prev => ({ ...prev, [suggestion.id]: true }));
+    toast.success(
+      lang === 'es' ? `${suggestion.name} agregado` : `${suggestion.name} added`,
+      { duration: 1500 }
+    );
+    // Register "accepted" feedback
+    sendUpsellFeedback(
+      tenant.id, item.id, item.name,
+      suggestion.id, suggestion.name, 'accepted'
+    );
+  }, [item, suggestionQtys, addItemAdvanced, tenant.id, lang]);
 
   const handleAddToCart = useCallback(() => {
     if (!item) return;
 
-    // Add main item with unique cartItemId
     const mainCartId = addItemAdvanced(item, {
       quantity,
-      preventCheckoutUpsell: true, // User saw the modal — don't upsell again at checkout
+      preventCheckoutUpsell: true,
     });
 
-    // If user also added the suggestion, link it
-    if (suggestionAdded && aiSuggestion) {
-      const suggestionMenuItem: MenuItem = {
-        id: aiSuggestion.id,
-        tenant_id: tenant.id,
-        category_id: '',
-        name: aiSuggestion.name,
-        description: aiSuggestion.description,
-        price: aiSuggestion.price,
-        image_url: aiSuggestion.image_url,
-        is_available: true,
-        is_featured: false,
-        badge: null,
-        upsell_item_id: null,
-        upsell_text: null,
-        sort_order: 0,
-        created_at: '',
-        updated_at: '',
-      };
-      addItemAdvanced(suggestionMenuItem, {
-        quantity: suggestionQty,
-        isUpsell: true,
-        upsellSource: 'ai',
-        parentCartItemId: mainCartId,
-        preventCheckoutUpsell: true,
-      });
-    }
+    // Register "rejected" feedback for suggestions not added
+    shownSuggestionIds.forEach(sugId => {
+      if (!suggestionAdded[sugId]) {
+        const suggestion = aiSuggestions.find(s => s.id === sugId);
+        if (suggestion) {
+          sendUpsellFeedback(
+            tenant.id, item.id, item.name,
+            sugId, suggestion.name, 'rejected'
+          );
+        }
+      }
+    });
 
-    // Mark as handled even if user declined the suggestion
     markUpsellHandled(mainCartId);
-
     setMainAdded(true);
     toast.success(
       lang === 'es'
@@ -160,7 +227,7 @@ export default function ProductDetailModal({
     setTimeout(() => {
       onClose();
     }, 600);
-  }, [item, quantity, aiSuggestion, suggestionAdded, suggestionQty, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose]);
+  }, [item, quantity, aiSuggestions, suggestionAdded, shownSuggestionIds, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose]);
 
   if (!item) return null;
 
@@ -173,7 +240,7 @@ export default function ProductDetailModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="fixed inset-0 z-[9999]"
             style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           />
@@ -192,7 +259,7 @@ export default function ProductDetailModal({
           >
             {/* Close button */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all"
               style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' }}
             >
@@ -280,12 +347,12 @@ export default function ProductDetailModal({
                       className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                       style={{ backgroundColor: theme.primary_color }}
                     >
-                      <Plus size={16} style={{ color: 'var(--menu-accent-contrast)' }} />
+                      <Plus size={16} style={{ color: '#fff' }} />
                     </button>
                   </div>
                 </div>
 
-                {/* ─── AI SUGGESTION SECTION ─── */}
+                {/* ─── AI SUGGESTIONS SECTION (V17.0: 2 sugerencias) ─── */}
                 <div className="mb-5">
                   {aiLoading && (
                     <motion.div
@@ -298,134 +365,135 @@ export default function ProductDetailModal({
                         animate={{ rotate: 360 }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                       >
-                        <Sparkles size={16} style={{ color: theme.primary_color }} />
+                        <Sparkles size={14} style={{ color: theme.primary_color }} />
                       </motion.div>
-                      <span className="text-xs" style={{ color: `${theme.text_color}70` }}>
-                        {lang === 'es' ? 'Buscando el complemento perfecto...' : 'Finding the perfect match...'}
+                      <span className="text-xs opacity-60" style={{ color: theme.text_color }}>
+                        {lang === 'es' ? 'Buscando el complemento perfecto...' : 'Finding the perfect pairing...'}
                       </span>
                     </motion.div>
                   )}
 
-                  {!aiLoading && aiSuggestion && (
+                  {!aiLoading && aiSuggestions.length > 0 && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="rounded-2xl overflow-hidden"
-                      style={{
-                        backgroundColor: `${theme.primary_color}06`,
-                        border: `1px solid ${theme.primary_color}18`,
-                      }}
+                      transition={{ delay: 0.1 }}
                     >
                       {/* Header */}
-                      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-                        <Sparkles size={14} style={{ color: theme.primary_color }} />
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles size={13} style={{ color: theme.primary_color }} />
                         <span
-                          className="text-xs font-semibold uppercase tracking-wider"
+                          className="text-xs font-bold tracking-widest uppercase"
                           style={{ color: theme.primary_color }}
                         >
                           {lang === 'es' ? 'Recomendado para ti' : 'Recommended for you'}
                         </span>
                       </div>
 
-                      {/* Suggestion card */}
-                      <div className="px-4 pb-4 flex gap-3">
-                        {aiSuggestion.image_url ? (
-                          <img
-                            src={aiSuggestion.image_url}
-                            alt={aiSuggestion.name}
-                            className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div
-                            className="w-20 h-20 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl opacity-30"
-                            style={{ backgroundColor: `${theme.primary_color}10` }}
-                          >
-                            🍽️
-                          </div>
-                        )}
-
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="text-sm font-semibold truncate"
-                            style={{ color: theme.text_color }}
-                          >
-                            {aiSuggestion.name}
-                          </p>
-                          {aiSuggestion.pitch && (
-                            <p
-                              className="text-xs italic leading-snug mt-0.5 line-clamp-2"
-                              style={{ color: `${theme.text_color}60` }}
+                      {/* Suggestion cards */}
+                      <div className="flex flex-col gap-3">
+                        {aiSuggestions.map((suggestion) => {
+                          const isAdded = suggestionAdded[suggestion.id];
+                          const qty = suggestionQtys[suggestion.id] || 1;
+                          return (
+                            <motion.div
+                              key={suggestion.id}
+                              className="flex items-center gap-3 p-3 rounded-2xl"
+                              style={{
+                                backgroundColor: isAdded
+                                  ? `${theme.primary_color}15`
+                                  : `${theme.text_color}06`,
+                                border: `1px solid ${isAdded ? theme.primary_color + '40' : theme.text_color + '10'}`,
+                                transition: 'all 0.3s ease',
+                              }}
                             >
-                              "{aiSuggestion.pitch}"
-                            </p>
-                          )}
-                          <p
-                            className="text-sm font-bold mt-1"
-                            style={{ color: theme.primary_color }}
-                          >
-                            {formatPrice(aiSuggestion.price)}
-                          </p>
-
-                          {/* Suggestion quantity + add button */}
-                          <div className="flex items-center gap-2 mt-2">
-                            {!suggestionAdded ? (
-                              <>
-                                {/* Qty selector for suggestion */}
+                              {/* Thumbnail */}
+                              {suggestion.image_url ? (
+                                <img
+                                  src={suggestion.image_url}
+                                  alt={suggestion.name}
+                                  className="w-16 h-16 rounded-xl object-cover shrink-0"
+                                />
+                              ) : (
                                 <div
-                                  className="flex items-center gap-2 px-2 py-1 rounded-full"
-                                  style={{ backgroundColor: `${theme.text_color}06` }}
+                                  className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                                  style={{ backgroundColor: `${theme.primary_color}15` }}
                                 >
-                                  <button
-                                    onClick={() => setSuggestionQty(q => Math.max(1, q - 1))}
-                                    className="w-6 h-6 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: `${theme.text_color}10` }}
-                                  >
-                                    <Minus size={12} style={{ color: theme.text_color }} />
-                                  </button>
-                                  <span
-                                    className="text-sm font-bold w-4 text-center"
+                                  🍽️
+                                </div>
+                              )}
+
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className="text-sm font-bold leading-tight truncate"
+                                  style={{ color: theme.text_color }}
+                                >
+                                  {suggestion.name}
+                                </p>
+                                {suggestion.pitch && (
+                                  <p
+                                    className="text-xs italic opacity-60 mt-0.5 line-clamp-1"
                                     style={{ color: theme.text_color }}
                                   >
-                                    {suggestionQty}
-                                  </span>
-                                  <button
-                                    onClick={() => setSuggestionQty(q => q + 1)}
-                                    className="w-6 h-6 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: theme.primary_color }}
-                                  >
-                                    <Plus size={12} style={{ color: 'var(--menu-accent-contrast)' }} />
-                                  </button>
-                                </div>
-
-                                {/* Add button */}
-                                <motion.button
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => setSuggestionAdded(true)}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
-                                  style={{
-                                    backgroundColor: theme.primary_color,
-                                    color: 'var(--menu-accent-contrast)',
-                                  }}
+                                    "{suggestion.pitch}"
+                                  </p>
+                                )}
+                                <p
+                                  className="text-sm font-bold mt-1"
+                                  style={{ color: theme.primary_color }}
                                 >
-                                  <Plus size={12} />
-                                  {lang === 'es' ? 'Agregar' : 'Add'}
-                                </motion.button>
-                              </>
-                            ) : (
-                              <motion.div
-                                initial={{ scale: 0.8 }}
-                                animate={{ scale: 1 }}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
-                                style={{ backgroundColor: '#38A16920', color: '#38A169' }}
-                              >
-                                <Check size={12} />
-                                {lang === 'es'
-                                  ? `${suggestionQty}× agregado`
-                                  : `${suggestionQty}× added`}
-                              </motion.div>
-                            )}
-                          </div>
-                        </div>
+                                  {formatPrice(suggestion.price)}
+                                </p>
+                              </div>
+
+                              {/* Controls */}
+                              <div className="flex flex-col items-end gap-2 shrink-0">
+                                {!isAdded ? (
+                                  <>
+                                    {/* Qty mini controls */}
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => setSuggestionQtys(prev => ({ ...prev, [suggestion.id]: Math.max(1, (prev[suggestion.id] || 1) - 1) }))}
+                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                                        style={{ backgroundColor: `${theme.text_color}12`, color: theme.text_color }}
+                                      >
+                                        <Minus size={10} />
+                                      </button>
+                                      <span className="text-xs font-bold w-4 text-center" style={{ color: theme.text_color }}>
+                                        {qty}
+                                      </span>
+                                      <button
+                                        onClick={() => setSuggestionQtys(prev => ({ ...prev, [suggestion.id]: (prev[suggestion.id] || 1) + 1 }))}
+                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                                        style={{ backgroundColor: theme.primary_color, color: '#fff' }}
+                                      >
+                                        <Plus size={10} />
+                                      </button>
+                                    </div>
+                                    {/* Add button */}
+                                    <button
+                                      onClick={() => handleAddSuggestion(suggestion)}
+                                      className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95"
+                                      style={{ backgroundColor: theme.primary_color, color: '#fff' }}
+                                    >
+                                      <Plus size={11} />
+                                      {lang === 'es' ? 'Agregar' : 'Add'}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <div
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                                    style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}
+                                  >
+                                    <Check size={12} />
+                                    {lang === 'es' ? 'Agregado' : 'Added'}
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}
@@ -433,40 +501,32 @@ export default function ProductDetailModal({
               </div>
             </div>
 
-            {/* Sticky bottom CTA */}
+            {/* ─── Bottom CTA ─── */}
             <div
-              className="px-5 py-4 pb-8 border-t flex-shrink-0"
-              style={{ borderColor: `${theme.text_color}10` }}
+              className="px-5 py-4 shrink-0"
+              style={{
+                borderTop: `1px solid ${theme.text_color}10`,
+                backgroundColor: theme.background_color,
+              }}
             >
-              <motion.button
-                whileTap={{ scale: 0.97 }}
+              <button
                 onClick={handleAddToCart}
                 disabled={mainAdded}
-                className="w-full py-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 transition-all"
+                className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70"
                 style={{
-                  backgroundColor: mainAdded ? '#38A169' : theme.primary_color,
-                  color: mainAdded ? '#fff' : 'var(--menu-accent-contrast)',
-                  boxShadow: mainAdded ? 'none' : `0 4px 20px ${theme.primary_color}40`,
+                  backgroundColor: mainAdded ? `${theme.primary_color}60` : theme.primary_color,
+                  color: '#fff',
                 }}
               >
                 {mainAdded ? (
-                  <>
-                    <Check size={20} />
-                    {lang === 'es' ? '¡Agregado!' : 'Added!'}
-                  </>
+                  <><Check size={18} /> {lang === 'es' ? '¡Agregado!' : 'Added!'}</>
                 ) : (
                   <>
-                    <ShoppingBag size={20} />
-                    {lang === 'es' ? 'Agregar al carrito' : 'Add to cart'}
-                    <span className="ml-1 opacity-80">
-                      — {formatPrice(
-                        item.price * quantity +
-                        (suggestionAdded && aiSuggestion ? aiSuggestion.price * suggestionQty : 0)
-                      )}
-                    </span>
+                    <ShoppingBag size={18} />
+                    {lang === 'es' ? `Agregar al carrito — ${formatPrice(item.price * quantity)}` : `Add to cart — ${formatPrice(item.price * quantity)}`}
                   </>
                 )}
-              </motion.button>
+              </button>
             </div>
           </motion.div>
         </>

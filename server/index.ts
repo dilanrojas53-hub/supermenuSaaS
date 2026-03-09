@@ -25,12 +25,12 @@ async function startServer() {
 
   app.use(express.json({ limit: "1mb" }));
 
-  // ─── AI Upsell Endpoint ───────────────────────────────────────────────────
+  // ─── AI Upsell Endpoint (V17.0: 2 sugerencias + aprendizaje) ─────────────
   app.post("/api/generate-upsell", async (req, res) => {
     const startTime = Date.now();
 
     try {
-      const { cart, tenant_id, restaurant_name } = req.body;
+      const { cart, tenant_id, restaurant_name, trigger_category_id } = req.body;
 
       if (!cart || !Array.isArray(cart) || cart.length === 0) {
         return res.status(400).json({ error: "Cart is required" });
@@ -40,7 +40,7 @@ async function startServer() {
         return res.status(400).json({ error: "tenant_id is required" });
       }
 
-      // Fetch menu catalog from Supabase
+      // ── 1. Fetch menu catalog from Supabase ──────────────────────────────
       const { data: menuItems, error: menuError } = await supabase
         .from("menu_items")
         .select("id, name, description, price, category_id, dietary_tags, is_available")
@@ -53,126 +53,206 @@ async function startServer() {
         return res.status(500).json({ error: "Failed to fetch menu" });
       }
 
-      // Build cart summary for the prompt
-      const cartSummary = cart
-        .map((item: any) => `- ${item.name} (${item.category || "sin categoría"})`)
-        .join("\n");
+      // ── 2. Fetch top accepted pairs from upsell_feedback (learning data) ─
+      const { data: topPairs } = await supabase
+        .from("upsell_feedback")
+        .select("suggested_item_id, suggested_item_name, action")
+        .eq("tenant_id", tenant_id)
+        .eq("trigger_item_id", cart[0]?.id)
+        .eq("action", "accepted")
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-      // Build catalog summary (limit to avoid token overflow)
+      // Build a ranked map: suggested_item_id → acceptance count
+      const acceptanceMap: Record<string, number> = {};
+      (topPairs || []).forEach((row: any) => {
+        acceptanceMap[row.suggested_item_id] = (acceptanceMap[row.suggested_item_id] || 0) + 1;
+      });
+
+      // Also fetch rejected pairs so we can deprioritize them
+      const { data: rejectedPairs } = await supabase
+        .from("upsell_feedback")
+        .select("suggested_item_id")
+        .eq("tenant_id", tenant_id)
+        .eq("trigger_item_id", cart[0]?.id)
+        .eq("action", "rejected")
+        .limit(20);
+
+      const rejectedIds = new Set((rejectedPairs || []).map((r: any) => r.suggested_item_id));
+
+      // ── 3. Build catalog excluding same category and cart items ──────────
       const cartItemIds = new Set(cart.map((item: any) => item.id));
+      const cartCategoryIds = new Set(cart.map((item: any) => item.category_id).filter(Boolean));
+      const excludedCategoryIds = trigger_category_id
+        ? new Set([trigger_category_id, ...Array.from(cartCategoryIds)])
+        : cartCategoryIds;
+
+      // Drink detection keywords
+      const drinkKeywords = ["bebida", "refresco", "agua", "jugo", "café", "cerveza", "limonada", "té", "smoothie", "batido", "coctel", "cóctel", "vino", "licor", "drink"];
+      const triggerItem = cart[0];
+      const triggerIsDrink = triggerItem && drinkKeywords.some(
+        (kw: string) => triggerItem.name?.toLowerCase().includes(kw)
+      );
+
       const availableCatalog = (menuItems || [])
-        .filter((item) => !cartItemIds.has(item.id))
-        .slice(0, 50)
+        .filter((item) => {
+          if (cartItemIds.has(item.id)) return false;
+          if (excludedCategoryIds.size > 0 && excludedCategoryIds.has(item.category_id)) return false;
+          return true;
+        })
         .map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
+          category_id: item.category_id,
           dietary_tags: item.dietary_tags || [],
           description: item.description?.slice(0, 80) || "",
-        }));
+          // Boost score for previously accepted items
+          _score: (acceptanceMap[item.id] || 0) * 10 - (rejectedIds.has(item.id) ? 5 : 0),
+        }))
+        // Sort by learning score descending so GPT sees best candidates first
+        .sort((a, b) => b._score - a._score)
+        .slice(0, 50);
 
+      // Build catalog text — mark top learned items so GPT knows to prioritize
       const catalogText = availableCatalog
-        .map(
-          (item) =>
-            `ID:${item.id} | ${item.name} | ₡${item.price} | Tags: ${item.dietary_tags.join(", ") || "ninguno"} | ${item.description}`
-        )
+        .map((item) => {
+          const learnedTag = acceptanceMap[item.id] ? ` [⭐ PREFERIDO x${acceptanceMap[item.id]}]` : "";
+          const rejectedTag = rejectedIds.has(item.id) ? " [❌ RECHAZADO ANTES]" : "";
+          return `ID:${item.id} | ${item.name}${learnedTag}${rejectedTag} | ₡${item.price} | Tags: ${item.dietary_tags.join(", ") || "ninguno"} | ${item.description}`;
+        })
         .join("\n");
 
-      // Check if cart has vegetarian/vegan items
+      // ── 4. Build prompt ──────────────────────────────────────────────────
+      const cartSummary = cart
+        .map((item: any) => `- ${item.name}`)
+        .join("\n");
+
       const cartHasDietaryRestriction = cart.some(
         (item: any) =>
           item.dietary_tags?.includes("vegetariano") ||
-          item.dietary_tags?.includes("vegano") ||
-          item.dietary_tags?.includes("vegetarian") ||
-          item.dietary_tags?.includes("vegan")
+          item.dietary_tags?.includes("vegano")
       );
 
-      // Check if cart has drinks
-      const cartHasDrinks = cart.some(
-        (item: any) =>
-          item.category?.toLowerCase().includes("bebida") ||
-          item.category?.toLowerCase().includes("té") ||
-          item.category?.toLowerCase().includes("café") ||
-          item.category?.toLowerCase().includes("drink")
-      );
+      const systemPrompt = `Eres el mejor mesero del mundo trabajando en ${restaurant_name || "este restaurante"}.
 
-      const systemPrompt = `Eres un experto Sommelier y el mejor mesero del mundo trabajando en ${restaurant_name || "este restaurante"}.
-
-El cliente tiene esto en su carrito:
+El cliente está viendo este producto:
 ${cartSummary}
 
-Este es nuestro menú disponible (NO sugerir lo que ya está en el carrito):
+Catálogo disponible (ya filtrado — NO incluye la misma categoría del producto):
 ${catalogText}
 
-Tu tarea es hacer un 'Cross-sell' o 'Up-sell' inteligente y altamente lógico.
+REGLAS CRÍTICAS:
+1. ${triggerIsDrink ? "⚠️ El cliente está viendo una BEBIDA. NUNCA sugieras otra bebida, milkshake, smoothie, jugo, refresco, cóctel, licor. SOLO sugiere comida: entradas, platos principales, snacks o postres." : "El cliente está viendo comida. Puedes sugerir bebidas o complementos que combinen bien."}
+2. ${cartHasDietaryRestriction ? "⚠️ RESTRICCIÓN: El cliente tiene platos vegetarianos/veganos. NO sugieras carne." : "Sin restricciones dietéticas."}
+3. NUNCA sugieras algo de la misma categoría del producto que está viendo.
+4. Los ítems marcados con ⭐ PREFERIDO son los que otros clientes han aceptado antes — dales PRIORIDAD.
+5. Los ítems marcados con ❌ RECHAZADO ANTES fueron rechazados — EVÍTALOS a menos que no haya alternativa.
+6. Genera EXACTAMENTE 2 sugerencias distintas. Si no hay suficientes opciones válidas, genera 1.
+7. Los IDs DEBEN ser exactamente del catálogo de arriba.
+8. Cada pitch debe ser corto (máximo 12 palabras), persuasivo y específico.
 
-REGLAS ESTRICTAS DE LÓGICA:
-1. RESTRICCIÓN DIETÉTICA (CRÍTICO): ${cartHasDietaryRestriction ? "El carrito contiene platos vegetarianos o veganos. TIENES ESTRICTAMENTE PROHIBIDO sugerir cualquier producto que contenga carne." : "No hay restricciones dietéticas detectadas."}
-2. LÓGICA DE BEBIDAS (MARIDAJE): ${!cartHasDrinks ? "El cliente lleva comida pero NO lleva bebidas. DEBES sugerir una o dos bebidas que combinen perfectamente con la comida seleccionada." : "El cliente ya tiene bebidas en su carrito."}
-3. EQUILIBRIO DE SABORES: No ofrezcas más comida pesada si el carrito ya es muy abundante. En su lugar, sugiere un postre ligero o una bebida refrescante.
-4. DUPLICADOS: Nunca sugieras algo que ya está en el carrito.
-5. Sugiere máximo 2 productos.
-
-Devuelve ESTRICTAMENTE un objeto JSON con este formato exacto (sin markdown, sin texto extra):
+Devuelve ESTRICTAMENTE un JSON (sin markdown):
 {
-  "suggested_item_ids": ["id1", "id2"],
-  "pitch_message": "Mensaje persuasivo, corto y antojador (máximo 20 palabras) justificando por qué esta combinación exacta es perfecta para su pedido."
+  "upsells": [
+    {"id": "uuid-exacto", "pitch": "texto corto persuasivo"},
+    {"id": "uuid-exacto", "pitch": "texto corto persuasivo"}
+  ]
 }`;
 
-      // Call OpenAI with 4-second timeout
+      // ── 5. Call OpenAI ───────────────────────────────────────────────────
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("OpenAI timeout")), 4000)
+        setTimeout(() => reject(new Error("OpenAI timeout")), 6000)
       );
 
       const openaiPromise = openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "system", content: systemPrompt }],
         response_format: { type: "json_object" },
-        max_tokens: 200,
-        temperature: 0.7,
+        max_tokens: 300,
+        temperature: 0.6,
       });
 
       const completion = await Promise.race([openaiPromise, timeoutPromise]);
-
       const rawContent = completion.choices[0]?.message?.content || "{}";
-      let parsed: { suggested_item_ids?: string[]; pitch_message?: string } = {};
 
+      let parsed: { upsells?: Array<{ id: string; pitch: string }> } = {};
       try {
         parsed = JSON.parse(rawContent);
       } catch {
-        console.error("Failed to parse OpenAI response:", rawContent);
-        return res.json({ suggested_item_ids: [], pitch_message: null, fallback: true });
+        console.error("[AI Upsell v2] Failed to parse OpenAI response:", rawContent);
+        return res.json({ suggested_items: [], fallback: true });
       }
 
-      // Validate suggested IDs exist in catalog
+      // ── 6. Validate and enrich suggestions ──────────────────────────────
       const validIds = new Set(availableCatalog.map((item) => item.id));
-      const suggestedIds = (parsed.suggested_item_ids || []).filter((id) => validIds.has(id));
+      const upsells = (parsed.upsells || [])
+        .filter((u) => u.id && validIds.has(u.id))
+        .slice(0, 2);
 
-      // Fetch full item details for the suggested IDs
-      const suggestedItems = suggestedIds
-        .map((id) => menuItems?.find((item) => item.id === id))
-        .filter(Boolean);
+      const suggestedItems = upsells.map((u) => {
+        const menuItem = menuItems?.find((item) => item.id === u.id);
+        return menuItem ? { ...menuItem, pitch: u.pitch } : null;
+      }).filter(Boolean);
 
       console.log(
-        `[AI Upsell] tenant=${tenant_id} cart=${cart.length} items suggested=${suggestedIds.length} time=${Date.now() - startTime}ms`
+        `[AI Upsell v2] tenant=${tenant_id} suggested=${suggestedItems.length} learned_pairs=${Object.keys(acceptanceMap).length} time=${Date.now() - startTime}ms`
       );
 
       return res.json({
-        suggested_item_ids: suggestedIds,
         suggested_items: suggestedItems,
-        pitch_message: parsed.pitch_message || null,
         fallback: false,
       });
+
     } catch (error: any) {
-      console.error("[AI Upsell] Error:", error.message);
-      // Fallback: return empty so frontend skips modal and goes to checkout
+      console.error("[AI Upsell v2] Error:", error.message);
       return res.json({
-        suggested_item_ids: [],
         suggested_items: [],
-        pitch_message: null,
         fallback: true,
         error: error.message,
       });
+    }
+  });
+
+  // ─── Upsell Feedback Endpoint (V17.0: sistema de aprendizaje) ────────────
+  app.post("/api/upsell-feedback", async (req, res) => {
+    try {
+      const {
+        tenant_id,
+        trigger_item_id,
+        trigger_item_name,
+        suggested_item_id,
+        suggested_item_name,
+        action,
+      } = req.body;
+
+      if (!tenant_id || !trigger_item_id || !suggested_item_id || !action) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const validActions = ["accepted", "rejected", "ignored"];
+      if (!validActions.includes(action)) {
+        return res.status(400).json({ error: "Invalid action" });
+      }
+
+      const { error } = await supabase.from("upsell_feedback").insert({
+        tenant_id,
+        trigger_item_id,
+        trigger_item_name: trigger_item_name || "",
+        suggested_item_id,
+        suggested_item_name: suggested_item_name || "",
+        action,
+      });
+
+      if (error) {
+        console.error("[Upsell Feedback] DB error:", error.message);
+        return res.status(500).json({ error: "Failed to save feedback" });
+      }
+
+      return res.status(200).json({ ok: true });
+    } catch (err: any) {
+      console.error("[Upsell Feedback] Unexpected error:", err);
+      return res.status(500).json({ error: "Internal server error" });
     }
   });
 
