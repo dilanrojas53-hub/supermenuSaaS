@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { useUITheme } from '@/contexts/UIThemeContext';
-import { themes, type ThemeKey, BASE_PALETTES, type BaseKey, applyBaseWithAccent, saveBase, getStoredBase } from '@/lib/themes';
+import { themes, type ThemeKey, RESTAURANT_THEMES, type RestaurantThemePreset, getThemeCategories, getThemePreset, applyRestaurantTheme, isColorDark } from '@/lib/themes';
 import { toast } from 'sonner';
 
 // ─── Toggle Switch ───
@@ -598,125 +598,127 @@ function ChangePasswordCard() {
 
 // ─── Theme Tab ───
 function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSettings; onRefresh: () => void }) {
-  // ── Motor de Theming B2B V4.0 ──
   const { uiTheme, setUiTheme } = useUITheme();
+  // V18.0: Estado de 5 colores del menú público + tema preset
   const [form, setForm] = useState({
-    primary_color: theme.primary_color, secondary_color: theme.secondary_color,
-    accent_color: theme.accent_color, background_color: theme.background_color,
-    text_color: theme.text_color, surface_color: (theme as any).surface_color || '',
-    font_family: theme.font_family,
-    view_mode: theme.view_mode, hero_image_url: theme.hero_image_url || '',
+    primary_color:    theme.primary_color    || '#c6a75e',
+    secondary_color:  theme.secondary_color  || '#1d2958',
+    accent_color:     theme.accent_color     || '#c6a75e',
+    background_color: theme.background_color || '#0a0a0a',
+    text_color:       theme.text_color       || '#f5f5f5',
+    surface_color:    (theme as any).surface_color  || '#161616',
+    badge_color:      (theme as any).badge_color    || theme.primary_color || '#c6a75e',
+    font_family:      theme.font_family      || 'Inter',
+    view_mode:        theme.view_mode        || 'grid',
+    hero_image_url:   theme.hero_image_url   || '',
+    theme_preset_key: (theme as any).theme_preset_key || '',
   });
   const [saving, setSaving] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>(getThemeCategories()[0]);
 
-  // V15.0: Designer-in-a-Box — Base Palette + Acento libre
-  const [selectedBase, setSelectedBase] = useState<BaseKey>(
-    (localStorage.getItem('restaurant_base') as BaseKey) || getStoredBase()
-  );
-  const [accentColor, setAccentColor] = useState<string>(
-    form.primary_color || '#c6a75e'
-  );
-
-  const handleBaseSelect = (key: BaseKey) => {
-    setSelectedBase(key);
-    saveBase(key);
-    applyBaseWithAccent(key, accentColor);
-    // Sincronizar con el form para que Guardar lo persista en Supabase
-    const base = BASE_PALETTES.find(b => b.key === key)!;
-    setForm(f => ({ ...f, background_color: base.bg, text_color: base.text }));
+  // Preview en vivo: aplicar colores al DOM mientras el admin edita
+  const handleColorChange = (key: string, value: string) => {
+    const newForm = { ...form, [key]: value };
+    setForm(newForm);
+    applyRestaurantTheme({
+      background: newForm.background_color,
+      surface:    newForm.surface_color,
+      text:       newForm.text_color,
+      primary:    newForm.primary_color,
+      badge:      newForm.badge_color,
+    });
   };
 
-  const handleAccentChange = (color: string) => {
-    setAccentColor(color);
-    applyBaseWithAccent(selectedBase, color);
-    setForm(f => ({ ...f, primary_color: color, accent_color: color }));
+  // Aplicar preset: cargar colores recomendados del tema seleccionado
+  const handlePresetSelect = (preset: RestaurantThemePreset) => {
+    const newForm = {
+      ...form,
+      background_color: preset.recommended.background,
+      surface_color:    preset.recommended.surface,
+      text_color:       preset.recommended.text,
+      primary_color:    preset.recommended.primary,
+      accent_color:     preset.recommended.primary,
+      badge_color:      preset.recommended.badge,
+      theme_preset_key: preset.key,
+    };
+    setForm(newForm);
+    applyRestaurantTheme({
+      background: newForm.background_color,
+      surface:    newForm.surface_color,
+      text:       newForm.text_color,
+      primary:    newForm.primary_color,
+      badge:      newForm.badge_color,
+    });
   };
 
   const handleSave = async () => {
     setSaving(true);
     const payload = {
-      primary_color: form.primary_color,
-      secondary_color: form.secondary_color,
-      accent_color: form.accent_color,
+      primary_color:    form.primary_color,
+      secondary_color:  form.secondary_color,
+      accent_color:     form.accent_color,
       background_color: form.background_color,
-      text_color: form.text_color,
-      surface_color: form.surface_color,
-      font_family: form.font_family,
-      view_mode: form.view_mode,
-      hero_image_url: form.hero_image_url || null,
-      updated_at: new Date().toISOString(),
+      text_color:       form.text_color,
+      surface_color:    form.surface_color,
+      badge_color:      form.badge_color,
+      font_family:      form.font_family,
+      view_mode:        form.view_mode,
+      hero_image_url:   form.hero_image_url || null,
+      theme_preset_key: form.theme_preset_key || null,
+      updated_at:       new Date().toISOString(),
     };
     const { error } = await supabase.from('theme_settings').update(payload).eq('tenant_id', tenant.id);
     setSaving(false);
     if (error) { toast.error('Error: ' + error.message); return; }
-    toast.success('Tema actualizado'); onRefresh();
+    toast.success('Tema actualizado');
+    onRefresh();
   };
 
   const fonts = ['Georgia', 'Poppins', 'Montserrat', 'Inter', 'Lora', 'Nunito'];
+  const themeCategories = getThemeCategories();
+  const isDark = isColorDark(form.background_color);
 
   return (
     <div>
       <h2 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Personalización del Tema</h2>
 
-      {/* ── PANEL DE APARIENCIA B2B V4.0 ── */}
+      {/* ── PANEL DE APARIENCIA DEL ADMIN ── */}
       <div className="rounded-2xl p-6 mb-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg">🎨</span>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Panel de Administración</h3>
         </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Elige el tema visual del panel. El cambio es instantáneo y se guarda automáticamente.</p>
-
-        {/* Dropdown simple para selección rápida */}
+        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Elige el tema visual del panel. El cambio es instantáneo.</p>
         <div className="flex items-center gap-3 mb-4">
           <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Selección rápida:</label>
-          <select
-            value={uiTheme}
-            onChange={e => setUiTheme(e.target.value as ThemeKey)}
+          <select value={uiTheme} onChange={e => setUiTheme(e.target.value as ThemeKey)}
             className="px-3 py-1.5 rounded-lg text-sm border cursor-pointer"
-            style={{
-              backgroundColor: 'var(--bg-page)',
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border)',
-            }}
-          >
-            {(Object.entries(themes) as [ThemeKey, typeof themes[ThemeKey]][]).map(([key, def]) => (
-              <option key={key} value={key}>{def.emoji} {def.name} — {def.description}</option>
+            style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
+            {Object.entries(themes).map(([key, def]) => (
+              <option key={key} value={key}>{def.emoji} {def.name}</option>
             ))}
           </select>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {(Object.entries(themes) as [ThemeKey, typeof themes[ThemeKey]][]).map(([key, def]) => {
             const isActive = uiTheme === key;
             return (
-              <button
-                key={key}
-                onClick={() => setUiTheme(key)}
-                className="relative rounded-xl p-3 border-2 transition-all text-left hover:scale-[1.02]"
+              <button key={key} onClick={() => setUiTheme(key)}
+                className="relative flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left"
                 style={{
-                  backgroundColor: def.vars['--bg-page'],
-                  borderColor: isActive ? def.vars['--accent'] : 'rgba(255,255,255,0.08)',
-                  boxShadow: isActive ? `0 0 0 3px ${def.vars['--accent']}30` : 'none',
-                }}
-              >
-                {/* Preview mini */}
-                <div className="flex gap-1 mb-2">
-                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--bg-surface'] }} />
-                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--accent'] }} />
-                  <div className="w-5 h-5 rounded-md" style={{ backgroundColor: def.vars['--border'] }} />
-                </div>
-                <div className="flex items-center gap-1.5 mb-0.5">
+                  backgroundColor: def.vars['--bg-surface'],
+                  borderColor: isActive ? def.vars['--accent'] : 'transparent',
+                  boxShadow: isActive ? `0 0 0 1px ${def.vars['--accent']}40` : 'none',
+                }}>
+                <div className="w-full h-6 rounded-md mb-2" style={{ backgroundColor: def.vars['--bg-page'] }} />
+                <div className="flex items-center gap-1.5">
                   <span className="text-sm">{def.emoji}</span>
                   <span className="text-xs font-bold" style={{ color: def.vars['--text-primary'] }}>{def.name}</span>
                 </div>
-                <p className="text-[10px]" style={{ color: def.vars['--text-secondary'] }}>{def.description}</p>
+                <span className="text-[10px] mt-0.5" style={{ color: def.vars['--text-secondary'] }}>{def.description}</span>
                 {isActive && (
-                  <div
-                    className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black"
-                    style={{ backgroundColor: def.vars['--accent'], color: def.vars['--accent-contrast'] }}
-                  >
-                    ✓
-                  </div>
+                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black"
+                    style={{ backgroundColor: def.vars['--accent'], color: def.vars['--accent-contrast'] }}>✓</div>
                 )}
               </button>
             );
@@ -724,27 +726,96 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
       </div>
 
-      {/* ── COLORES DEL MENÚ PÚBLICO (V6.0 Cirugía Láser: 4 Colores Nativos) ── */}
+      {/* ── TEMAS DEL MENÚ PÚBLICO V18.0 ── */}
       <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-base">🍽️</span>
-          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Colores del Menú Público</h3>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Menú Público</h3>
         </div>
         <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>
-          Estos 4 colores controlan toda la apariencia del menú que ven tus clientes. Los cambios se aplican al guardar.
+          Elige un tema base para tu tipo de restaurante y personaliza los colores. Los cambios se aplican en tiempo real.
         </p>
 
-        <div className="grid grid-cols-2 gap-5 mb-6">
+        {/* Selector de categoría de tema */}
+        <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Tipo de restaurante</p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {themeCategories.map(cat => (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: activeCategory === cat ? 'var(--accent)' : 'var(--bg-page)',
+                color: activeCategory === cat ? '#fff' : 'var(--text-secondary)',
+                border: `1px solid ${activeCategory === cat ? 'var(--accent)' : 'var(--border)'}`,
+              }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Grid de temas de la categoría activa */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {RESTAURANT_THEMES.filter(t => t.category === activeCategory).map(preset => {
+            const isSelected = form.theme_preset_key === preset.key;
+            return (
+              <button key={preset.key} onClick={() => handlePresetSelect(preset)}
+                className="relative flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left overflow-hidden"
+                style={{
+                  backgroundColor: preset.recommended.background,
+                  borderColor: isSelected ? preset.recommended.primary : 'transparent',
+                  boxShadow: isSelected ? `0 0 0 1px ${preset.recommended.primary}60` : '0 2px 8px rgba(0,0,0,0.15)',
+                }}>
+                {/* Preview de superficie */}
+                <div className="w-full h-8 rounded-lg mb-2 flex items-center justify-between px-2"
+                  style={{ backgroundColor: preset.recommended.surface, border: `1px solid ${preset.recommended.primary}20` }}>
+                  <span className="text-[9px] font-bold" style={{ color: preset.recommended.text }}>Platillo</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: preset.recommended.primary }}>+</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{preset.emoji}</span>
+                  <span className="text-xs font-bold" style={{ color: preset.recommended.text }}>{preset.name}</span>
+                </div>
+                <span className="text-[10px] mt-0.5 leading-tight" style={{ color: preset.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
+                  {preset.description}
+                </span>
+                {/* Swatches de colores */}
+                <div className="flex gap-1 mt-2">
+                  {[preset.recommended.background, preset.recommended.surface, preset.recommended.primary, preset.recommended.badge].map((c, i) => (
+                    <div key={i} className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+                {isSelected && (
+                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    style={{ backgroundColor: preset.recommended.primary, color: '#fff' }}>✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nota de paleta del tema seleccionado */}
+        {form.theme_preset_key && (() => {
+          const preset = getThemePreset(form.theme_preset_key);
+          return preset ? (
+            <div className="mb-5 px-4 py-3 rounded-xl text-xs" style={{ backgroundColor: `${form.primary_color}15`, color: form.primary_color, border: `1px solid ${form.primary_color}30` }}>
+              💡 <strong>{preset.name}:</strong> {preset.paletteNote}
+            </div>
+          ) : null;
+        })()}
+
+        {/* ── 4 COLOR PICKERS ── */}
+        <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Personalizar colores</p>
+        <div className="grid grid-cols-2 gap-4 mb-6">
           {[
-            { key: 'background_color', label: 'Fondo', desc: 'Color de fondo general', icon: '🎨' },
-            { key: 'surface_color', label: 'Superficie', desc: 'Tarjetas, modales y nav', icon: '📋' },
-            { key: 'text_color', label: 'Texto', desc: 'Textos principales', icon: '✍️' },
-            { key: 'primary_color', label: 'Acento', desc: 'Botones, badges y destacados', icon: '✨' },
+            { key: 'background_color', label: 'Fondo',      desc: 'Color de fondo general',      icon: '🎨' },
+            { key: 'surface_color',    label: 'Superficie',  desc: 'Tarjetas, modales y nav',      icon: '📋' },
+            { key: 'text_color',       label: 'Texto',       desc: 'Textos principales',           icon: '✍️' },
+            { key: 'primary_color',    label: 'Principal',   desc: 'Botones y precios',            icon: '✨' },
+            { key: 'badge_color',      label: 'Badges',      desc: 'Categorías y etiquetas',       icon: '🏷️' },
           ].map(({ key, label, desc, icon }) => (
             <div key={key} className="flex items-center gap-3">
               <input type="color" value={(form as any)[key] || '#000000'}
-                onChange={e => setForm({ ...form, [key]: e.target.value })}
-                className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent hover:border-slate-400 transition-colors flex-shrink-0"
+                onChange={e => handleColorChange(key, e.target.value)}
+                className="w-12 h-12 rounded-xl border-2 cursor-pointer bg-transparent flex-shrink-0"
                 style={{ borderColor: 'var(--border)' }}
               />
               <div>
@@ -758,118 +829,62 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
           ))}
         </div>
 
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Tipografía</h3>
+        {/* Tipografía */}
+        <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Tipografía</h3>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6">
           {fonts.map(f => (
             <button key={f} onClick={() => setForm({ ...form, font_family: f })}
-              className={`px-3 py-2.5 rounded-xl text-sm border transition-all ${form.font_family === f
-                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'}`}
-              style={{ fontFamily: `'${f}', sans-serif` }}>
+              className="px-3 py-2.5 rounded-xl text-sm border transition-all"
+              style={{
+                fontFamily: `'${f}', sans-serif`,
+                backgroundColor: form.font_family === f ? `${form.primary_color}20` : 'var(--bg-page)',
+                borderColor: form.font_family === f ? form.primary_color : 'var(--border)',
+                color: form.font_family === f ? form.primary_color : 'var(--text-secondary)',
+              }}>
               {f}
             </button>
           ))}
         </div>
 
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Modo de vista</h3>
+        {/* Modo de vista */}
+        <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Modo de vista</h3>
         <div className="flex gap-3 mb-6">
-          <button onClick={() => setForm({ ...form, view_mode: 'grid' })}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm border transition-all ${form.view_mode === 'grid'
-              ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'}`}>
-            <LayoutGrid size={16} /> Cuadrícula
-          </button>
-          <button onClick={() => setForm({ ...form, view_mode: 'list' })}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm border transition-all ${form.view_mode === 'list'
-              ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-500'}`}>
-            <List size={16} /> Lista
-          </button>
+          {[{ v: 'grid', icon: '⊞', label: 'Cuadrícula' }, { v: 'list', icon: '☰', label: 'Lista' }].map(({ v, icon, label }) => (
+            <button key={v} onClick={() => setForm({ ...form, view_mode: v as 'grid' | 'list' })}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm border transition-all"
+              style={{
+                backgroundColor: form.view_mode === v ? `${form.primary_color}20` : 'var(--bg-page)',
+                borderColor: form.view_mode === v ? form.primary_color : 'var(--border)',
+                color: form.view_mode === v ? form.primary_color : 'var(--text-secondary)',
+              }}>
+              {icon} {label}
+            </button>
+          ))}
         </div>
 
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Imagen Hero</h3>
-        <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url} onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
-
-        {/* V15.0: Designer-in-a-Box — Base del Menú + Acento */}
-        <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-base">🎨</span>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Apariencia del Menú Público</h3>
-          </div>
-          <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>Elige la base de colores del menú. Luego personaliza el color de marca. Los cambios son instantáneos.</p>
-
-          {/* Selector de Base — 4 opciones cerradas */}
-          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Base del Menú</p>
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {BASE_PALETTES.map(base => (
-              <button
-                key={base.key}
-                onClick={() => handleBaseSelect(base.key)}
-                className="relative flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left"
-                style={{
-                  backgroundColor: base.bg,
-                  borderColor: selectedBase === base.key ? accentColor : 'transparent',
-                  boxShadow: selectedBase === base.key ? `0 0 0 1px ${accentColor}40` : 'none',
-                }}
-              >
-                {/* Mini preview de superficie */}
-                <div
-                  className="w-full h-8 rounded-lg mb-2 border"
-                  style={{ backgroundColor: base.surface, borderColor: base.border }}
-                />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm">{base.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: base.text }}>{base.name}</span>
-                </div>
-                <span className="text-[10px] mt-0.5" style={{ color: base.isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.45)' }}>{base.description}</span>
-                {selectedBase === base.key && (
-                  <span
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                    style={{ backgroundColor: accentColor, color: '#fff' }}
-                  >✓</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Selector de Acento — único color libre */}
-          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Color de Marca / Acento</p>
-          <div className="flex items-center gap-4">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={e => handleAccentChange(e.target.value)}
-              className="w-14 h-14 rounded-xl border-2 cursor-pointer bg-transparent transition-all"
-              style={{ borderColor: 'var(--border)' }}
-            />
-            <div>
-              <p className="text-xs font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{accentColor}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Botones, badges e íconos activos</p>
-              {/* Swatch de preview del acento */}
-              <div className="flex gap-1.5 mt-2">
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: accentColor }}>Agregar</span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: `${accentColor}22`, color: accentColor }}>Badge</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Imagen Hero */}
+        <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Imagen Hero</h3>
+        <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url}
+          onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
 
         {/* Live Preview */}
         <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: form.background_color, borderColor: `${form.text_color}20` }}>
           <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: form.text_color, opacity: 0.4 }}>Vista previa del menú</p>
           <h3 className="text-lg font-bold mb-1" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
-          {/* Card preview */}
-          <div className="mt-3 p-3 rounded-xl" style={{ backgroundColor: form.surface_color || `${form.text_color}08`, border: `1px solid ${form.text_color}10` }}>
+          {/* Nav de categorías */}
+          <div className="flex gap-2 mb-3 overflow-hidden">
+            <span className="px-3 py-1 rounded-full text-xs font-bold text-white" style={{ backgroundColor: form.badge_color }}>Entradas</span>
+            <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Platos</span>
+            <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Bebidas</span>
+          </div>
+          {/* Card de platillo */}
+          <div className="p-3 rounded-xl" style={{ backgroundColor: form.surface_color, border: `1px solid ${form.text_color}10` }}>
             <p className="text-sm font-semibold" style={{ color: form.text_color }}>Platillo de ejemplo</p>
             <p className="text-xs mt-0.5" style={{ color: form.text_color, opacity: 0.6 }}>Descripción del platillo...</p>
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm font-bold" style={{ color: form.primary_color }}>₡5 500</span>
-              <span className="px-3 py-1 rounded-full text-xs text-white font-semibold" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
             </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <span className="px-3 py-1 rounded-full text-xs text-white font-medium" style={{ backgroundColor: form.primary_color }}>Categoría</span>
-            <span className="px-3 py-1 rounded-full text-xs" style={{ backgroundColor: `${form.primary_color}15`, color: form.primary_color }}>Badge</span>
           </div>
         </div>
 
@@ -882,7 +897,6 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     </div>
   );
 }
-
 // ─── Orders Tab — Kanban V3 (sub-tabs + badges) ───
 type OrderSubTab = 'DINE_IN' | 'DELIVERY' | 'TAKEOUT';
 

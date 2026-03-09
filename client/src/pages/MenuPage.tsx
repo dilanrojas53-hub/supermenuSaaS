@@ -25,7 +25,7 @@ import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
-import { applyBaseWithAccent, getStoredBase } from '@/lib/themes';
+import { applyRestaurantTheme } from '@/lib/themes';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -59,18 +59,16 @@ function MenuContent() {
     if (slug) localStorage.setItem('last_tenant_slug', slug);
   }, [slug]);
 
-  // V15.0: Inyectar Base + Acento del restaurante como CSS vars
+  // V18.0: Inyectar colores del restaurante desde Supabase como CSS vars (fix: ya no usa localStorage)
   useEffect(() => {
-    // Fallback mientras carga: usar la base guardada en localStorage
-    const storedBase = getStoredBase();
-    const storedAccent = localStorage.getItem('restaurant_accent') || '#c6a75e';
-    if (!data) {
-      applyBaseWithAccent(storedBase, storedAccent);
-      return;
-    }
-    // Una vez cargado: aplicar base del localStorage + acento del restaurante (Supabase)
-    const accent = data.theme.primary_color || storedAccent;
-    applyBaseWithAccent(storedBase, accent);
+    if (!data) return;
+    applyRestaurantTheme({
+      background: data.theme.background_color || '#0a0a0a',
+      surface:    data.theme.surface_color    || '#161616',
+      text:       data.theme.text_color       || '#f5f5f5',
+      primary:    data.theme.primary_color    || '#c6a75e',
+      badge:      (data.theme as any).badge_color || data.theme.primary_color || '#c6a75e',
+    });
   }, [data]);
 
   // Push animation config to global context
