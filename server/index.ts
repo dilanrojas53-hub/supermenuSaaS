@@ -184,19 +184,57 @@ Devuelve ESTRICTAMENTE un JSON (sin markdown):
         return res.json({ suggested_items: [], fallback: true });
       }
 
-      // ── 6. Validate and enrich suggestions ──────────────────────────────
+      // ── 6. Validate, enrich and guarantee diversity ────────────────────
       const validIds = new Set(availableCatalog.map((item) => item.id));
-      const upsells = (parsed.upsells || [])
+
+      // Map of id → catalog item for quick lookup
+      const catalogById: Record<string, typeof availableCatalog[0]> = {};
+      availableCatalog.forEach((item) => { catalogById[item.id] = item; });
+
+      // Validate GPT's choices
+      const gptUpsells = (parsed.upsells || [])
         .filter((u) => u.id && validIds.has(u.id))
         .slice(0, 2);
 
-      const suggestedItems = upsells.map((u) => {
+      // Build final list ensuring 2 items from DIFFERENT categories
+      const finalUpsells: Array<{ id: string; pitch: string; _fromFallback?: boolean }> = [];
+      const usedCategories = new Set<string>();
+      const usedIds = new Set<string>();
+
+      // First pass: accept GPT choices that don't repeat category
+      for (const u of gptUpsells) {
+        const cat = catalogById[u.id]?.category_id;
+        if (!usedCategories.has(cat) && !usedIds.has(u.id)) {
+          finalUpsells.push(u);
+          usedCategories.add(cat);
+          usedIds.add(u.id);
+        }
+      }
+
+      // Second pass: if we still need more, fill with best-scored items from unused categories
+      if (finalUpsells.length < 2) {
+        // availableCatalog is already sorted by _score desc
+        for (const candidate of availableCatalog) {
+          if (finalUpsells.length >= 2) break;
+          if (usedIds.has(candidate.id)) continue;
+          if (usedCategories.has(candidate.category_id)) continue;
+          // Generate a generic pitch for fallback items
+          const fallbackPitch = triggerIsDrink
+            ? `Complemento ideal para acompañar`
+            : `Perfecto para completar tu pedido`;
+          finalUpsells.push({ id: candidate.id, pitch: fallbackPitch, _fromFallback: true });
+          usedCategories.add(candidate.category_id);
+          usedIds.add(candidate.id);
+        }
+      }
+
+      const suggestedItems = finalUpsells.map((u) => {
         const menuItem = menuItems?.find((item) => item.id === u.id);
         return menuItem ? { ...menuItem, pitch: u.pitch } : null;
       }).filter(Boolean);
 
       console.log(
-        `[AI Upsell v2] tenant=${tenant_id} suggested=${suggestedItems.length} learned_pairs=${Object.keys(acceptanceMap).length} time=${Date.now() - startTime}ms`
+        `[AI Upsell v2] tenant=${tenant_id} gpt_suggested=${gptUpsells.length} final=${suggestedItems.length} fallback_used=${finalUpsells.filter(u => u._fromFallback).length} learned_pairs=${Object.keys(acceptanceMap).length} time=${Date.now() - startTime}ms`
       );
 
       return res.json({
