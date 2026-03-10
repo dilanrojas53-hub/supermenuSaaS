@@ -177,7 +177,7 @@ function MenuContent() {
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
 
   // V12.0 Macro-Categorías: clasificación de bebidas
-  const DRINK_CATEGORIES = ['Bebidas', 'Cócteles', 'Licores y Destilados', 'Vinos', 'Cafetería', 'Té y Bebidas Naturales'];
+  const DRINK_CATEGORIES = ['Bebidas', 'Cócteles', 'Licores y Destilados', 'Vinos', 'Vinos (Botella)', 'Vinos por Copa', 'Cafetería', 'Té y Bebidas Naturales'];
   const hasDrinks = categories.some(cat => DRINK_CATEGORIES.includes(cat.name));
   const hasFood = categories.some(cat => !DRINK_CATEGORIES.includes(cat.name));
   // Filtrar categorías según el tab activo
