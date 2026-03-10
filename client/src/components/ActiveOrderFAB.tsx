@@ -2,6 +2,7 @@
  * ActiveOrderFAB — Floating Action Button for active order tracking.
  * Shows on the menu page when the customer has an active order in localStorage.
  * Clicking navigates to /order-status/:orderId.
+ * V17.2.2: Stays visible if SINPE payment is still pending after delivery.
  */
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
@@ -13,6 +14,8 @@ interface ActiveOrderData {
   orderNumber: number;
   tenantSlug: string;
   status: string;
+  payment_method?: string;
+  payment_status?: string;
 }
 
 export default function ActiveOrderFAB() {
@@ -46,12 +49,29 @@ export default function ActiveOrderFAB() {
     }
   };
 
+  // Detect SINPE pending after delivery
+  const isSinpePending =
+    activeOrder?.payment_method === 'sinpe' &&
+    activeOrder?.payment_status !== 'paid';
+  const isDeliveredSinpe =
+    activeOrder?.status === 'entregado' && isSinpePending;
+
   const statusEmoji: Record<string, string> = {
     pendiente: '⏳',
     pago_en_revision: '⏳',
     en_cocina: '🔥',
     listo: '✅',
+    entregado: '📱',
   };
+
+  const borderColor = isDeliveredSinpe ? '#A78BFA40' : '#F59E0B40';
+  const glowColor = isDeliveredSinpe
+    ? 'rgba(167,139,250,0.15)'
+    : 'rgba(245,158,11,0.15)';
+  const labelColor = isDeliveredSinpe ? '#A78BFA' : '#F59E0B';
+  const subLabel = isDeliveredSinpe
+    ? 'Pendiente pago SINPE'
+    : 'Ver estado en vivo';
 
   return (
     <AnimatePresence>
@@ -65,26 +85,37 @@ export default function ActiveOrderFAB() {
           className="fixed bottom-24 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg"
           style={{
             backgroundColor: '#1E293B',
-            border: '2px solid #F59E0B40',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 20px rgba(245,158,11,0.15)',
+            border: `2px solid ${borderColor}`,
+            boxShadow: `0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${glowColor}`,
           }}
         >
           <motion.span
-            animate={{ rotate: [0, -10, 10, 0] }}
+            animate={
+              isDeliveredSinpe
+                ? { scale: [1, 1.15, 1] }
+                : { rotate: [0, -10, 10, 0] }
+            }
             transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
             className="text-lg"
           >
             {statusEmoji[activeOrder.status] || '🍳'}
           </motion.span>
           <div className="text-left">
-            <p className="text-xs font-bold text-amber-400 leading-none">
+            <p
+              className="text-xs font-bold leading-none"
+              style={{ color: labelColor }}
+            >
               Pedido #{activeOrder.orderNumber}
             </p>
             <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-              Ver estado en vivo
+              {subLabel}
             </p>
           </div>
-          <ChefHat size={16} className="text-amber-500/60 ml-1" />
+          <ChefHat
+            size={16}
+            className="ml-1"
+            style={{ color: labelColor, opacity: 0.6 }}
+          />
         </motion.button>
       )}
     </AnimatePresence>

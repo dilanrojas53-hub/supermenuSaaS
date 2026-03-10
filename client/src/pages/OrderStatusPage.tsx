@@ -192,17 +192,25 @@ export default function OrderStatusPage() {
   }, [params.orderId]);
 
   // Save active order to localStorage for FAB
+  // V17.2.2: Keep FAB visible if SINPE payment is still pending after delivery
   useEffect(() => {
-    if (order && order.status !== 'entregado' && order.status !== 'cancelado') {
-      const slug = window.location.pathname.split('/')[1]; // best effort
+    if (!order) return;
+    const paymentStatus = (order as any).payment_status || 'pending';
+    const isSinpePending = order.payment_method === 'sinpe' && paymentStatus !== 'paid';
+    const isFullyDone =
+      (order.status === 'entregado' && !isSinpePending) ||
+      order.status === 'cancelado';
+    if (isFullyDone) {
+      localStorage.removeItem('active_order');
+    } else {
       localStorage.setItem('active_order', JSON.stringify({
         orderId: order.id,
         orderNumber: order.order_number,
         tenantSlug: localStorage.getItem('last_tenant_slug') || '',
         status: order.status,
+        payment_method: order.payment_method,
+        payment_status: paymentStatus,
       }));
-    } else if (order && (order.status === 'entregado' || order.status === 'cancelado')) {
-      localStorage.removeItem('active_order');
     }
   }, [order]);
 
