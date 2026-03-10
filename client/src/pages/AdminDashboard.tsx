@@ -939,6 +939,31 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       .eq('id', orderId);
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('✅ Marcado como pagado');
+    // ── WhatsApp contextual: solo al verificar pago SINPE ──
+    const order = orders.find(o => o.id === orderId);
+    if (order && order.payment_method === 'sinpe') {
+      const customerPhone = (order as any).delivery_phone || order.customer_phone;
+      if (customerPhone) {
+        const name = order.customer_name || 'Cliente';
+        const shortId = String(order.order_number);
+        let waMsg: string;
+        if (order.status === 'entregado') {
+          waMsg =
+            `¡Hola ${name}! Tu pago por SINPE ha sido verificado con éxito ✅.\n` +
+            `Esperamos que estés disfrutando tu pedido #${shortId}. ¡Buen provecho! 🍽️`;
+        } else if (order.status === 'listo') {
+          waMsg =
+            `¡Hola ${name}! Tu pago por SINPE ha sido verificado con éxito ✅.\n` +
+            `Tu pedido #${shortId} ya está listo y viene en camino a tu mesa.`;
+        } else {
+          waMsg =
+            `¡Hola ${name}! Tu pago por SINPE ha sido verificado con éxito ✅.\n` +
+            `Tu pedido #${shortId} ya está siendo preparado en cocina.`;
+        }
+        const waUrl = buildWhatsAppUrl(customerPhone, waMsg);
+        if (waUrl) setTimeout(() => window.open(waUrl, '_blank'), 500);
+      }
+    }
     fetchOrders();
   };
 
@@ -972,11 +997,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
     let waMsg: string | null = null;
 
-    if (newStatus === 'en_cocina' && order.payment_method === 'sinpe') {
-      waMsg =
-        `¡Hola ${name}! Tu pago por SINPE ha sido verificado con éxito ✅.\n` +
-        `Tu pedido #${shortId} ya está en la cocina preparándose.`;
-    } else if (newStatus === 'listo') {
+    if (newStatus === 'listo') {
       const suffix =
         deliveryType === 'delivery'
           ? 'El motorizado va en camino hacia tu dirección.'
@@ -984,6 +1005,17 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           ? 'Ya puedes pasar por él al local.'
           : 'Te lo estamos llevando a tu mesa.';
       waMsg = `¡Buenas noticias ${name}! Tu pedido #${shortId} ya está LISTO 🎉.\n${suffix}`;
+    } else if (newStatus === 'entregado') {
+      // Recordatorio amable de pago al entregar — contextual según método
+      const payMethod = order.payment_method || 'efectivo';
+      const payReminder =
+        payMethod === 'sinpe'
+          ? 'Cuando termines, recuerda enviar tu comprobante de SINPE si aún no lo has hecho. 📱'
+          : payMethod === 'tarjeta'
+          ? 'Cuando termines, puedes pagar con tarjeta en caja. 💳'
+          : 'Cuando termines, puedes pagar en efectivo en caja. 💵';
+      waMsg =
+        `¡Hola ${name}! Tu pedido #${shortId} ya fue entregado. ¡Buen provecho! 🍽️\n${payReminder}`;
     }
 
     if (waMsg) {

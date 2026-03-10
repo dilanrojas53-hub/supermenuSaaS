@@ -697,11 +697,68 @@ export default function OrderStatusPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-4"
+            className="space-y-4"
           >
-            <p className="text-6xl mb-3">🎉</p>
-            <p className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>¡Buen provecho!</p>
-            <p className="text-sm text-slate-500 mt-1">Gracias por tu pedido. ¡Esperamos verte pronto!</p>
+            {/* Mensaje principal */}
+            <div className="text-center py-4">
+              <p className="text-6xl mb-3">🍽️</p>
+              <p className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>¡Buen provecho!</p>
+              <p className="text-sm text-slate-400 mt-1">Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
+            </div>
+            {/* Recordatorio de pago contextual */}
+            {order.payment_method === 'sinpe' && (order as any).payment_status !== 'paid' && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-purple-500/10 border border-purple-500/30"
+              >
+                <span className="text-xl flex-shrink-0">📱</span>
+                <div>
+                  <p className="text-sm font-bold text-purple-200">Recuerda tu pago por SINPE</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
+                </div>
+              </motion.div>
+            )}
+            {order.payment_method === 'sinpe' && (order as any).payment_status === 'paid' && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30"
+              >
+                <span className="text-xl">✅</span>
+                <p className="text-sm font-bold text-emerald-300">Pago verificado. ¡Todo en orden!</p>
+              </motion.div>
+            )}
+            {order.payment_method === 'efectivo' && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30"
+              >
+                <span className="text-xl flex-shrink-0">💵</span>
+                <div>
+                  <p className="text-sm font-bold text-amber-200">Pago en efectivo</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
+                </div>
+              </motion.div>
+            )}
+            {order.payment_method === 'tarjeta' && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-blue-500/10 border border-blue-500/30"
+              >
+                <span className="text-xl flex-shrink-0">💳</span>
+                <div>
+                  <p className="text-sm font-bold text-blue-200">Pago con tarjeta</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </div>
