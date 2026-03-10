@@ -8,6 +8,7 @@ import {
   Plus, Minus, ShoppingCart, X, AlertTriangle, Shield,
   User, Lock, Eye, EyeOff, Zap, UtensilsCrossed
 } from 'lucide-react';
+import { useKitchenBell } from '@/hooks/useKitchenBell';
 
 // ─── Types ───
 interface StaffMember {
@@ -354,7 +355,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [items, setItems] = useState<MenuItem[]>([]);
   const [pinModal, setPinModal] = useState<{ orderId: string } | null>(null);
   const [paymentTab, setPaymentTab] = useState<'active' | 'cobrar' | 'cobrados'>('active');
-  const bellRef = useRef<HTMLAudioElement | null>(null);
+  const { playBell } = useKitchenBell();
   const prevCountRef = useRef(0);
 
   // ─── Wake Lock ───
@@ -409,7 +410,8 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     const newOrders = (data as Order[]) || [];
     // Bell on new order
     if (newOrders.length > prevCountRef.current && prevCountRef.current > 0) {
-      bellRef.current?.play().catch(() => {});
+      playBell();
+      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
     }
     prevCountRef.current = newOrders.length;
     setOrders(newOrders);

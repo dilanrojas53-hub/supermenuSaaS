@@ -2135,8 +2135,8 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
                   <span className="text-sm text-slate-300 truncate">{o.customer_name || '—'}</span>
                   <span className="text-xs text-slate-400 hidden sm:block">{deliveryLabel(o)}</span>
                   <span className="text-sm font-bold text-amber-400">{formatPrice(o.total)}</span>
-                  <span className="text-xs text-slate-400 hidden sm:flex items-center gap-1">
-                    {(o as any).handled_by_name ? <><UserCheck size={10} className="text-blue-400" />{(o as any).handled_by_name}</> : <span className="text-slate-600">—</span>}
+                  <span className="text-xs flex items-center gap-1">
+                    {(o as any).handled_by_name ? <><UserCheck size={10} className="text-blue-400" /><span className="text-blue-300 font-semibold">{(o as any).handled_by_name}</span></> : <span className="text-slate-600">—</span>}
                   </span>
                   <button
                     onClick={() => setExpandedOrderId(expandedOrderId === o.id ? null : o.id)}
