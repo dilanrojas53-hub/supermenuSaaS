@@ -899,32 +899,48 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 }
 // ─── Orders Tab — Kanban V3 (sub-tabs + badges) ───
 type OrderSubTab = 'DINE_IN' | 'DELIVERY' | 'TAKEOUT';
+type PaymentTab = 'pending' | 'paid';
 
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
+  const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
   const prevOrderCountRef = useRef(0);
   const { playBell } = useKitchenBell();
 
   const fetchOrders = useCallback(async () => {
+    // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
     const { data } = await supabase
       .from('orders')
       .select('*')
       .eq('tenant_id', tenant.id)
-      .not('status', 'in', '(entregado,cancelado)')
-      .order('created_at', { ascending: true })
-      .limit(60);
+      .not('status', 'in', '(cancelado)')
+      .order('created_at', { ascending: false })
+      .limit(100);
     const newOrders = (data as Order[]) || [];
-    if (prevOrderCountRef.current > 0 && newOrders.length > prevOrderCountRef.current) {
+    // Campana solo para pedidos activos nuevos
+    const activeCount = newOrders.filter(o => o.status !== 'entregado').length;
+    if (prevOrderCountRef.current > 0 && activeCount > prevOrderCountRef.current) {
       playBell();
       toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
     }
-    prevOrderCountRef.current = newOrders.length;
+    prevOrderCountRef.current = activeCount;
     setOrders(newOrders);
     setLoading(false);
   }, [tenant.id, playBell]);
+
+  // V17.2: Marcar orden como pagada
+  const handleMarkPaid = async (orderId: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
+      .eq('id', orderId);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('✅ Marcado como pagado');
+    fetchOrders();
+  };
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
   useEffect(() => {
@@ -983,8 +999,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const getDeliveryType = (o: Order): string =>
     ((o as any).delivery_type || 'DINE_IN').toUpperCase();
 
-  // ── Pedidos filtrados por sub-tab activa ──
-  const filteredOrders = orders.filter(o => getDeliveryType(o) === activeSubTab);
+  // ── V17.2: Separar activos vs entregados ──
+  const activeOrders = orders.filter(o => o.status !== 'entregado');
+  const deliveredOrders = orders.filter(o => o.status === 'entregado');
+
+  // ── Pedidos filtrados por sub-tab activa (solo activos para el Kanban) ──
+  const filteredOrders = activeOrders.filter(o => getDeliveryType(o) === activeSubTab);
 
   // ── Columnas Kanban según sub-tab ──
   const nuevos = filteredOrders.filter(o =>
@@ -994,22 +1014,33 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const listos = filteredOrders.filter(o => o.status === 'listo');
   const deliveryActivos = filteredOrders; // para la columna Delivery (sub-tab DELIVERY)
 
+  // ── V17.2: Por Cobrar = entregados con payment_status pending; Cobrados = payment_status paid ──
+  const porCobrar = deliveredOrders.filter(o => (o as any).payment_status !== 'paid');
+  const cobrados = deliveredOrders.filter(o => (o as any).payment_status === 'paid');
+
   // ── Badges: tareas pendientes por sub-tab ──
   const badgeCount = (subTab: OrderSubTab): number => {
-    const tabOrders = orders.filter(o => getDeliveryType(o) === subTab);
+    const tabOrders = activeOrders.filter(o => getDeliveryType(o) === subTab);
     return tabOrders.filter(o =>
       o.status === 'pendiente' ||
       o.status === 'pago_en_revision'
     ).length;
   };
 
-  const KanbanCard = ({ order }: { order: Order }) => {
+  const KanbanCard = ({ order, showPayBtn = false }: { order: Order; showPayBtn?: boolean }) => {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
     const isUrgent = elapsed > 20;
     const hasNewItems = (order as any).has_new_items === true;
     const isSinpe = order.payment_method === 'sinpe';
     const isEfectivoOrTarjeta = order.payment_method === 'efectivo' || order.payment_method === 'tarjeta';
     const isSinpePending = isSinpe && (order.status === 'pendiente' || order.status === 'pago_en_revision');
+    // V17.2: Timer de alerta para mesas entregadas sin pagar
+    const isDelivered = order.status === 'entregado';
+    const isPaid = (order as any).payment_status === 'paid';
+    const deliveredAt = (order as any).completed_at || order.updated_at;
+    const deliveredElapsed = deliveredAt ? elapsedMin(deliveredAt) : 0;
+    const isDeliveredUnpaid = isDelivered && !isPaid;
+    const isDeliveredUrgent = isDeliveredUnpaid && deliveredElapsed >= 10;
     // For SINPE pending orders: only show Aprobar/Rechazar, block 'A Cocina' directly
     const actions = ORDER_STATUS_ACTIONS[order.status] || [];
     const isDelivery = (order as any).delivery_type === 'delivery';
@@ -1067,6 +1098,9 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     return (
       <div className={`rounded-2xl p-4 border transition-all ${
         hasNewItems ? 'bg-amber-500/10 border-amber-500/50 animate-pulse' :
+        isDeliveredUrgent ? 'bg-red-500/8 border-red-500/50' :
+        isDeliveredUnpaid ? 'bg-yellow-500/8 border-yellow-500/40' :
+        isPaid ? 'bg-emerald-500/5 border-emerald-500/20 opacity-70' :
         isUrgent ? 'bg-red-500/5 border-red-500/30' : 'bg-slate-800/60 border-slate-700/50'
       }`}>
         {/* ¡NUEVOS ITEMS! alert badge */}
@@ -1198,6 +1232,33 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </div>
         )}
 
+        {/* V17.2: Timer de alerta — mesa entregada sin pagar */}
+        {isDeliveredUnpaid && (
+          <div className={`flex items-center gap-2 mb-3 px-3 py-2 rounded-xl border ${
+            isDeliveredUrgent
+              ? 'bg-red-500/20 border-red-500/50 animate-pulse'
+              : 'bg-yellow-500/15 border-yellow-500/40'
+          }`}>
+            <Timer size={13} className={isDeliveredUrgent ? 'text-red-400' : 'text-yellow-400'} />
+            <span className={`text-xs font-black uppercase tracking-wider ${
+              isDeliveredUrgent ? 'text-red-300' : 'text-yellow-300'
+            }`}>
+              {isDeliveredUrgent ? '⚠️ COBRAR YA' : '⏰ PENDIENTE COBRO'}
+            </span>
+            <span className="ml-auto text-xs font-bold text-slate-400">
+              Entregado hace {deliveredElapsed}m
+            </span>
+          </div>
+        )}
+
+        {/* V17.2: Badge pagado */}
+        {isPaid && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+            <CheckCircle2 size={13} className="text-emerald-400" />
+            <span className="text-emerald-300 text-xs font-bold">PAGADO</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 mb-3">
           <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
           <div className="flex items-center gap-2">
@@ -1205,15 +1266,27 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          {actions.map((action: any) => (
-            <button key={action.nextStatus}
-              onClick={() => handleStatusChange(order.id, action.nextStatus)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
-              style={{ backgroundColor: `${action.color}20`, color: action.color, border: `2px solid ${action.color}40` }}>
-              <span>{action.icon}</span> {action.label}
+        <div className="flex flex-col gap-2">
+          {/* V17.2: Botón Marcar como Pagado — visible en Por Cobrar */}
+          {showPayBtn && !isPaid && (
+            <button
+              onClick={() => handleMarkPaid(order.id)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all active:scale-[0.97] touch-manipulation"
+              style={{ backgroundColor: '#10B98120', color: '#10B981', border: '2px solid #10B98140' }}
+            >
+              <CheckCircle2 size={16} /> Marcar como Pagado
             </button>
-          ))}
+          )}
+          <div className="flex gap-2">
+            {actions.map((action: any) => (
+              <button key={action.nextStatus}
+                onClick={() => handleStatusChange(order.id, action.nextStatus)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
+                style={{ backgroundColor: `${action.color}20`, color: action.color, border: `2px solid ${action.color}40` }}>
+                <span>{action.icon}</span> {action.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -1252,13 +1325,67 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
-          <p className="text-xs text-slate-500">{orders.length} pedido{orders.length !== 1 ? 's' : ''} activo{orders.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-slate-500">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · {porCobrar.length} por cobrar</p>
         </div>
         <button onClick={fetchOrders}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
           <RefreshCw size={12} /> Actualizar
         </button>
       </div>
+
+      {/* V17.2: Tabs principales Por Cobrar / Cobrados */}
+      <div className="flex gap-2 mb-4 p-1 bg-slate-800/60 rounded-2xl border border-slate-700/50">
+        <button
+          onClick={() => setPaymentTab('pending')}
+          className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+            paymentTab === 'pending'
+              ? 'bg-yellow-500/20 border-yellow-500/60 text-yellow-300'
+              : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+          }`}
+        >
+          💰 Por Cobrar
+          {porCobrar.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+              {porCobrar.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setPaymentTab('paid')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+            paymentTab === 'paid'
+              ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+              : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+          }`}
+        >
+          ✅ Cobrados ({cobrados.length})
+        </button>
+      </div>
+
+      {/* V17.2: Vista Por Cobrar — lista de entregados sin pagar */}
+      {paymentTab === 'paid' && (
+        <div className="space-y-3 mb-6">
+          {cobrados.length === 0 ? (
+            <div className="text-center py-12 text-slate-600 text-xs border-2 border-dashed border-slate-700/50 rounded-2xl">Sin pedidos cobrados hoy</div>
+          ) : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
+        </div>
+      )}
+
+      {paymentTab === 'pending' && (
+        <>
+          {/* Por Cobrar: lista de entregados sin pagar */}
+          {porCobrar.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span>💰</span> Cuentas pendientes de cobro ({porCobrar.length})
+              </h3>
+              <div className="space-y-3">
+                {porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* ── Sub-navegación: Comer Aquí / Delivery / Por Encargo ── */}
       <div className="flex gap-2 mb-5 p-1 bg-slate-800/60 rounded-2xl border border-slate-700/50">

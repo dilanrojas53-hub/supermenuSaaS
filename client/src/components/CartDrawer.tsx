@@ -451,15 +451,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     setStep('select_payment');
   };
 
-  // BUG 1 FIX: Selecting a method only updates state + gives visual feedback.
-  // For SINPE → go to payment step. For efectivo/tarjeta → stay on select_payment with confirm button.
+  // V17.2: SINPE ya no va a un step separado. Todos los métodos se confirman desde select_payment.
   const handleSelectPaymentMethod = (method: PaymentMethod) => {
     setPaymentMethod(method);
     setErrorMsg('');
-    if (method === 'sinpe') {
-      setStep('payment');
-    }
-    // efectivo/tarjeta: stay on select_payment, show confirm button
+    // V17.2: No más step 'payment' para SINPE — el comprobante se sube después en OrderStatus
   };
 
   // Submit order: INSERT new or UPDATE existing (Cuenta Abierta)
@@ -567,8 +563,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       }
 
       // ─── NORMAL: INSERT new order ───
+      // V17.2: SINPE sin comprobante inmediato → status 'pendiente', payment_status 'pending'
       const statusMap: Record<PaymentMethod, string> = {
-        sinpe: receiptUrl ? 'pago_en_revision' : 'pendiente',
+        sinpe: 'pendiente',
         efectivo: 'pendiente',
         tarjeta: 'pendiente',
       };
@@ -585,7 +582,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           total: totalPrice,
           status: statusMap[method],
           payment_method: method,
-          sinpe_receipt_url: method === 'sinpe' ? (receiptUrl || '') : '',
+          payment_status: 'pending',
+          sinpe_receipt_url: '',  // V17.2: se sube después en OrderStatus
           notes: notes.trim() || '',
           upsell_revenue: newUpsellRevenue ?? 0,
           ai_upsell_revenue: newAiUpsellRevenue ?? 0,
@@ -1272,6 +1270,18 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     </span>
                   </div>
 
+                  {/* V17.2: Nota de pago diferido */}
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
+                    style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
+                  >
+                    <span className="text-lg">🍽️</span>
+                    <span style={{ opacity: 0.85 }}>
+                      {lang === 'es'
+                        ? 'Nota: El pago se realiza al finalizar tu comida.'
+                        : 'Note: Payment is made at the end of your meal.'}
+                    </span>
+                  </div>
                   <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
                     {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
                   </p>
@@ -1330,8 +1340,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   )}
                 </div>
 
-                {/* BUG 1 FIX: Confirm button only shown when efectivo/tarjeta is selected */}
-                {paymentMethod && paymentMethod !== 'sinpe' && (
+                {/* V17.2: Confirm button shown for ALL methods (including SINPE — no receipt required now) */}
+                {paymentMethod && (
                   <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                     <motion.button
                       onClick={handleSubmitOrder}
@@ -1351,10 +1361,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </>
                       ) : (
                         <>
-                          <ShoppingBag size={20} />
-                          {lang === 'es'
-                            ? `Confirmar pedido — ${paymentMethod === 'efectivo' ? 'Efectivo' : 'Tarjeta'}`
-                            : `Confirm order — ${paymentMethod === 'efectivo' ? 'Cash' : 'Card'}`}
+                        <ShoppingBag size={20} />
+                        {lang === 'es' ? 'Confirmar Pedido' : 'Confirm Order'}
                         </>
                       )}
                     </motion.button>

@@ -161,6 +161,10 @@ export interface Order {
   delivery_address?: string | null;
   /** Customer WhatsApp for delivery */
   delivery_phone?: string | null;
+  /** V17.2: Payment tracking status */
+  payment_status?: 'pending' | 'paid' | null;
+  /** V17.2: Timestamp when order was delivered */
+  delivered_at?: string | null;
 }
 
 export interface CartItem {

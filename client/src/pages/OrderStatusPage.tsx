@@ -4,16 +4,17 @@
  * Supabase Realtime subscription for live status updates.
  * Route: /order-status/:orderId
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike } from 'lucide-react';
+import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyTheme, getStoredTheme } from '@/lib/themes';
+import { toast } from 'sonner';
 
 // Status step config with icons and animations
 const STATUS_STEPS: {
@@ -52,6 +53,53 @@ const STATUS_STEPS: {
     color: '#6B7280',
   },
 ];
+
+// ─── Componente auxiliar: muestra el número SINPE del restaurante ───
+function SinpeTenantNumber({ tenantId }: { tenantId: string }) {
+  const [sinpeNumber, setSinpeNumber] = useState<string | null>(null);
+  const [sinpeOwner, setSinpeOwner] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('tenants')
+      .select('sinpe_number, sinpe_owner')
+      .eq('id', tenantId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setSinpeNumber(data.sinpe_number || null);
+          setSinpeOwner(data.sinpe_owner || null);
+        }
+      });
+  }, [tenantId]);
+
+  if (!sinpeNumber) return null;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(sinpeNumber.replace(/-/g, '')).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/25">
+      <div>
+        <p className="text-xs text-slate-400 mb-0.5">Número SINPE del local</p>
+        <p className="text-lg font-black text-purple-200 tracking-wider">{sinpeNumber}</p>
+        {sinpeOwner && <p className="text-xs text-slate-500">A nombre de: {sinpeOwner}</p>}
+      </div>
+      <button
+        onClick={handleCopy}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+        style={{ backgroundColor: copied ? '#38A16920' : '#6C63FF20', color: copied ? '#38A169' : '#A78BFA' }}
+      >
+        {copied ? <Check size={14} /> : <Camera size={14} />}
+        {copied ? 'Copiado' : 'Copiar'}
+      </button>
+    </div>
+  );
+}
 
 // Map status to step index
 function getStepIndex(status: OrderStatus): number {
@@ -173,6 +221,58 @@ export default function OrderStatusPage() {
   const [gpsLink, setGpsLink] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+
+  // ── V17.2: SINPE async dropzone ──
+  const [sinpeFile, setSinpeFile] = useState<File | null>(null);
+  const [sinpePreview, setSinpePreview] = useState<string>('');
+  const [sinpeUploading, setSinpeUploading] = useState(false);
+  const [sinpeUploaded, setSinpeUploaded] = useState(false);
+  const sinpeInputRef = useRef<HTMLInputElement>(null);
+
+  // Detectar si ya tenía comprobante subido al cargar
+  useEffect(() => {
+    if (order?.sinpe_receipt_url) setSinpeUploaded(true);
+  }, [order?.sinpe_receipt_url]);
+
+  const handleSinpeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSinpeFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setSinpePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSinpeUpload = async () => {
+    if (!sinpeFile || !order) return;
+    setSinpeUploading(true);
+    try {
+      const ext = sinpeFile.name.split('.').pop() || 'jpg';
+      const fileName = `${order.tenant_id}/${order.id}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, sinpeFile, { cacheControl: '3600', upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
+      const receiptUrl = urlData.publicUrl;
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          sinpe_receipt_url: receiptUrl,
+          pago_en_revision: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+      if (updateError) throw updateError;
+      setSinpeUploaded(true);
+      toast.success('✅ Comprobante enviado. El restaurante lo revisará pronto.');
+    } catch (err: any) {
+      toast.error('Error al subir el comprobante. Intenta de nuevo.');
+      console.error('[SINPE Dropzone]', err);
+    } finally {
+      setSinpeUploading(false);
+    }
+  };
 
   const handleGetGPS = () => {
     if (!navigator.geolocation) {
@@ -488,6 +588,89 @@ export default function OrderStatusPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ─── V17.2: SINPE ASYNC DROPZONE ─── */}
+        {order.payment_method === 'sinpe' && !sinpeUploaded && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-slate-900/60 rounded-2xl p-5 border-2 border-purple-500/40 space-y-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">📸</span>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Comprobante SINPE</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Puedes subir la foto ahora o después de comer</p>
+              </div>
+            </div>
+
+            {/* Número SINPE del local */}
+            {order.tenant_id && (
+              <SinpeTenantNumber tenantId={order.tenant_id} />
+            )}
+
+            {/* Dropzone / Preview */}
+            {sinpePreview ? (
+              <div className="relative">
+                <img src={sinpePreview} alt="Comprobante" className="w-full h-40 object-cover rounded-xl" />
+                <button
+                  onClick={() => { setSinpeFile(null); setSinpePreview(''); }}
+                  className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
+                >
+                  <XCircle size={14} className="text-white" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => sinpeInputRef.current?.click()}
+                className="w-full py-6 rounded-xl border-2 border-dashed border-purple-500/40 flex flex-col items-center gap-2 text-purple-300 hover:bg-purple-500/10 transition-all"
+              >
+                <Camera size={24} />
+                <span className="text-sm font-medium">Tomar foto o subir comprobante</span>
+              </button>
+            )}
+            <input
+              ref={sinpeInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleSinpeFileSelect}
+              className="hidden"
+            />
+
+            {sinpeFile && (
+              <button
+                onClick={handleSinpeUpload}
+                disabled={sinpeUploading}
+                className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                style={{ backgroundColor: '#6C63FF', color: '#fff', boxShadow: '0 4px 16px rgba(108,99,255,0.35)' }}
+              >
+                {sinpeUploading ? (
+                  <><Loader2 size={18} className="animate-spin" /> Enviando comprobante...</>
+                ) : (
+                  <><ShoppingBag size={18} /> Enviar comprobante al restaurante</>
+                )}
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {/* Comprobante ya enviado */}
+        {order.payment_method === 'sinpe' && sinpeUploaded && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/15 border border-purple-500/40"
+          >
+            <Check size={18} className="text-purple-300 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-purple-200">Comprobante enviado ✅</p>
+              <p className="text-xs text-slate-400">El restaurante verificará tu pago SINPE.</p>
+            </div>
+          </motion.div>
         )}
 
         {/* ─── CUENTA ABIERTA: ADD MORE BUTTON ─── */}
