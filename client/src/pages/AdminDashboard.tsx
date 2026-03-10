@@ -26,7 +26,7 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users, MapPin, Navigation, Bike
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { useUITheme } from '@/contexts/UIThemeContext';
@@ -2124,17 +2124,20 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
         <div className="text-center py-12 text-slate-500 text-sm">Sin pedidos en este período</div>
       ) : (
         <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl overflow-hidden">
-          <div className="hidden sm:grid grid-cols-5 px-4 py-2 border-b border-slate-700/50 text-xs text-slate-500 font-semibold uppercase tracking-wider">
-            <span>#</span><span>Cliente</span><span>Tipo</span><span>Total</span><span>Detalle</span>
+          <div className="hidden sm:grid grid-cols-6 px-4 py-2 border-b border-slate-700/50 text-xs text-slate-500 font-semibold uppercase tracking-wider">
+            <span>#</span><span>Cliente</span><span>Tipo</span><span>Total</span><span>Mesero</span><span>Detalle</span>
           </div>
           <div className="divide-y divide-slate-700/30">
             {orders.map(o => (
               <div key={o.id}>
-                <div className="grid grid-cols-2 sm:grid-cols-5 items-center px-4 py-3 hover:bg-slate-700/20 transition-colors">
+                <div className="grid grid-cols-2 sm:grid-cols-6 items-center px-4 py-3 hover:bg-slate-700/20 transition-colors">
                   <span className="text-sm font-bold text-white">#{o.order_number}</span>
                   <span className="text-sm text-slate-300 truncate">{o.customer_name || '—'}</span>
                   <span className="text-xs text-slate-400 hidden sm:block">{deliveryLabel(o)}</span>
                   <span className="text-sm font-bold text-amber-400">{formatPrice(o.total)}</span>
+                  <span className="text-xs text-slate-400 hidden sm:flex items-center gap-1">
+                    {(o as any).handled_by_name ? <><UserCheck size={10} className="text-blue-400" />{(o as any).handled_by_name}</> : <span className="text-slate-600">—</span>}
+                  </span>
                   <button
                     onClick={() => setExpandedOrderId(expandedOrderId === o.id ? null : o.id)}
                     className="text-xs text-blue-400 hover:text-blue-300 transition-colors text-left sm:text-center">
@@ -2216,8 +2219,208 @@ function QRTab({ tenant }: { tenant: Tenant }) {
   );
 }
 
+// ─── Staff Tab ───
+interface StaffMember {
+  id: string;
+  tenant_id: string;
+  name: string;
+  username: string;
+  password_hash: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void }) {
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [adminPin, setAdminPin] = useState((tenant as any).admin_pin || '');
+  const [savingPin, setSavingPin] = useState(false);
+
+  const fetchStaff = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from('staff').select('*').eq('tenant_id', tenant.id).order('created_at');
+    setStaff(data || []);
+    setLoading(false);
+  }, [tenant.id]);
+
+  useEffect(() => { fetchStaff(); }, [fetchStaff]);
+
+  const handleCreateStaff = async () => {
+    if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) {
+      toast.error('Completa todos los campos'); return;
+    }
+    if (newPassword.length < 4) { toast.error('La contraseña debe tener al menos 4 caracteres'); return; }
+    setSaving(true);
+    // Simple hash: btoa for demo (in production use bcrypt via edge function)
+    const password_hash = btoa(newPassword);
+    const { error } = await supabase.from('staff').insert({
+      tenant_id: tenant.id,
+      name: newName.trim(),
+      username: newUsername.trim().toLowerCase(),
+      password_hash,
+      role: 'staff',
+      is_active: true,
+    });
+    if (error) { toast.error('Error: ' + (error.message.includes('unique') ? 'Ese username ya existe' : error.message)); }
+    else { toast.success('Mesero creado'); setNewName(''); setNewUsername(''); setNewPassword(''); setShowForm(false); fetchStaff(); }
+    setSaving(false);
+  };
+
+  const handleToggleActive = async (member: StaffMember) => {
+    await supabase.from('staff').update({ is_active: !member.is_active }).eq('id', member.id);
+    fetchStaff();
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    if (!confirm('¿Eliminar este mesero?')) return;
+    await supabase.from('staff').delete().eq('id', id);
+    fetchStaff();
+  };
+
+  const handleSavePin = async () => {
+    if (adminPin.length !== 4 || !/^\d{4}$/.test(adminPin)) {
+      toast.error('El PIN debe ser exactamente 4 dígitos numéricos'); return;
+    }
+    setSavingPin(true);
+    const { error } = await supabase.from('tenants').update({ admin_pin: adminPin }).eq('id', tenant.id);
+    if (error) toast.error('Error al guardar PIN');
+    else { toast.success('PIN de seguridad guardado'); onRefresh(); }
+    setSavingPin(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users size={20} className="text-blue-400" /> Equipo / Personal</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Gestiona los meseros y cajeros de tu restaurante</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
+          <UserPlus size={14} /> Agregar Mesero
+        </button>
+      </div>
+
+      {/* Admin PIN config */}
+      <div className="bg-slate-800/40 border border-yellow-500/20 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck size={16} className="text-yellow-400" />
+          <h3 className="text-sm font-bold text-yellow-400">PIN de Seguridad del Admin</h3>
+        </div>
+        <p className="text-xs text-slate-400 mb-4">Este PIN de 4 dígitos se requerirá cuando un mesero intente cancelar una orden.</p>
+        <div className="flex items-center gap-3">
+          <input
+            type="password"
+            maxLength={4}
+            value={adminPin}
+            onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="w-24 px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-center text-lg font-bold text-white tracking-widest focus:outline-none focus:border-yellow-500"
+          />
+          <button onClick={handleSavePin} disabled={savingPin}
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-black rounded-xl text-sm font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50">
+            <Save size={14} /> {savingPin ? 'Guardando...' : 'Guardar PIN'}
+          </button>
+          {(tenant as any).admin_pin && (
+            <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle2 size={12} /> PIN configurado</span>
+          )}
+        </div>
+      </div>
+
+      {/* Create staff form */}
+      {showForm && (
+        <div className="bg-slate-800/60 border border-slate-600/40 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><UserPlus size={14} /> Nuevo Mesero</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Nombre completo</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Juan Pérez"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Username (para login)</label>
+              <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="juan"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Contraseña</label>
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreateStaff} disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-500 transition-colors disabled:opacity-50">
+              <Save size={14} /> {saving ? 'Creando...' : 'Crear Mesero'}
+            </button>
+            <button onClick={() => setShowForm(false)}
+              className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm hover:bg-slate-600 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Staff list */}
+      {loading ? (
+        <div className="text-center py-8"><div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" /></div>
+      ) : staff.length === 0 ? (
+        <div className="text-center py-12 text-slate-500">
+          <Users size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No hay meseros registrados</p>
+          <p className="text-xs mt-1">Agrega tu primer mesero para que puedan usar el panel de staff</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {staff.map(member => (
+            <div key={member.id} className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/40 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                  {member.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">{member.name}</p>
+                  <p className="text-xs text-slate-400">@{member.username} · Mesero</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${member.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/40 text-slate-500'}`}>
+                  {member.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+                <button onClick={() => handleToggleActive(member)}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors text-slate-300">
+                  {member.is_active ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
+                <button onClick={() => handleDeleteStaff(member.id)}
+                  className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 transition-colors text-red-400">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Staff login URL info */}
+      <div className="bg-slate-800/40 border border-slate-600/20 rounded-2xl p-4">
+        <p className="text-xs text-slate-400 flex items-center gap-2">
+          <Eye size={12} /> Los meseros inician sesión en: <span className="text-blue-400 font-mono">/staff/{tenant.slug}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr';
+type TabKey = 'menu' | 'categories' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -2292,6 +2495,7 @@ export default function AdminDashboard() {
     { key: 'theme', label: 'Tema', icon: <Palette size={16} /> },
     { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={16} /> },
     { key: 'qr', label: 'QR', icon: <QrCode size={16} /> },
+    { key: 'staff', label: 'Equipo', icon: <UserCheck size={16} /> },
   ];
 
   // Feature flagging: filter tabs based on plan tier
@@ -2360,6 +2564,7 @@ export default function AdminDashboard() {
         {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
         {activeTab === 'history' && <HistoryTab tenant={tenant} />}
         {activeTab === 'qr' && <QRTab tenant={tenant} />}
+        {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
       </main>
     </div>
   );

@@ -30,6 +30,8 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/:slug/login" component={() => <AdminLogin mode="admin" />} />
       <Route path="/admin/:slug" component={AdminDashboard} />
+      {/* Staff dashboard */}
+      <Route path="/staff/:slug" component={StaffDashboard} />
       {/* Order tracking */}
       <Route path="/order-status/:orderId" component={OrderStatusPage} />
       {/* Public menu route — must be last dynamic route */}
