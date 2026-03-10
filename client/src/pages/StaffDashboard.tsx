@@ -487,8 +487,6 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <audio ref={bellRef} src="/bell.mp3" preload="auto" />
-
       {/* Header */}
       <header className="bg-slate-900 border-b border-slate-700/40 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <div>
