@@ -353,10 +353,50 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [pinModal, setPinModal] = useState<{ orderId: string } | null>(null);
+  const [paymentTab, setPaymentTab] = useState<'active' | 'cobrar' | 'cobrados'>('active');
   const bellRef = useRef<HTMLAudioElement | null>(null);
   const prevCountRef = useRef(0);
 
-  const ACTIVE_STATUSES = ['pendiente', 'en_cocina', 'listo'];
+  // ─── Wake Lock ───
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+
+  const requestWakeLock = async () => {
+    if (!('wakeLock' in navigator)) {
+      console.log('Wake Lock API no soportada en este dispositivo');
+      return;
+    }
+    try {
+      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      setWakeLockActive(true);
+      wakeLockRef.current.addEventListener('release', () => {
+        setWakeLockActive(false);
+      });
+    } catch (err) {
+      console.log('Wake Lock no disponible:', err);
+      setWakeLockActive(false);
+    }
+  };
+
+  useEffect(() => {
+    requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') requestWakeLock();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      wakeLockRef.current?.release();
+    };
+  }, []);
+
+  const ACTIVE_STATUSES = ['pendiente', 'en_cocina', 'listo', 'entregado'];
+
+  const handleMarkPaid = async (orderId: string) => {
+    await supabase.from('orders').update({ payment_status: 'paid', handled_by: staff.id, handled_by_name: staff.name }).eq('id', orderId);
+    fetchOrders();
+    toast.success('Pago registrado ✅');
+  };
 
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
@@ -365,7 +405,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       .eq('tenant_id', tenant.id)
       .in('status', ACTIVE_STATUSES)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(80);
     const newOrders = (data as Order[]) || [];
     // Bell on new order
     if (newOrders.length > prevCountRef.current && prevCountRef.current > 0) {
@@ -454,6 +494,15 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           <p className="text-xs text-slate-400">👤 {staff.name}</p>
         </div>
         <div className="flex items-center gap-2">
+          {wakeLockActive && (
+            <div
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
+              style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#22c55e' }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+              App Activa
+            </div>
+          )}
           <button onClick={fetchOrders} className="p-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors">
             <RefreshCw size={14} />
           </button>
@@ -467,10 +516,68 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
         </div>
       </header>
 
+      {/* Payment Tabs */}
+      <div className="flex gap-1 px-4 pt-3 pb-0">
+        {[
+          { key: 'active', label: '📊 Activos', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
+          { key: 'cobrar', label: '💰 Por Cobrar', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
+          { key: 'cobrados', label: '✅ Cobrados', count: orders.filter(o => o.payment_status === 'paid').length },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setPaymentTab(tab.key as any)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              paymentTab === tab.key
+                ? 'bg-amber-500 text-black'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            }`}>
+            {tab.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+              paymentTab === tab.key ? 'bg-black/20 text-black' : 'bg-slate-700 text-slate-300'
+            }`}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Kanban */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" />
+        </div>
+      ) : paymentTab === 'cobrar' || paymentTab === 'cobrados' ? (
+        // ─ Vista de cobros ─
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {(() => {
+            const cobrarOrders = paymentTab === 'cobrar'
+              ? orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid')
+              : orders.filter(o => o.payment_status === 'paid');
+            if (cobrarOrders.length === 0) return (
+              <p className="text-center text-slate-500 text-sm py-16">
+                {paymentTab === 'cobrar' ? 'Sin cuentas pendientes 🎉' : 'Sin cobros registrados'}
+              </p>
+            );
+            return cobrarOrders.map(order => (
+              <div key={order.id} className="bg-slate-900 border border-slate-700/40 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-white">#{order.order_number} — {order.customer_name}</span>
+                  {order.customer_table && <span className="text-xs text-slate-400">🪑 Mesa {order.customer_table}</span>}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-bold text-amber-400">{formatPrice(order.total)}</span>
+                  <span className="text-xs text-slate-500 uppercase">{order.payment_method}</span>
+                </div>
+                {order.payment_status === 'paid' ? (
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-xl">
+                    <CheckCircle2 size={14} className="text-green-400" />
+                    <span className="text-xs font-bold text-green-400">Pagado</span>
+                  </div>
+                ) : (
+                  <button onClick={() => handleMarkPaid(order.id)}
+                    className="w-full py-2.5 bg-green-500 text-white rounded-xl text-sm font-bold hover:bg-green-400 transition-colors flex items-center justify-center gap-2">
+                    <CheckCircle2 size={16} /> Marcar como Pagado
+                  </button>
+                )}
+              </div>
+            ));
+          })()}
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto">
@@ -519,6 +626,12 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             <button onClick={() => handleAdvanceStatus(order)}
                               className="flex-1 py-2 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors">
                               {getActionLabel(order.status)}
+                            </button>
+                          )}
+                          {order.status === 'entregado' && order.payment_status !== 'paid' && (
+                            <button onClick={() => handleMarkPaid(order.id)}
+                              className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-400 transition-colors">
+                              ✅ Cobrar
                             </button>
                           )}
                           <button onClick={() => handleCancelWithPin(order.id)}
