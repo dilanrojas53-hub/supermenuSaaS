@@ -14,7 +14,8 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Pricing from "./pages/Pricing";
-import OrderStatusPage from "./pages/OrderStatusPage";
+import OrderStatusPage from './pages/OrderStatusPage';
+import StaffDashboard from './pages/StaffDashboard';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function Router() {
