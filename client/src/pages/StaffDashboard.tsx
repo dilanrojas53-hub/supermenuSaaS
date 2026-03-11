@@ -488,27 +488,21 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-700/40 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-        <div>
-          <h1 className="text-sm font-bold text-white">{tenant.name}</h1>
-          <p className="text-xs text-slate-400">👤 {staff.name}</p>
+      <header className="bg-slate-900 border-b border-slate-700/40 px-3 py-2.5 flex items-center justify-between sticky top-0 z-30">
+        <div className="min-w-0 flex-1 mr-2">
+          <h1 className="text-sm font-bold text-white truncate">{tenant.name}</h1>
+          <p className="text-xs text-slate-400 truncate">👤 {staff.name}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {wakeLockActive && (
-            <div
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
-              style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#22c55e' }}
-            >
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-              App Activa
-            </div>
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="App Activa" />
           )}
           <button onClick={fetchOrders} className="p-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors">
             <RefreshCw size={14} />
           </button>
           <button onClick={() => setShowQuickAdd(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors">
-            <Plus size={14} /> Quick Add
+            className="flex items-center gap-1 px-2.5 py-2 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors">
+            <Plus size={13} /> <span className="hidden xs:inline">Quick Add</span><span className="xs:hidden">Add</span>
           </button>
           <button onClick={onLogout} className="p-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-red-500/20 hover:text-red-400 transition-colors">
             <LogOut size={14} />
@@ -517,19 +511,20 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       </header>
 
       {/* Payment Tabs */}
-      <div className="flex gap-1 px-4 pt-3 pb-0">
+      <div className="flex px-3 pt-2.5 pb-0 gap-1">
         {[
-          { key: 'active', label: '📊 Activos', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
-          { key: 'cobrar', label: '💰 Por Cobrar', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
-          { key: 'cobrados', label: '✅ Cobrados', count: orders.filter(o => o.payment_status === 'paid').length },
+          { key: 'active', label: 'Activos', emoji: '📊', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
+          { key: 'cobrar', label: 'Por Cobrar', emoji: '💰', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
+          { key: 'cobrados', label: 'Cobrados', emoji: '✅', count: orders.filter(o => o.payment_status === 'paid').length },
         ].map(tab => (
           <button key={tab.key} onClick={() => setPaymentTab(tab.key as any)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold transition-all ${
               paymentTab === tab.key
                 ? 'bg-amber-500 text-black'
                 : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
             }`}>
-            {tab.label}
+            <span>{tab.emoji}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
             <span className={`px-1.5 py-0.5 rounded-full text-xs ${
               paymentTab === tab.key ? 'bg-black/20 text-black' : 'bg-slate-700 text-slate-300'
             }`}>{tab.count}</span>
@@ -580,72 +575,83 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           })()}
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-3 p-4 min-w-max h-full">
-            {columns.map(col => {
-              const colOrders = orders.filter(o => o.status === col.key);
-              return (
-                <div key={col.key} className={`w-72 flex flex-col bg-slate-900/60 border ${col.bg} rounded-2xl overflow-hidden`}>
-                  <div className="px-4 py-3 border-b border-slate-700/30 flex items-center justify-between">
-                    <h2 className={`text-sm font-bold ${col.color}`}>{col.label}</h2>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 ${col.color}`}>{colOrders.length}</span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                    {colOrders.length === 0 && (
-                      <p className="text-center text-slate-600 text-xs py-8">Sin pedidos</p>
-                    )}
-                    {colOrders.map(order => (
-                      <div key={order.id} className="bg-slate-800/60 border border-slate-700/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-white">#{order.order_number}</span>
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock size={10} /> {elapsedMin(order.created_at)}m
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-300">{order.customer_name}</p>
-                        {order.customer_table && (
-                          <p className="text-xs text-slate-500">🪑 Mesa {order.customer_table}</p>
-                        )}
-                        <div className="space-y-0.5">
-                          {((order.items || []) as OrderItem[]).map((item, i) => (
-                            <div key={i} className="flex justify-between text-xs">
-                              <span className="text-slate-400">{item.quantity}× {item.name}</span>
-                              <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-700/30">
-                          <span className="text-xs font-bold text-amber-400">{formatPrice(order.total)}</span>
-                          {order.payment_method && (
-                            <span className="text-xs text-slate-500 uppercase">{order.payment_method}</span>
-                          )}
-                        </div>
-                        {/* Action buttons */}
-                        <div className="flex gap-1.5 pt-1">
-                          {order.status !== 'entregado' && (
-                            <button onClick={() => handleAdvanceStatus(order)}
-                              className="flex-1 py-2 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors">
-                              {getActionLabel(order.status)}
-                            </button>
-                          )}
-                          {order.status === 'entregado' && order.payment_status !== 'paid' && (
-                            <button onClick={() => handleMarkPaid(order.id)}
-                              className="flex-1 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-400 transition-colors">
-                              ✅ Cobrar
-                            </button>
-                          )}
-                          <button onClick={() => handleCancelWithPin(order.id)}
-                            className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
-                            <X size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        // ─ Vista Kanban adaptada a móvil ─
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {columns.map(col => {
+            const colOrders = orders.filter(o => o.status === col.key);
+            if (colOrders.length === 0) return null;
+            return (
+              <div key={col.key} className={`bg-slate-900/60 border ${col.bg} rounded-2xl overflow-hidden`}>
+                {/* Column header */}
+                <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
+                  <h2 className={`text-sm font-bold ${col.color}`}>{col.label}</h2>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 ${col.color}`}>{colOrders.length}</span>
                 </div>
-              );
-            })}
-          </div>
+                {/* Orders list */}
+                <div className="p-3 space-y-2.5">
+                  {colOrders.map(order => (
+                    <div key={order.id} className="bg-slate-800/60 border border-slate-700/30 rounded-xl p-3 space-y-2">
+                      {/* Order header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-white">#{order.order_number}</span>
+                          {order.customer_table && (
+                            <span className="text-xs text-slate-400">🪑 {order.customer_table}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock size={10} /> {elapsedMin(order.created_at)}m
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-medium">{order.customer_name}</p>
+                      {/* Items */}
+                      <div className="space-y-0.5">
+                        {((order.items || []) as OrderItem[]).map((item, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-slate-400">{item.quantity}× {item.name}</span>
+                            <span className="text-slate-500 flex-shrink-0 ml-2">{formatPrice(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Total + method */}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-700/30">
+                        <span className="text-sm font-bold text-amber-400">{formatPrice(order.total)}</span>
+                        {order.payment_method && (
+                          <span className="text-xs text-slate-500 uppercase">{order.payment_method}</span>
+                        )}
+                      </div>
+                      {/* Action buttons */}
+                      <div className="flex gap-2 pt-0.5">
+                        {order.status !== 'entregado' && (
+                          <button onClick={() => handleAdvanceStatus(order)}
+                            className="flex-1 py-2.5 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400 active:scale-95 transition-all">
+                            {getActionLabel(order.status)}
+                          </button>
+                        )}
+                        {order.status === 'entregado' && order.payment_status !== 'paid' && (
+                          <button onClick={() => handleMarkPaid(order.id)}
+                            className="flex-1 py-2.5 bg-green-500 text-white rounded-xl text-xs font-bold hover:bg-green-400 active:scale-95 transition-all">
+                            ✅ Cobrar
+                          </button>
+                        )}
+                        <button onClick={() => handleCancelWithPin(order.id)}
+                          className="px-3 py-2.5 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 active:scale-95 transition-all">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {/* Empty state when all columns are empty */}
+          {columns.every(col => orders.filter(o => o.status === col.key).length === 0) && (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-600">
+              <ChefHat size={40} className="mb-3 opacity-30" />
+              <p className="text-sm">Sin pedidos activos</p>
+            </div>
+          )}
         </div>
       )}
 
