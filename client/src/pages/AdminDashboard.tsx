@@ -26,7 +26,7 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { useUITheme } from '@/contexts/UIThemeContext';
@@ -2241,6 +2241,16 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
   const [saving, setSaving] = useState(false);
   const [adminPin, setAdminPin] = useState((tenant as any).admin_pin || '');
   const [savingPin, setSavingPin] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyLink = (memberId: string) => {
+    const url = `${window.location.origin}/staff/${tenant.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(memberId);
+      toast.success('Enlace copiado al portapapeles');
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => toast.error('No se pudo copiar el enlace'));
+  };
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -2398,6 +2408,16 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
                 <button onClick={() => handleToggleActive(member)}
                   className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors text-slate-300">
                   {member.is_active ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
+                <button
+                  onClick={() => handleCopyLink(member.id)}
+                  title="Copiar enlace de acceso para mesero"
+                  className={`p-2 rounded-lg transition-colors ${
+                    copiedId === member.id
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'
+                  }`}>
+                  {copiedId === member.id ? <Check size={14} /> : <Link2 size={14} />}
                 </button>
                 <button onClick={() => handleDeleteStaff(member.id)}
                   className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 transition-colors text-red-400">
