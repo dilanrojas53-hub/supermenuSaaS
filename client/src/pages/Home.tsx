@@ -1,13 +1,13 @@
 /*
- * Landing Page Comercial — Smart Menu by Digital Atlas
- * Hero persuasivo, beneficios clave, restaurantes demo, CTA a /pricing.
- * Footer con branding "Powered by Digital Atlas".
+ * Landing Page Comercial — Digital Atlas Menu V19.4
+ * Hero, beneficios actualizados (PWA, Staff, Analytics, Audio), restaurantes demo, CTA.
  */
 import { motion } from 'framer-motion';
 import {
   MapPin, ChevronRight, Loader2, Utensils,
   Zap, BarChart3, Globe2, Smartphone, QrCode,
-  TrendingUp, ShieldCheck, MessageCircle
+  TrendingUp, ShieldCheck, MessageCircle,
+  Users, Bell, ClipboardList, CreditCard, Palette, UserCheck
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useAllTenants } from '@/hooks/useTenantData';
@@ -20,31 +20,73 @@ const BENEFITS = [
     icon: Smartphone,
     title: "Menú Digital Premium",
     desc: "Tu menú en el celular del cliente con fotos, precios y pedido directo. Sin apps, solo un QR.",
+    badge: null,
   },
   {
     icon: Zap,
-    title: "Motor de Neuro-Ventas",
-    desc: "Badges de escasez, prueba social y upsell automático que aumentan el ticket promedio hasta un 35%.",
+    title: "Motor de Neuro-Ventas IA",
+    desc: "Badges de escasez, prueba social y sugerencias de upsell generadas por GPT-4 que aumentan el ticket hasta un 35%.",
+    badge: "IA",
   },
   {
     icon: BarChart3,
     title: "Panel KDS en Vivo",
-    desc: "Recibe pedidos en tiempo real con alertas sonoras. Aprueba pagos y gestiona tu cocina desde el celular.",
+    desc: "Pedidos en tiempo real con alertas sonoras. Kanban de cocina: Nuevos → En Cocina → Listos → Entregados.",
+    badge: null,
+  },
+  {
+    icon: Users,
+    title: "Gestión de Meseros",
+    desc: "Panel exclusivo para el equipo con login propio, vista Kanban restringida, Quick Add y registro de cobros.",
+    badge: "Nuevo",
+  },
+  {
+    icon: Bell,
+    title: "Notificaciones Sonoras PWA",
+    desc: "Alerta de campana cuando llega un nuevo pedido. Funciona instalado como app en iOS y Android.",
+    badge: "PWA",
+  },
+  {
+    icon: UserCheck,
+    title: "Rendimiento del Equipo",
+    desc: "Analítica diaria por mesero: pedidos completados, cobrados, tiempo promedio y revenue generado.",
+    badge: "Nuevo",
   },
   {
     icon: Globe2,
     title: "Menú Bilingüe ES/EN",
     desc: "Atrae turistas con traducción automática. Un toggle y tu menú se muestra en inglés al instante.",
+    badge: null,
   },
   {
     icon: TrendingUp,
     title: "Analítica de Ventas",
-    desc: "Dashboard con ventas del día, platillo estrella, ticket promedio y visitas. Datos para decidir mejor.",
+    desc: "Dashboard con ventas del día, tendencias, platillo estrella, ticket promedio, horas pico y Corte Z.",
+    badge: null,
   },
   {
     icon: ShieldCheck,
-    title: "Pago SINPE Móvil",
-    desc: "Checkout integrado con SINPE Móvil. El cliente sube su comprobante y tú lo apruebas desde el KDS.",
+    title: "Pagos SINPE / Efectivo / Tarjeta",
+    desc: "Checkout integrado con SINPE Móvil. El cliente sube su comprobante y el admin lo aprueba desde el KDS.",
+    badge: null,
+  },
+  {
+    icon: Palette,
+    title: "27 Temas Visuales",
+    desc: "Diseñador de temas con 27 presets para restaurantes: Caribeño, Vintage, Sports Bar, Lujoso y más.",
+    badge: null,
+  },
+  {
+    icon: CreditCard,
+    title: "Cobros por Mesa",
+    desc: "Tabs de Por Cobrar y Cobrados para meseros y admin. Seguimiento de pagos pendientes en tiempo real.",
+    badge: null,
+  },
+  {
+    icon: ClipboardList,
+    title: "Historial Inteligente",
+    desc: "Registro completo de pedidos con filtros por fecha, método de pago, mesero y estado de cobro.",
+    badge: null,
   },
 ];
 
@@ -53,7 +95,7 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, delay: i * 0.1 },
+    transition: { duration: 0.5, delay: i * 0.08 },
   }),
 };
 
@@ -65,14 +107,10 @@ export default function Home() {
 
       {/* ═══════════════ HERO SECTION ═══════════════ */}
       <section className="relative overflow-hidden">
-        {/* Background gradient */}
         <div
           className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)',
-          }}
+          style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)' }}
         />
-        {/* Subtle pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -89,12 +127,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="flex items-center gap-3 mb-12"
           >
-            <img
-              src={LOGO_WHITE}
-              alt="Digital Atlas"
-              className="w-auto"
-              style={{ height: '32px' }}
-            />
+            <img src={LOGO_WHITE} alt="Digital Atlas" className="w-auto" style={{ height: '32px' }} />
           </motion.div>
 
           {/* Headline */}
@@ -122,8 +155,8 @@ export default function Home() {
               className="text-lg text-gray-300 leading-relaxed mb-8 max-w-lg"
               style={{ fontFamily: "'Nunito', sans-serif" }}
             >
-              Menú digital con neuro-ventas, pedidos en vivo, pagos SINPE Móvil y analítica.
-              Todo lo que tu restaurante necesita para vender más, desde ₡9.900/mes.
+              Menú digital con IA, pedidos en vivo, gestión de meseros, pagos SINPE Móvil y analítica completa.
+              Todo lo que tu restaurante necesita para vender más, desde ₡19.900/mes.
             </p>
           </motion.div>
 
@@ -137,17 +170,13 @@ export default function Home() {
             <Link href="/pricing">
               <button
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base transition-all active:scale-[0.97] shadow-lg shadow-amber-500/25"
-                style={{
-                  backgroundColor: '#D97706',
-                  color: '#fff',
-                  fontFamily: "'Nunito', sans-serif",
-                }}
+                style={{ backgroundColor: '#D97706', color: '#fff', fontFamily: "'Nunito', sans-serif" }}
               >
                 Ver Planes y Precios
               </button>
             </Link>
             <a
-              href="https://wa.me/50662014922?text=Hola%2C%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20quiero%20una%20demo%20de%20Smart%20Menu"
+              href="https://wa.me/50662014922?text=Hola%2C%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20quiero%20una%20demo%20de%20Digital%20Atlas%20Menu"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto"
@@ -173,8 +202,8 @@ export default function Home() {
           >
             {[
               { value: '+35%', label: 'Ticket promedio' },
-              { value: '< 2min', label: 'Setup inicial' },
-              { value: '₡9.900', label: 'Desde / mes' },
+              { value: '12+', label: 'Features incluidas' },
+              { value: '₡19.900', label: 'Desde / mes' },
             ].map((stat, i) => (
               <div key={i}>
                 <p className="text-2xl font-bold text-amber-400" style={{ fontFamily: "'Lora', serif" }}>
@@ -190,7 +219,7 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ BENEFITS SECTION ═══════════════ */}
-      <section className="px-6 py-16 max-w-4xl mx-auto">
+      <section className="px-6 py-16 max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -198,10 +227,7 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2
-            className="text-3xl font-bold text-amber-900 mb-3"
-            style={{ fontFamily: "'Lora', serif" }}
-          >
+          <h2 className="text-3xl font-bold text-amber-900 mb-3" style={{ fontFamily: "'Lora', serif" }}>
             Todo lo que necesitas para vender más
           </h2>
           <p className="text-amber-700/60 max-w-md mx-auto" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -220,18 +246,30 @@ export default function Home() {
                 whileInView="visible"
                 viewport={{ once: true }}
                 variants={fadeUp}
-                className="p-6 rounded-2xl bg-white border border-amber-100/80 hover:shadow-lg hover:shadow-amber-100/50 transition-all duration-300"
+                className="relative p-6 rounded-2xl bg-white border border-amber-100/80 hover:shadow-lg hover:shadow-amber-100/50 transition-all duration-300"
               >
+                {benefit.badge && (
+                  <span
+                    className="absolute top-4 right-4 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                    style={{
+                      backgroundColor: benefit.badge === 'IA' ? 'rgba(139,92,246,0.15)' :
+                                        benefit.badge === 'PWA' ? 'rgba(59,130,246,0.15)' :
+                                        'rgba(16,185,129,0.15)',
+                      color: benefit.badge === 'IA' ? '#7C3AED' :
+                             benefit.badge === 'PWA' ? '#2563EB' :
+                             '#059669',
+                    }}
+                  >
+                    {benefit.badge}
+                  </span>
+                )}
                 <div
                   className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: '#FEF3C7' }}
                 >
                   <Icon size={22} className="text-amber-700" />
                 </div>
-                <h3
-                  className="text-base font-bold text-amber-900 mb-2"
-                  style={{ fontFamily: "'Lora', serif" }}
-                >
+                <h3 className="text-base font-bold text-amber-900 mb-2" style={{ fontFamily: "'Lora', serif" }}>
                   {benefit.title}
                 </h3>
                 <p className="text-sm text-amber-700/60 leading-relaxed" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -253,10 +291,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="text-center mb-12"
           >
-            <h2
-              className="text-3xl font-bold text-amber-900 mb-3"
-              style={{ fontFamily: "'Lora', serif" }}
-            >
+            <h2 className="text-3xl font-bold text-amber-900 mb-3" style={{ fontFamily: "'Lora', serif" }}>
               Activa tu menú en 3 pasos
             </h2>
           </motion.div>
@@ -266,19 +301,19 @@ export default function Home() {
               {
                 step: '01',
                 title: 'Creamos tu menú digital',
-                desc: 'Subimos tus platillos, fotos y precios. Configuramos tu tema visual y colores de marca.',
+                desc: 'Subimos tus platillos, fotos y precios. Configuramos tu tema visual, colores de marca y personal de meseros.',
                 icon: QrCode,
               },
               {
                 step: '02',
                 title: 'Imprimís tu código QR',
-                desc: 'Descargá el QR desde tu panel admin y colocalo en cada mesa. Los clientes escanean y ordenan.',
+                desc: 'Descargá el QR desde tu panel admin y colocalo en cada mesa. Los clientes escanean y ordenan desde su celular.',
                 icon: Smartphone,
               },
               {
                 step: '03',
                 title: 'Recibís pedidos al instante',
-                desc: 'Los pedidos llegan a tu panel KDS con alerta sonora. Aprobá el pago SINPE y enviá a cocina.',
+                desc: 'Los pedidos llegan al KDS con alerta sonora. Tus meseros los gestionan, cobran y el admin ve todo en analítica.',
                 icon: Zap,
               },
             ].map((item, i) => {
@@ -304,10 +339,7 @@ export default function Home() {
                   <div className="pt-1">
                     <div className="flex items-baseline gap-3 mb-1">
                       <span className="text-xs font-bold text-amber-400 tracking-widest">{item.step}</span>
-                      <h3
-                        className="text-lg font-bold text-amber-900"
-                        style={{ fontFamily: "'Lora', serif" }}
-                      >
+                      <h3 className="text-lg font-bold text-amber-900" style={{ fontFamily: "'Lora', serif" }}>
                         {item.title}
                       </h3>
                     </div>
@@ -331,10 +363,7 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="text-center mb-10"
         >
-          <h2
-            className="text-3xl font-bold text-amber-900 mb-3"
-            style={{ fontFamily: "'Lora', serif" }}
-          >
+          <h2 className="text-3xl font-bold text-amber-900 mb-3" style={{ fontFamily: "'Lora', serif" }}>
             Restaurantes que confían en nosotros
           </h2>
           <p className="text-amber-700/60 text-sm" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -344,10 +373,7 @@ export default function Home() {
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-            >
+            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
               <Loader2 size={32} className="text-amber-700" />
             </motion.div>
           </div>
@@ -355,7 +381,6 @@ export default function Home() {
           <div className="space-y-4">
             {tenants.map((tenant, index) => {
               const heroImage = tenant.hero_image_url || '';
-
               return (
                 <motion.div
                   key={tenant.id}
@@ -367,19 +392,11 @@ export default function Home() {
                   <Link href={`/${tenant.slug}`}>
                     <div
                       className="rounded-2xl overflow-hidden transition-all active:scale-[0.98]"
-                      style={{
-                        backgroundColor: '#fff',
-                        boxShadow: '0 4px 24px rgba(139, 109, 71, 0.12)',
-                      }}
+                      style={{ backgroundColor: '#fff', boxShadow: '0 4px 24px rgba(139, 109, 71, 0.12)' }}
                     >
-                      {/* Image */}
                       <div className="h-40 relative overflow-hidden">
                         {heroImage ? (
-                          <img
-                            src={heroImage}
-                            alt={tenant.name}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={heroImage} alt={tenant.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-amber-100 flex items-center justify-center">
                             <Utensils size={40} className="text-amber-300" />
@@ -387,14 +404,9 @@ export default function Home() {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                       </div>
-
-                      {/* Content */}
                       <div className="p-4 flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <h3
-                            className="text-lg font-bold text-amber-900 leading-tight"
-                            style={{ fontFamily: "'Lora', serif" }}
-                          >
+                          <h3 className="text-lg font-bold text-amber-900 leading-tight" style={{ fontFamily: "'Lora', serif" }}>
                             {tenant.name}
                           </h3>
                           {tenant.description && (
@@ -428,14 +440,9 @@ export default function Home() {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
           className="max-w-lg mx-auto text-center p-8 rounded-3xl"
-          style={{
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
-          }}
+          style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)' }}
         >
-          <h2
-            className="text-2xl font-bold text-white mb-3"
-            style={{ fontFamily: "'Lora', serif" }}
-          >
+          <h2 className="text-2xl font-bold text-white mb-3" style={{ fontFamily: "'Lora', serif" }}>
             ¿Listo para vender más?
           </h2>
           <p className="text-gray-300 text-sm mb-6" style={{ fontFamily: "'Nunito', sans-serif" }}>
@@ -444,13 +451,9 @@ export default function Home() {
           <Link href="/pricing">
             <button
               className="px-8 py-3.5 rounded-xl font-bold text-base transition-all active:scale-[0.97] shadow-lg shadow-amber-500/25"
-              style={{
-                backgroundColor: '#D97706',
-                color: '#fff',
-                fontFamily: "'Nunito', sans-serif",
-              }}
+              style={{ backgroundColor: '#D97706', color: '#fff', fontFamily: "'Nunito', sans-serif" }}
             >
-              Ver Planes desde ₡9.900/mes
+              Ver Planes desde ₡19.900/mes
             </button>
           </Link>
         </motion.div>
