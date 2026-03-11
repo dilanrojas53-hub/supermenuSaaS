@@ -1678,6 +1678,45 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     return { timeBlocks, top3, filteredCount: filtered.length };
   }, [orders, analyticsFilter]);
 
+  // ── Staff Performance ──
+  const staffStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // All non-cancelled orders with a staff member assigned
+    const staffOrders = orders.filter(o =>
+      o.status !== 'cancelado' &&
+      (o as any).handled_by_name &&
+      new Date(o.created_at) >= today
+    );
+    // Group by staff name
+    const byStaff: Record<string, {
+      name: string;
+      completed: number;   // entregado
+      cobrados: number;    // payment_status paid
+      totalRevenue: number;
+      avgTimeMin: number;  // avg accepted→completed
+      orders: Order[];
+    }> = {};
+    staffOrders.forEach(o => {
+      const name = (o as any).handled_by_name as string;
+      if (!byStaff[name]) byStaff[name] = { name, completed: 0, cobrados: 0, totalRevenue: 0, avgTimeMin: 0, orders: [] };
+      byStaff[name].orders.push(o);
+      if (o.status === 'entregado') byStaff[name].completed++;
+      if ((o as any).payment_status === 'paid') { byStaff[name].cobrados++; byStaff[name].totalRevenue += o.total; }
+    });
+    // Calculate avg time accepted→completed
+    Object.values(byStaff).forEach(s => {
+      const timed = s.orders.filter(o => (o as any).accepted_at && (o as any).completed_at);
+      if (timed.length > 0) {
+        const totalMs = timed.reduce((acc, o) => {
+          return acc + (new Date((o as any).completed_at).getTime() - new Date((o as any).accepted_at).getTime());
+        }, 0);
+        s.avgTimeMin = Math.round(totalMs / timed.length / 60000);
+      }
+    });
+    return Object.values(byStaff).sort((a, b) => b.completed - a.completed);
+  }, [orders]);
+
   // ── Corte Z ──
   const corteStats = useMemo(() => {
     const today = new Date();
@@ -1945,6 +1984,83 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* ── Rendimiento del Equipo ── */}
+      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <UserCheck size={15} className="text-blue-400" />
+          <h3 className="text-sm font-bold text-white">Rendimiento del Equipo — Hoy</h3>
+          <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+            {staffStats.reduce((s, m) => s + m.completed, 0)} pedidos completados
+          </span>
+        </div>
+        {staffStats.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-6">Sin actividad de meseros hoy</p>
+        ) : (
+          <div className="space-y-3">
+            {staffStats.map(member => (
+              <div key={member.name} className="bg-slate-900/60 border border-slate-700/30 rounded-xl p-4">
+                {/* Staff header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-bold text-white">{member.name}</span>
+                  </div>
+                  <span className="text-xs font-bold text-amber-400">{formatPrice(member.totalRevenue)}</span>
+                </div>
+                {/* Metrics row */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-white">{member.completed}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Completados</p>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-green-400">{member.cobrados}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Cobrados</p>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-blue-400">
+                      {member.avgTimeMin > 0 ? `${member.avgTimeMin}m` : '—'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Tiempo prom.</p>
+                  </div>
+                </div>
+                {/* Order list */}
+                {member.orders.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {member.orders.map(o => (
+                      <div key={o.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-700/20 last:border-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400">#{o.order_number}</span>
+                          <span className="text-slate-500">{o.customer_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            o.status === 'entregado' ? 'bg-green-500/20 text-green-400' :
+                            o.status === 'listo' ? 'bg-blue-500/20 text-blue-400' :
+                            o.status === 'en_cocina' ? 'bg-orange-500/20 text-orange-400' :
+                            'bg-slate-700 text-slate-400'
+                          }`}>
+                            {o.status === 'entregado' ? 'Entregado' :
+                             o.status === 'listo' ? 'Listo' :
+                             o.status === 'en_cocina' ? 'En cocina' : o.status}
+                          </span>
+                          {(o as any).payment_status === 'paid' && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Cobrado</span>
+                          )}
+                          <span className="text-slate-400 font-medium">{formatPrice(o.total)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Corte Z ── */}
