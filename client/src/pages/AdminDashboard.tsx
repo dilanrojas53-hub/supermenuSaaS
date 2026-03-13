@@ -14,8 +14,9 @@ import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures } from '@/lib/types';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
-import type { Tenant, ThemeSettings, Category, MenuItem, Order } from '@/lib/types';
+import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, ModifierOption } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
+import ModifiersTab from '@/components/ModifiersTab';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -26,7 +27,7 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { useUITheme } from '@/contexts/UIThemeContext';
@@ -2611,7 +2612,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -2682,6 +2683,7 @@ export default function AdminDashboard() {
     { key: 'history', label: 'Historial', icon: <Clock size={16} /> },
     { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={16} /> },
     { key: 'categories', label: 'Categorías', icon: <Tag size={16} /> },
+    { key: 'modifiers', label: 'Modificadores', icon: <Sliders size={16} /> },
     { key: 'settings', label: 'Config', icon: <Settings size={16} /> },
     { key: 'theme', label: 'Tema', icon: <Palette size={16} /> },
     { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={16} /> },
@@ -2750,6 +2752,7 @@ export default function AdminDashboard() {
         {activeTab === 'orders' && <OrdersTab tenant={tenant} />}
         {activeTab === 'menu' && <MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} />}
         {activeTab === 'categories' && <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />}
+        {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
         {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
         {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
         {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}

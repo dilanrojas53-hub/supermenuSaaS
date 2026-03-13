@@ -8,11 +8,13 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Check, GlassWater, Wine, UtensilsCrossed } from 'lucide-react';
-import type { MenuItem, ThemeSettings } from '@/lib/types';
+import type { MenuItem, ThemeSettings, SelectedModifier } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
+import ModifierSelector from './ModifierSelector';
+import { supabase } from '@/lib/supabase';
 
 // V11.0: Clasificación rápida para placeholder icon (sin acceso a allCategories)
 const DRINK_ICON_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
@@ -43,16 +45,48 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail }: MenuItemCardProps) {
-  const { addItem } = useCart();
+  const { addItem, addItemAdvanced } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
+  const [showModifiers, setShowModifiers] = useState(false);
 
-  const handleQuickAdd = useCallback((e: React.MouseEvent) => {
+  // Check if product has modifier groups (quick check via Supabase)
+  const [hasModifiers, setHasModifiers] = useState<boolean | null>(null);
+
+  const checkAndAdd = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    addItem(item);
+    // If we already know it has no modifiers, quick add
+    if (hasModifiers === false) {
+      addItem(item);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1200);
+      return;
+    }
+    // Check Supabase for modifier groups
+    const { data } = await supabase
+      .from('product_modifier_groups')
+      .select('id')
+      .eq('product_id', item.id)
+      .limit(1);
+    const hasAny = (data?.length ?? 0) > 0;
+    setHasModifiers(hasAny);
+    if (hasAny) {
+      setShowModifiers(true);
+    } else {
+      addItem(item);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1200);
+    }
+  }, [addItem, item, hasModifiers]);
+
+  const handleModifierConfirm = useCallback((selectedModifiers: SelectedModifier[], modifiersTotal: number) => {
+    setShowModifiers(false);
+    addItemAdvanced(item, { selectedModifiers, modifiersTotal });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
-  }, [addItem, item]);
+  }, [addItemAdvanced, item]);
+
+  const handleQuickAdd = checkAndAdd;
 
   const handleOpenDetail = useCallback(() => {
     if (onOpenDetail) onOpenDetail(item);
@@ -81,6 +115,15 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   // ── LIST VIEW ──
   if (viewMode === 'list') {
     return (
+      <>
+      {showModifiers && (
+        <ModifierSelector
+          item={item}
+          theme={{ primary_color: theme.primary_color, accent_color: theme.accent_color }}
+          onConfirm={handleModifierConfirm}
+          onCancel={() => setShowModifiers(false)}
+        />
+      )}
       <div
         className="relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
         onClick={handleOpenDetail}
@@ -189,11 +232,20 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         </div>
       </div>
+      </>
     );
   }
-
   // ── GRID VIEW ──
   return (
+    <>
+    {showModifiers && (
+      <ModifierSelector
+        item={item}
+        theme={{ primary_color: theme.primary_color, accent_color: theme.accent_color }}
+        onConfirm={handleModifierConfirm}
+        onCancel={() => setShowModifiers(false)}
+      />
+     )}
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -307,5 +359,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         </div>
       </div>
     </motion.div>
+    </>
   );
 }

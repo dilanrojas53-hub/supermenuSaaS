@@ -36,6 +36,9 @@ interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  // V22.0: Modifier Groups
+  selectedModifiers?: { group_name: string; option_name: string; price_adjustment: number }[];
+  modifiersTotal?: number;
 }
 
 interface Order {
@@ -712,11 +715,24 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       </div>
                       <p className="text-xs text-slate-300 font-medium">{order.customer_name}</p>
                       {/* Items */}
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         {((order.items || []) as OrderItem[]).map((item, i) => (
-                          <div key={i} className="flex justify-between text-xs">
-                            <span className="text-slate-400">{item.quantity}× {item.name}</span>
-                            <span className="text-slate-500 flex-shrink-0 ml-2">{formatPrice(item.price * item.quantity)}</span>
+                          <div key={i}>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-slate-300 font-medium">{item.quantity}× {item.name}</span>
+                              <span className="text-slate-500 flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
+                            </div>
+                            {/* V22.0: Show modifiers */}
+                            {item.selectedModifiers && item.selectedModifiers.length > 0 && (
+                              <div className="pl-3 mt-0.5 space-y-0.5">
+                                {item.selectedModifiers.map((mod, mi) => (
+                                  <p key={mi} className="text-[10px] text-amber-400/70">
+                                    <span>└ {mod.option_name}</span>
+                                    {mod.price_adjustment > 0 && <span className="ml-1">+{formatPrice(mod.price_adjustment)}</span>}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

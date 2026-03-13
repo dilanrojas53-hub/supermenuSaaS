@@ -13,6 +13,9 @@ interface AddItemOptions {
   // V11.0 Telemetría Local (SOLO en memoria, NUNCA a Supabase)
   triggerItemId?: string | null;
   upsellAcceptedAt?: string | null;
+  // V22.0 Modifier Groups
+  selectedModifiers?: import('@/lib/types').SelectedModifier[];
+  modifiersTotal?: number;
 }
 
 interface CartContextType {
@@ -72,6 +75,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // V11.0 Telemetría Local — SOLO en memoria, NUNCA llegan a Supabase
       trigger_item_id: opts?.triggerItemId || null,
       upsell_accepted_at: opts?.upsellAcceptedAt || null,
+      // V22.0 Modifier Groups
+      selectedModifiers: opts?.selectedModifiers || [],
+      modifiersTotal: opts?.modifiersTotal || 0,
     }]);
     return newId;
   }, []);
@@ -110,7 +116,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => setItems([]), []);
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
+  const totalPrice = items.reduce((sum, i) => sum + (i.menuItem.price + (i.modifiersTotal ?? 0)) * i.quantity, 0);
 
   return (
     <CartContext.Provider value={{

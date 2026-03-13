@@ -511,6 +511,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           quantity: cleanCartItem.quantity,
           isUpsell: cleanCartItem.isUpsell || false,
           upsell_source: cleanCartItem.upsell_source || null,
+          // V22.0: Modifier Groups
+          selectedModifiers: cleanCartItem.selectedModifiers || [],
+          modifiersTotal: cleanCartItem.modifiersTotal || 0,
         };
       });
 
@@ -877,8 +880,21 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                           <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
                             {ci.menuItem.name}
                           </p>
+                          {/* V22.0: Show selected modifiers */}
+                          {ci.selectedModifiers && ci.selectedModifiers.length > 0 && (
+                            <div className="mt-0.5 space-y-0.5">
+                              {ci.selectedModifiers.map((mod, idx) => (
+                                <p key={idx} className="text-xs" style={{ color: `${theme.text_color}70` }}>
+                                  <span>+ {mod.option_name}</span>
+                                  {mod.price_adjustment > 0 && (
+                                    <span className="ml-1" style={{ color: theme.primary_color }}>+{formatPrice(mod.price_adjustment)}</span>
+                                  )}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                           <p className="text-sm font-bold mt-0.5" style={{ color: theme.primary_color }}>
-                            {formatPrice(ci.menuItem.price * ci.quantity)}
+                            {formatPrice((ci.menuItem.price + (ci.modifiersTotal ?? 0)) * ci.quantity)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

@@ -172,6 +172,63 @@ export interface Order {
   quick_request_seen_by_admin?: boolean;
 }
 
+// ─── V22.0: MODIFIER GROUPS ───
+
+export interface ModifierGroup {
+  id: string;
+  tenant_id: string;
+  name: string;
+  min_selections: number;
+  max_selections: number;
+  is_required: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  // Populated when loaded with options
+  options?: ModifierOption[];
+}
+
+export interface ModifierOption {
+  id: string;
+  group_id: string;
+  name: string;
+  /** Price adjustment in colones (0 = included, positive = extra cost) */
+  price_adjustment: number;
+  is_included: boolean;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProductModifierGroup {
+  id: string;
+  product_id: string;
+  group_id: string;
+  sort_order: number;
+  // Populated when loaded
+  group?: ModifierGroup;
+}
+
+export interface OrderItemModifier {
+  id: string;
+  order_id: string;
+  item_index: number;
+  group_id: string;
+  option_id: string;
+  option_name: string;
+  price_adjustment: number;
+  created_at: string;
+}
+
+/** Selected modifier option in the cart (in-memory) */
+export interface SelectedModifier {
+  group_id: string;
+  group_name: string;
+  option_id: string;
+  option_name: string;
+  price_adjustment: number;
+}
+
 export interface CartItem {
   /** Unique ID for this cart entry (separates "Hamburguesa 1" from "Hamburguesa 2") */
   cartItemId: string;
@@ -184,6 +241,10 @@ export interface CartItem {
   parent_cart_item_id?: string | null;
   /** True if user already saw/accepted/rejected upsell in ProductDetailModal — skip at checkout */
   prevent_checkout_upsell?: boolean;
+  /** V22.0: Selected modifier options for this cart item */
+  selectedModifiers?: SelectedModifier[];
+  /** V22.0: Extra cost from modifiers in colones */
+  modifiersTotal?: number;
   // ─── V11.0 Telemetría Local (SOLO en memoria, NUNCA a Supabase) ───
   /** ID del item que disparó esta sugerencia de maridaje */
   trigger_item_id?: string | null;
