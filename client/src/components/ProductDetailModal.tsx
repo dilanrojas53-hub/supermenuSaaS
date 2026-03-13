@@ -519,11 +519,11 @@ export default function ProductDetailModal({
                 }}
               >
                 {mainAdded ? (
-                  <><Check size={18} /> {lang === 'es' ? '¡Agregado!' : 'Added!'}</>
+                  <><Check size={18} /><span>{lang === 'es' ? '¡Agregado!' : 'Added!'}</span></>
                 ) : (
                   <>
                     <ShoppingBag size={18} />
-                    {lang === 'es' ? `Agregar al carrito — ${formatPrice(item.price * quantity)}` : `Add to cart — ${formatPrice(item.price * quantity)}`}
+                    <span>{lang === 'es' ? `Agregar al carrito — ${formatPrice(item.price * quantity)}` : `Add to cart — ${formatPrice(item.price * quantity)}`}</span>
                   </>
                 )}
               </button>

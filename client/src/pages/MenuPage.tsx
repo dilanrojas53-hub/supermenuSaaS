@@ -253,9 +253,9 @@ function MenuContent() {
             }}
           >
             {isTranslating ? (
-              <><Loader2 size={13} className="animate-spin" /> {lang === 'es' ? 'EN' : 'ES'}</>
+              <><Loader2 size={13} className="animate-spin" /><span>{lang === 'es' ? 'EN' : 'ES'}</span></>
             ) : (
-              <><Globe size={13} /> {lang === 'es' ? 'EN' : 'ES'}</>
+              <><Globe size={13} /><span>{lang === 'es' ? 'EN' : 'ES'}</span></>
             )}
           </button>
         )}

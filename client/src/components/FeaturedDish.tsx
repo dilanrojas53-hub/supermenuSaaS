@@ -189,11 +189,11 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
                 <AnimatePresence mode="wait">
                   {justAdded ? (
                     <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Check size={16} /> {t('menu.added')}
+                      <Check size={16} /><span>{t('menu.added')}</span>
                     </motion.span>
                   ) : (
                     <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Plus size={16} /> {t('menu.add')}
+                      <Plus size={16} /><span>{t('menu.add')}</span>
                     </motion.span>
                   )}
                 </AnimatePresence>
