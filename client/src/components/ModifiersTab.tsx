@@ -1,21 +1,36 @@
 /**
- * V22.0 — ModifiersTab
- * Panel admin para gestionar Modifier Groups (guarniciones, extras, opciones).
- * Permite crear grupos, agregar opciones y asignarlos a productos.
+ * V22.1 — ModifiersTab
+ * Panel admin para gestionar Modifier Groups con pricing_type y price_delta.
+ * Soporta: included, free, extra, discounted por opción.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Tenant, MenuItem, ModifierGroup, ModifierOption } from '@/lib/types';
+import type { Tenant, MenuItem, ModifierGroup, ModifierOption, ModifierPricingType } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { toast } from 'sonner';
 import {
   Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp, Sliders, Check
 } from 'lucide-react';
 
+// ─── Helpers ───
+const PRICING_TYPE_LABELS: Record<ModifierPricingType, { label: string; color: string }> = {
+  included: { label: 'Incluido', color: 'text-green-400' },
+  free:     { label: 'Gratis',   color: 'text-blue-400' },
+  extra:    { label: 'Extra',    color: 'text-amber-400' },
+  discounted: { label: 'Especial', color: 'text-purple-400' },
+};
+
+function getPriceLabel(opt: ModifierOption): string {
+  if (opt.pricing_type === 'extra' || opt.pricing_type === 'discounted') {
+    return `+${formatPrice(opt.price_delta)}`;
+  }
+  return '';
+}
+
 // ─── Types ───
 interface ModifierGroupWithOptions extends ModifierGroup {
   options: ModifierOption[];
-  assignedProducts?: string[]; // product IDs
+  assignedProducts?: string[];
 }
 
 interface ProductAssignment {
@@ -31,24 +46,26 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
   const [loading, setLoading] = useState(true);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
-  // ─── Group form state ───
+  // ─── Group form ───
   const [editingGroup, setEditingGroup] = useState<ModifierGroupWithOptions | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [groupForm, setGroupForm] = useState({
     name: '', min_selections: '0', max_selections: '1', is_required: false
   });
 
-  // ─── Option form state ───
+  // ─── Option form ───
   const [editingOption, setEditingOption] = useState<{ groupId: string; option: ModifierOption | null } | null>(null);
-  const [optionForm, setOptionForm] = useState({
-    name: '', price_adjustment: '0', is_included: true, is_available: true
-  });
+  const [optionForm, setOptionForm] = useState<{
+    name: string;
+    pricing_type: ModifierPricingType;
+    price_delta: string;
+    is_available: boolean;
+  }>({ name: '', pricing_type: 'included', price_delta: '0', is_available: true });
 
   // ─── Fetch ───
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Load groups with options
       const { data: groupsData, error: gErr } = await supabase
         .from('modifier_groups')
         .select('*, options:modifier_options(*)')
@@ -56,13 +73,11 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
         .order('sort_order');
       if (gErr) throw gErr;
 
-      // Load product assignments
       const { data: assignData, error: aErr } = await supabase
         .from('product_modifier_groups')
         .select('product_id, group_id, sort_order');
       if (aErr) throw aErr;
 
-      // Map assigned products per group
       const groupsWithAssignments = (groupsData || []).map((g: any) => ({
         ...g,
         options: (g.options || []).sort((a: ModifierOption, b: ModifierOption) => a.sort_order - b.sort_order),
@@ -131,7 +146,7 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-    if (!confirm('¿Eliminar este grupo y todas sus opciones? Los productos asignados perderán este modificador.')) return;
+    if (!confirm('¿Eliminar este grupo y todas sus opciones?')) return;
     const { error } = await supabase.from('modifier_groups').delete().eq('id', groupId);
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('Grupo eliminado');
@@ -141,15 +156,15 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
   // ─── Option CRUD ───
   const startCreateOption = (groupId: string) => {
     setEditingOption({ groupId, option: null });
-    setOptionForm({ name: '', price_adjustment: '0', is_included: true, is_available: true });
+    setOptionForm({ name: '', pricing_type: 'included', price_delta: '0', is_available: true });
   };
 
   const startEditOption = (groupId: string, option: ModifierOption) => {
     setEditingOption({ groupId, option });
     setOptionForm({
       name: option.name,
-      price_adjustment: String(option.price_adjustment),
-      is_included: option.is_included,
+      pricing_type: option.pricing_type ?? 'included',
+      price_delta: String(option.price_delta ?? 0),
       is_available: option.is_available,
     });
   };
@@ -159,11 +174,16 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
     if (!optionForm.name.trim()) { toast.error('El nombre de la opción es obligatorio'); return; }
 
     const group = groups.find(g => g.id === editingOption.groupId);
+    const pricingType = optionForm.pricing_type;
+    const priceDelta = (pricingType === 'extra' || pricingType === 'discounted')
+      ? (parseInt(optionForm.price_delta) || 0)
+      : 0;
+
     const payload = {
       group_id: editingOption.groupId,
       name: optionForm.name.trim(),
-      price_adjustment: parseInt(optionForm.price_adjustment) || 0,
-      is_included: optionForm.is_included,
+      pricing_type: pricingType,
+      price_delta: priceDelta,
       is_available: optionForm.is_available,
       sort_order: editingOption.option?.sort_order ?? (group?.options.length ?? 0),
     };
@@ -192,7 +212,6 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
   // ─── Product Assignment ───
   const toggleProductAssignment = async (groupId: string, productId: string, isAssigned: boolean) => {
     if (isAssigned) {
-      // Remove
       const { error } = await supabase
         .from('product_modifier_groups')
         .delete()
@@ -201,7 +220,6 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
       if (error) { toast.error('Error: ' + error.message); return; }
       toast.success('Producto desasignado');
     } else {
-      // Add
       const currentCount = assignments.filter(a => a.group_id === groupId).length;
       const { error } = await supabase
         .from('product_modifier_groups')
@@ -214,6 +232,7 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
 
   // ─── Render ───
   const isEditingGroup = editingGroup || isCreatingGroup;
+  const showPriceDeltaField = optionForm.pricing_type === 'extra' || optionForm.pricing_type === 'discounted';
 
   if (loading) {
     return (
@@ -370,16 +389,33 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] text-slate-400 mb-1">Precio adicional (₡)</label>
-                            <input
-                              type="number" min="0"
-                              value={optionForm.price_adjustment}
-                              onChange={e => setOptionForm({ ...optionForm, price_adjustment: e.target.value, is_included: parseInt(e.target.value) === 0 })}
+                            <label className="block text-[11px] text-slate-400 mb-1">Tipo de precio</label>
+                            <select
+                              value={optionForm.pricing_type}
+                              onChange={e => setOptionForm({ ...optionForm, pricing_type: e.target.value as ModifierPricingType, price_delta: '0' })}
                               className="w-full px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:ring-1 focus:ring-amber-500/50 focus:outline-none"
-                            />
+                            >
+                              <option value="included">Incluido en el plato</option>
+                              <option value="free">Gratis (opcional)</option>
+                              <option value="extra">Extra (costo adicional)</option>
+                              <option value="discounted">Precio especial</option>
+                            </select>
                           </div>
-                          <div className="flex items-end">
-                            <label className="flex items-center gap-2 cursor-pointer">
+                          {showPriceDeltaField && (
+                            <div>
+                              <label className="block text-[11px] text-slate-400 mb-1">
+                                {optionForm.pricing_type === 'extra' ? 'Precio adicional (₡)' : 'Precio especial (₡)'}
+                              </label>
+                              <input
+                                type="number" min="0"
+                                value={optionForm.price_delta}
+                                onChange={e => setOptionForm({ ...optionForm, price_delta: e.target.value })}
+                                className="w-full px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:ring-1 focus:ring-amber-500/50 focus:outline-none"
+                              />
+                            </div>
+                          )}
+                          <div className={showPriceDeltaField ? '' : 'flex items-end'}>
+                            <label className="flex items-center gap-2 cursor-pointer mt-1">
                               <div
                                 onClick={() => setOptionForm({ ...optionForm, is_available: !optionForm.is_available })}
                                 className={`w-8 h-5 rounded-full transition-colors relative ${optionForm.is_available ? 'bg-green-500' : 'bg-slate-600'}`}
@@ -408,29 +444,31 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
                       <p className="text-xs text-slate-500 italic py-2">Sin opciones. Agrega la primera opción.</p>
                     ) : (
                       <div className="space-y-1.5">
-                        {group.options.map(opt => (
-                          <div key={opt.id} className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 rounded-xl">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm text-white font-medium">{opt.name}</span>
-                              {opt.price_adjustment > 0 ? (
-                                <span className="ml-2 text-xs text-amber-400 font-bold">+{formatPrice(opt.price_adjustment)}</span>
-                              ) : (
-                                <span className="ml-2 text-xs text-green-400">Incluido</span>
-                              )}
-                              {!opt.is_available && (
-                                <span className="ml-2 text-[10px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-full">No disponible</span>
-                              )}
+                        {group.options.map(opt => {
+                          const pt = PRICING_TYPE_LABELS[opt.pricing_type ?? 'included'];
+                          const priceLabel = getPriceLabel(opt);
+                          return (
+                            <div key={opt.id} className="flex items-center gap-2 px-3 py-2 bg-slate-700/40 rounded-xl">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm text-white font-medium">{opt.name}</span>
+                                <span className={`ml-2 text-xs font-semibold ${pt.color}`}>
+                                  {pt.label}{priceLabel ? ` ${priceLabel}` : ''}
+                                </span>
+                                {!opt.is_available && (
+                                  <span className="ml-2 text-[10px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-full">No disponible</span>
+                                )}
+                              </div>
+                              <button onClick={() => startEditOption(group.id, opt)}
+                                className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors">
+                                <Pencil size={12} />
+                              </button>
+                              <button onClick={() => handleDeleteOption(opt.id)}
+                                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                <Trash2 size={12} />
+                              </button>
                             </div>
-                            <button onClick={() => startEditOption(group.id, opt)}
-                              className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors">
-                              <Pencil size={12} />
-                            </button>
-                            <button onClick={() => handleDeleteOption(opt.id)}
-                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

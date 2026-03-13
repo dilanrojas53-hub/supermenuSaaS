@@ -188,13 +188,16 @@ export interface ModifierGroup {
   options?: ModifierOption[];
 }
 
+export type ModifierPricingType = 'included' | 'free' | 'extra' | 'discounted';
+
 export interface ModifierOption {
   id: string;
   group_id: string;
   name: string;
-  /** Price adjustment in colones (0 = included, positive = extra cost) */
-  price_adjustment: number;
-  is_included: boolean;
+  /** Pricing behavior: included=0, free=0, extra=+delta, discounted=+delta (reduced) */
+  pricing_type: ModifierPricingType;
+  /** Price delta in colones — only applies when pricing_type is 'extra' or 'discounted' */
+  price_delta: number;
   is_available: boolean;
   sort_order: number;
   created_at: string;
@@ -220,13 +223,16 @@ export interface OrderItemModifier {
   created_at: string;
 }
 
-/** Selected modifier option in the cart (in-memory) */
+/** Selected modifier option in the cart (in-memory snapshot) */
 export interface SelectedModifier {
   group_id: string;
   group_name: string;
   option_id: string;
   option_name: string;
-  price_adjustment: number;
+  /** Snapshot of pricing_type at time of order */
+  pricing_type: ModifierPricingType;
+  /** Snapshot of price_delta at time of order (0 for included/free) */
+  price_delta: number;
 }
 
 export interface CartItem {

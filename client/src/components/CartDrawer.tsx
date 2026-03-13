@@ -886,8 +886,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                               {ci.selectedModifiers.map((mod, idx) => (
                                 <p key={idx} className="text-xs" style={{ color: `${theme.text_color}70` }}>
                                   <span>+ {mod.option_name}</span>
-                                  {mod.price_adjustment > 0 && (
-                                    <span className="ml-1" style={{ color: theme.primary_color }}>+{formatPrice(mod.price_adjustment)}</span>
+                                  {((mod as any).price_delta ?? (mod as any).price_adjustment ?? 0) > 0 && (
+                                    <span className="ml-1" style={{ color: theme.primary_color }}>+{formatPrice((mod as any).price_delta ?? (mod as any).price_adjustment ?? 0)}</span>
                                   )}
                                 </p>
                               ))}

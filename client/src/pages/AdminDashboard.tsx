@@ -54,6 +54,37 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
 }) {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  // V22.1: Modifier groups assigned to the item being edited
+  const [itemModifierGroups, setItemModifierGroups] = useState<{ id: string; name: string }[]>([]);
+  const [allModifierGroups, setAllModifierGroups] = useState<{ id: string; name: string }[]>([]);
+  const [loadingModifiers, setLoadingModifiers] = useState(false);
+
+  const fetchItemModifiers = useCallback(async (itemId: string) => {
+    setLoadingModifiers(true);
+    try {
+      const [{ data: allGroups }, { data: assigned }] = await Promise.all([
+        supabase.from('modifier_groups').select('id, name').eq('tenant_id', tenant.id).order('sort_order'),
+        supabase.from('product_modifier_groups').select('group_id').eq('product_id', itemId),
+      ]);
+      setAllModifierGroups(allGroups || []);
+      const assignedIds = (assigned || []).map((a: any) => a.group_id);
+      setItemModifierGroups((allGroups || []).filter((g: any) => assignedIds.includes(g.id)));
+    } catch { /* ignore */ } finally { setLoadingModifiers(false); }
+  }, [tenant.id]);
+
+  const toggleItemModifier = async (groupId: string, isAssigned: boolean) => {
+    const itemId = editingItem?.id;
+    if (!itemId) return;
+    if (isAssigned) {
+      await supabase.from('product_modifier_groups').delete().eq('product_id', itemId).eq('group_id', groupId);
+      setItemModifierGroups(prev => prev.filter(g => g.id !== groupId));
+    } else {
+      const sortOrder = itemModifierGroups.length;
+      await supabase.from('product_modifier_groups').insert({ product_id: itemId, group_id: groupId, sort_order: sortOrder });
+      const group = allModifierGroups.find(g => g.id === groupId);
+      if (group) setItemModifierGroups(prev => [...prev, group]);
+    }
+  };
   const [form, setForm] = useState({
     name: '', description: '', price: '', category_id: '', image_url: '',
     is_available: true, is_featured: false, badge: '' as string,
@@ -67,7 +98,6 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
   };
 
   const startEdit = (item: MenuItem) => {
-    // V16.5: log para confirmar que el evento se dispara en cualquier dispositivo
     try {
       console.log('[V16.5] startEdit fired for item:', item.id, item.name);
       toast.info('Abriendo editor…', { duration: 800 });
@@ -81,6 +111,8 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
       badge: item.badge || '', upsell_item_id: item.upsell_item_id || '',
       upsell_text: item.upsell_text || '', sort_order: String(item.sort_order)
     });
+    // V22.1: Load modifier groups for this item
+    fetchItemModifiers(item.id);
   };
 
   const startCreate = () => { setIsCreating(true); setEditingItem(null); resetForm(); };
@@ -216,6 +248,45 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
               <ToggleSwitch checked={form.is_featured} onChange={(v) => setForm({ ...form, is_featured: v })} label="Platillo de la semana" colorOn="#F59E0B" colorOff="#64748B" />
             </div>
           </div>
+          {/* V22.1: Modifier Groups assignment (only when editing an existing item) */}
+          {editingItem && (
+            <div className="mt-5 pt-5 border-t border-slate-600/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Sliders size={14} className="text-amber-400" />
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Grupos de modificadores</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mb-3">Selecciona los grupos de opciones que aplican a este platillo (guarniciones, salsas, cocción, etc.).</p>
+              {loadingModifiers ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="w-4 h-4 border border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Cargando grupos...</span>
+                </div>
+              ) : allModifierGroups.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">Sin grupos creados. Ve a la pestaña <strong className="text-amber-400">Modificadores</strong> para crear grupos.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {allModifierGroups.map(group => {
+                    const isAssigned = itemModifierGroups.some(g => g.id === group.id);
+                    return (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => toggleItemModifier(group.id, isAssigned)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+                          isAssigned
+                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                            : 'bg-slate-700/50 border-slate-600/50 text-slate-400 hover:border-slate-500'
+                        }`}
+                      >
+                        {isAssigned && <Check size={11} />}
+                        <span>{group.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex gap-3 mt-5">
             <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
               <Save size={16} /> Guardar
