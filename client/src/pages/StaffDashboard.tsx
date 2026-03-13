@@ -53,7 +53,16 @@ interface Order {
   created_at: string;
   accepted_at?: string;
   ready_at?: string;
+  quick_request_type?: 'water_ice' | 'napkins' | 'help' | null;
+  quick_request_at?: string | null;
+  quick_request_seen_by_staff?: boolean;
 }
+
+const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
+  water_ice: '💧 Agua / Hielo',
+  napkins: '🧻 Servilletas',
+  help: '🆘 Ayuda',
+};
 
 interface MenuItem {
   id: string;
@@ -366,6 +375,12 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     tableNumber: string;
     paymentMethod: string;
   } | null>(null);
+  const [quickRequestAlert, setQuickRequestAlert] = useState<{
+    orderId: string;
+    orderNumber: number;
+    tableNumber: string;
+    requestType: 'water_ice' | 'napkins' | 'help';
+  } | null>(null);
 
   // ─── Wake Lock ───
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -377,9 +392,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       return;
     }
     try {
-      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      const sentinel = await (navigator as any).wakeLock.request('screen');
+      wakeLockRef.current = sentinel;
       setWakeLockActive(true);
-      wakeLockRef.current.addEventListener('release', () => {
+      sentinel.addEventListener('release', () => {
         setWakeLockActive(false);
       });
     } catch (err) {
@@ -475,6 +491,54 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tenant.id, playBell]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`staff-quick-requests-${tenant.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenant.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as Order;
+          const previous = payload.old as Partial<Order>;
+          if (!updated.quick_request_type) return;
+
+          const becameNewRequest =
+            updated.quick_request_type !== previous.quick_request_type ||
+            previous.quick_request_seen_by_staff === true;
+          if (!becameNewRequest || updated.quick_request_seen_by_staff === true) return;
+
+          playBell();
+          if ('vibrate' in navigator) navigator.vibrate([250, 120, 250]);
+          setQuickRequestAlert({
+            orderId: updated.id,
+            orderNumber: updated.order_number,
+            tableNumber: updated.customer_table || 'Sin mesa',
+            requestType: updated.quick_request_type,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenant.id, playBell]);
+
+  const acknowledgeQuickRequest = async () => {
+    if (!quickRequestAlert) return;
+    await supabase
+      .from('orders')
+      .update({ quick_request_seen_by_staff: true, updated_at: new Date().toISOString() })
+      .eq('id', quickRequestAlert.orderId);
+    setQuickRequestAlert(null);
+    fetchOrders();
+  };
 
   const handleAdvanceStatus = async (order: Order) => {
     const statusFlow: Record<string, string> = {
@@ -763,6 +827,34 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                 style={{ backgroundColor: '#F59E0B', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}
               >
                 ✅ Entendido — Voy en camino
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {quickRequestAlert && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div
+            className="w-full max-w-sm rounded-3xl overflow-hidden"
+            style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}
+          >
+            <div className="p-6 text-center">
+              <h2 className="text-2xl font-black text-white mb-1" style={{ fontFamily: "'Lora', serif" }}>
+                🔔 Solicitud rápida de mesa
+              </h2>
+              <p className="text-sm text-slate-300 mb-1">Mesa {quickRequestAlert.tableNumber}</p>
+              <p className="text-sm text-slate-400 mb-4">Pedido #{quickRequestAlert.orderNumber}</p>
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm border"
+                style={{ backgroundColor: '#22c55e20', borderColor: '#22c55e55', color: '#86efac' }}>
+                {QUICK_REQUEST_LABELS[quickRequestAlert.requestType]}
+              </div>
+              <button
+                onClick={acknowledgeQuickRequest}
+                className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
+                style={{ backgroundColor: '#22c55e', color: '#052e16' }}
+              >
+                ✅ Entendido — Atiendo la mesa
               </button>
             </div>
           </div>

@@ -16,6 +16,14 @@ import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyTheme, getStoredTheme } from '@/lib/themes';
 import { toast } from 'sonner';
 
+const TABLE_QUICK_REQUESTS = [
+  { type: 'water_ice', label: 'Agua / Hielo', emoji: '💧' },
+  { type: 'napkins', label: 'Servilletas', emoji: '🧻' },
+  { type: 'help', label: 'Ayuda', emoji: '🆘' },
+] as const;
+
+type TableQuickRequestType = typeof TABLE_QUICK_REQUESTS[number]['type'];
+
 // Status step config with icons and animations
 const STATUS_STEPS: {
   key: OrderStatus;
@@ -228,6 +236,9 @@ export default function OrderStatusPage() {
   // ── V21.0: Smart Bill ──
   const [billRequested, setBillRequested] = useState(false);
   const [billLoading, setBillLoading] = useState(false);
+  const [quickRequestLoading, setQuickRequestLoading] = useState<TableQuickRequestType | null>(null);
+
+  const activeQuickRequest = (order as any)?.quick_request_type as TableQuickRequestType | null;
 
   // Sincronizar estado con el order (por si ya fue solicitado antes)
   useEffect(() => {
@@ -252,6 +263,31 @@ export default function OrderStatusPage() {
       console.error('[SmartBill]', err);
     } finally {
       setBillLoading(false);
+    }
+  };
+
+  const handleQuickRequest = async (requestType: TableQuickRequestType) => {
+    if (!order || quickRequestLoading) return;
+    setQuickRequestLoading(requestType);
+    try {
+      const { error: updateErr } = await supabase
+        .from('orders')
+        .update({
+          quick_request_type: requestType,
+          quick_request_at: new Date().toISOString(),
+          quick_request_seen_by_staff: false,
+          quick_request_seen_by_admin: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+      if (updateErr) throw updateErr;
+      const selected = TABLE_QUICK_REQUESTS.find((r) => r.type === requestType);
+      toast.success(`${selected?.emoji || '🛎️'} Solicitud enviada al personal.`);
+    } catch (err) {
+      toast.error('No se pudo enviar la solicitud. Intenta de nuevo.');
+      console.error('[QuickRequest]', err);
+    } finally {
+      setQuickRequestLoading(null);
     }
   };
 
@@ -545,6 +581,37 @@ export default function OrderStatusPage() {
             </div>
           )}
         </div>
+
+        {/* ─── TABLE QUICK REQUESTS ─── */}
+        {order.status !== 'cancelado' && !isDelivery && !isTakeout && (
+          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {TABLE_QUICK_REQUESTS.map((request) => {
+                const isActive = activeQuickRequest === request.type;
+                const isSending = quickRequestLoading === request.type;
+                return (
+                  <button
+                    key={request.type}
+                    onClick={() => handleQuickRequest(request.type)}
+                    disabled={!!quickRequestLoading}
+                    className="rounded-xl px-3 py-3 text-sm font-bold border transition-all disabled:opacity-60"
+                    style={{
+                      backgroundColor: isActive ? '#F59E0B20' : '#0f172a',
+                      borderColor: isActive ? '#F59E0B70' : '#334155',
+                      color: isActive ? '#FCD34D' : '#CBD5E1',
+                    }}
+                  >
+                    {isSending ? 'Enviando…' : `${request.emoji} ${request.label}`}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-3">
+              Estas solicitudes avisan al staff en tiempo real y al admin con alerta visual.
+            </p>
+          </div>
+        )}
 
         {/* ─── DELIVERY INFO CARD ─── */}
         {(isDelivery || isTakeout) && (

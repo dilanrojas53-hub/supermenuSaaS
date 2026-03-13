@@ -910,6 +910,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const prevOrderCountRef = useRef(0);
   const { playBell } = useKitchenBell();
 
+  const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
+    water_ice: '💧 Agua / Hielo',
+    napkins: '🧻 Servilletas',
+    help: '🆘 Ayuda',
+  };
+
   const fetchOrders = useCallback(async () => {
     // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
     const { data } = await supabase
@@ -972,6 +978,37 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const interval = setInterval(fetchOrders, 12000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`admin-quick-requests-${tenant.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenant.id}`,
+        },
+        () => {
+          // Silent visual refresh only (no bell for admin)
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenant.id, fetchOrders]);
+
+  const markQuickRequestSeenByAdmin = async (orderId: string) => {
+    await supabase
+      .from('orders')
+      .update({ quick_request_seen_by_admin: true, updated_at: new Date().toISOString() })
+      .eq('id', orderId);
+    fetchOrders();
+  };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const now = new Date().toISOString();
@@ -1080,6 +1117,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const scheduledTime = (order as any).scheduled_time;
     const deliveryAddress = (order as any).delivery_address;
     const deliveryPhone = (order as any).delivery_phone;
+    const quickRequestType = (order as any).quick_request_type as 'water_ice' | 'napkins' | 'help' | null;
+    const quickRequestPendingForAdmin = !!quickRequestType && (order as any).quick_request_seen_by_admin !== true;
 
     // Extraer el link de Google Maps de la cadena delivery_address si existe
     const extractGoogleMapsLink = (addr: string): string | null => {
@@ -1171,6 +1210,22 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           <div className="text-xs text-slate-400 mb-2 flex gap-2">
             {order.customer_name && <span>👤 {order.customer_name}</span>}
             {order.customer_table && <span>🪑 {order.customer_table}</span>}
+          </div>
+        )}
+
+        {quickRequestType && (
+          <div className="mb-2">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 text-xs font-bold">
+              {QUICK_REQUEST_LABELS[quickRequestType]}
+            </div>
+            {quickRequestPendingForAdmin && (
+              <button
+                onClick={() => markQuickRequestSeenByAdmin(order.id)}
+                className="mt-2 text-[11px] px-2.5 py-1 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
+              >
+                Marcar solicitud como vista
+              </button>
+            )}
           </div>
         )}
         <div className="space-y-0.5 mb-3">

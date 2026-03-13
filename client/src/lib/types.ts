@@ -165,6 +165,11 @@ export interface Order {
   payment_status?: 'pending' | 'paid' | null;
   /** V17.2: Timestamp when order was delivered */
   delivered_at?: string | null;
+  /** Quick table request from Order Status page */
+  quick_request_type?: 'water_ice' | 'napkins' | 'help' | null;
+  quick_request_at?: string | null;
+  quick_request_seen_by_staff?: boolean;
+  quick_request_seen_by_admin?: boolean;
 }
 
 export interface CartItem {

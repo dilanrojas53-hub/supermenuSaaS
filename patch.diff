@@ -1,0 +1,340 @@
+diff --git a/client/src/lib/types.ts b/client/src/lib/types.ts
+index 1fdd60a..4040f59 100644
+--- a/client/src/lib/types.ts
++++ b/client/src/lib/types.ts
+@@ -165,6 +165,11 @@ export interface Order {
+   payment_status?: 'pending' | 'paid' | null;
+   /** V17.2: Timestamp when order was delivered */
+   delivered_at?: string | null;
++  /** Quick table request from Order Status page */
++  quick_request_type?: 'water_ice' | 'napkins' | 'help' | null;
++  quick_request_at?: string | null;
++  quick_request_seen_by_staff?: boolean;
++  quick_request_seen_by_admin?: boolean;
+ }
+ 
+ export interface CartItem {
+diff --git a/client/src/pages/AdminDashboard.tsx b/client/src/pages/AdminDashboard.tsx
+index 95573c7..b6d22c9 100644
+--- a/client/src/pages/AdminDashboard.tsx
++++ b/client/src/pages/AdminDashboard.tsx
+@@ -910,6 +910,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
+   const prevOrderCountRef = useRef(0);
+   const { playBell } = useKitchenBell();
+ 
++  const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
++    water_ice: '💧 Agua / Hielo',
++    napkins: '🧻 Servilletas',
++    help: '🆘 Ayuda',
++  };
++
+   const fetchOrders = useCallback(async () => {
+     // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
+     const { data } = await supabase
+@@ -973,6 +979,37 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
+     return () => clearInterval(interval);
+   }, [fetchOrders]);
+ 
++  useEffect(() => {
++    const channel = supabase
++      .channel(`admin-quick-requests-${tenant.id}`)
++      .on(
++        'postgres_changes',
++        {
++          event: 'UPDATE',
++          schema: 'public',
++          table: 'orders',
++          filter: `tenant_id=eq.${tenant.id}`,
++        },
++        () => {
++          // Silent visual refresh only (no bell for admin)
++          fetchOrders();
++        }
++      )
++      .subscribe();
++
++    return () => {
++      supabase.removeChannel(channel);
++    };
++  }, [tenant.id, fetchOrders]);
++
++  const markQuickRequestSeenByAdmin = async (orderId: string) => {
++    await supabase
++      .from('orders')
++      .update({ quick_request_seen_by_admin: true, updated_at: new Date().toISOString() })
++      .eq('id', orderId);
++    fetchOrders();
++  };
++
+   const handleStatusChange = async (orderId: string, newStatus: string) => {
+     const now = new Date().toISOString();
+     const extra: Record<string, any> = { updated_at: now, has_new_items: false };
+@@ -1080,6 +1117,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
+     const scheduledTime = (order as any).scheduled_time;
+     const deliveryAddress = (order as any).delivery_address;
+     const deliveryPhone = (order as any).delivery_phone;
++    const quickRequestType = (order as any).quick_request_type as 'water_ice' | 'napkins' | 'help' | null;
++    const quickRequestPendingForAdmin = !!quickRequestType && (order as any).quick_request_seen_by_admin !== true;
+ 
+     // Extraer el link de Google Maps de la cadena delivery_address si existe
+     const extractGoogleMapsLink = (addr: string): string | null => {
+@@ -1173,6 +1212,22 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
+             {order.customer_table && <span>🪑 {order.customer_table}</span>}
+           </div>
+         )}
++
++        {quickRequestType && (
++          <div className="mb-2">
++            <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 text-xs font-bold">
++              {QUICK_REQUEST_LABELS[quickRequestType]}
++            </div>
++            {quickRequestPendingForAdmin && (
++              <button
++                onClick={() => markQuickRequestSeenByAdmin(order.id)}
++                className="mt-2 text-[11px] px-2.5 py-1 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
++              >
++                Marcar solicitud como vista
++              </button>
++            )}
++          </div>
++        )}
+         <div className="space-y-0.5 mb-3">
+           {(order.items as any[]).map((item: any, i: number) => (
+             <div key={i} className="flex justify-between text-sm">
+diff --git a/client/src/pages/OrderStatusPage.tsx b/client/src/pages/OrderStatusPage.tsx
+index 039462e..42f2f56 100644
+--- a/client/src/pages/OrderStatusPage.tsx
++++ b/client/src/pages/OrderStatusPage.tsx
+@@ -16,6 +16,14 @@ import { useAnimationConfig } from '@/contexts/AnimationContext';
+ import { applyTheme, getStoredTheme } from '@/lib/themes';
+ import { toast } from 'sonner';
+ 
++const TABLE_QUICK_REQUESTS = [
++  { type: 'water_ice', label: 'Agua / Hielo', emoji: '💧' },
++  { type: 'napkins', label: 'Servilletas', emoji: '🧻' },
++  { type: 'help', label: 'Ayuda', emoji: '🆘' },
++] as const;
++
++type TableQuickRequestType = typeof TABLE_QUICK_REQUESTS[number]['type'];
++
+ // Status step config with icons and animations
+ const STATUS_STEPS: {
+   key: OrderStatus;
+@@ -228,6 +236,9 @@ export default function OrderStatusPage() {
+   // ── V21.0: Smart Bill ──
+   const [billRequested, setBillRequested] = useState(false);
+   const [billLoading, setBillLoading] = useState(false);
++  const [quickRequestLoading, setQuickRequestLoading] = useState<TableQuickRequestType | null>(null);
++
++  const activeQuickRequest = (order as any)?.quick_request_type as TableQuickRequestType | null;
+ 
+   // Sincronizar estado con el order (por si ya fue solicitado antes)
+   useEffect(() => {
+@@ -255,6 +266,31 @@ export default function OrderStatusPage() {
+     }
+   };
+ 
++  const handleQuickRequest = async (requestType: TableQuickRequestType) => {
++    if (!order || quickRequestLoading) return;
++    setQuickRequestLoading(requestType);
++    try {
++      const { error: updateErr } = await supabase
++        .from('orders')
++        .update({
++          quick_request_type: requestType,
++          quick_request_at: new Date().toISOString(),
++          quick_request_seen_by_staff: false,
++          quick_request_seen_by_admin: false,
++          updated_at: new Date().toISOString(),
++        })
++        .eq('id', order.id);
++      if (updateErr) throw updateErr;
++      const selected = TABLE_QUICK_REQUESTS.find((r) => r.type === requestType);
++      toast.success(`${selected?.emoji || '🛎️'} Solicitud enviada al personal.`);
++    } catch (err) {
++      toast.error('No se pudo enviar la solicitud. Intenta de nuevo.');
++      console.error('[QuickRequest]', err);
++    } finally {
++      setQuickRequestLoading(null);
++    }
++  };
++
+   // ── FASE 3: Auto-GPS ──
+   const [gpsLink, setGpsLink] = useState<string | null>(null);
+   const [gpsLoading, setGpsLoading] = useState(false);
+@@ -546,6 +582,37 @@ export default function OrderStatusPage() {
+           )}
+         </div>
+ 
++        {/* ─── TABLE QUICK REQUESTS ─── */}
++        {order.status !== 'cancelado' && !isDelivery && !isTakeout && (
++          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
++            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
++            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
++              {TABLE_QUICK_REQUESTS.map((request) => {
++                const isActive = activeQuickRequest === request.type;
++                const isSending = quickRequestLoading === request.type;
++                return (
++                  <button
++                    key={request.type}
++                    onClick={() => handleQuickRequest(request.type)}
++                    disabled={!!quickRequestLoading}
++                    className="rounded-xl px-3 py-3 text-sm font-bold border transition-all disabled:opacity-60"
++                    style={{
++                      backgroundColor: isActive ? '#F59E0B20' : '#0f172a',
++                      borderColor: isActive ? '#F59E0B70' : '#334155',
++                      color: isActive ? '#FCD34D' : '#CBD5E1',
++                    }}
++                  >
++                    {isSending ? 'Enviando…' : `${request.emoji} ${request.label}`}
++                  </button>
++                );
++              })}
++            </div>
++            <p className="text-[11px] text-slate-500 mt-3">
++              Estas solicitudes avisan al staff en tiempo real y al admin con alerta visual.
++            </p>
++          </div>
++        )}
++
+         {/* ─── DELIVERY INFO CARD ─── */}
+         {(isDelivery || isTakeout) && (
+           <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-3">
+diff --git a/client/src/pages/StaffDashboard.tsx b/client/src/pages/StaffDashboard.tsx
+index 80ae8c2..3e5a266 100644
+--- a/client/src/pages/StaffDashboard.tsx
++++ b/client/src/pages/StaffDashboard.tsx
+@@ -53,8 +53,17 @@ interface Order {
+   created_at: string;
+   accepted_at?: string;
+   ready_at?: string;
++  quick_request_type?: 'water_ice' | 'napkins' | 'help' | null;
++  quick_request_at?: string | null;
++  quick_request_seen_by_staff?: boolean;
+ }
+ 
++const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
++  water_ice: '💧 Agua / Hielo',
++  napkins: '🧻 Servilletas',
++  help: '🆘 Ayuda',
++};
++
+ interface MenuItem {
+   id: string;
+   name: string;
+@@ -366,6 +375,12 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
+     tableNumber: string;
+     paymentMethod: string;
+   } | null>(null);
++  const [quickRequestAlert, setQuickRequestAlert] = useState<{
++    orderId: string;
++    orderNumber: number;
++    tableNumber: string;
++    requestType: 'water_ice' | 'napkins' | 'help';
++  } | null>(null);
+ 
+   // ─── Wake Lock ───
+   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+@@ -377,9 +392,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
+       return;
+     }
+     try {
+-      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
++      const sentinel = await (navigator as any).wakeLock.request('screen');
++      wakeLockRef.current = sentinel;
+       setWakeLockActive(true);
+-      wakeLockRef.current.addEventListener('release', () => {
++      sentinel.addEventListener('release', () => {
+         setWakeLockActive(false);
+       });
+     } catch (err) {
+@@ -476,6 +492,54 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
+     return () => { supabase.removeChannel(channel); };
+   }, [tenant.id, playBell]);
+ 
++  useEffect(() => {
++    const channel = supabase
++      .channel(`staff-quick-requests-${tenant.id}`)
++      .on(
++        'postgres_changes',
++        {
++          event: 'UPDATE',
++          schema: 'public',
++          table: 'orders',
++          filter: `tenant_id=eq.${tenant.id}`,
++        },
++        (payload) => {
++          const updated = payload.new as Order;
++          const previous = payload.old as Partial<Order>;
++          if (!updated.quick_request_type) return;
++
++          const becameNewRequest =
++            updated.quick_request_type !== previous.quick_request_type ||
++            previous.quick_request_seen_by_staff === true;
++          if (!becameNewRequest || updated.quick_request_seen_by_staff === true) return;
++
++          playBell();
++          if ('vibrate' in navigator) navigator.vibrate([250, 120, 250]);
++          setQuickRequestAlert({
++            orderId: updated.id,
++            orderNumber: updated.order_number,
++            tableNumber: updated.customer_table || 'Sin mesa',
++            requestType: updated.quick_request_type,
++          });
++        }
++      )
++      .subscribe();
++
++    return () => {
++      supabase.removeChannel(channel);
++    };
++  }, [tenant.id, playBell]);
++
++  const acknowledgeQuickRequest = async () => {
++    if (!quickRequestAlert) return;
++    await supabase
++      .from('orders')
++      .update({ quick_request_seen_by_staff: true, updated_at: new Date().toISOString() })
++      .eq('id', quickRequestAlert.orderId);
++    setQuickRequestAlert(null);
++    fetchOrders();
++  };
++
+   const handleAdvanceStatus = async (order: Order) => {
+     const statusFlow: Record<string, string> = {
+       pendiente: 'en_cocina',
+@@ -768,6 +832,34 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
+           </div>
+         </div>
+       )}
++
++      {quickRequestAlert && (
++        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
++          <div
++            className="w-full max-w-sm rounded-3xl overflow-hidden"
++            style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}
++          >
++            <div className="p-6 text-center">
++              <h2 className="text-2xl font-black text-white mb-1" style={{ fontFamily: "'Lora', serif" }}>
++                🔔 Solicitud rápida de mesa
++              </h2>
++              <p className="text-sm text-slate-300 mb-1">Mesa {quickRequestAlert.tableNumber}</p>
++              <p className="text-sm text-slate-400 mb-4">Pedido #{quickRequestAlert.orderNumber}</p>
++              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm border"
++                style={{ backgroundColor: '#22c55e20', borderColor: '#22c55e55', color: '#86efac' }}>
++                {QUICK_REQUEST_LABELS[quickRequestAlert.requestType]}
++              </div>
++              <button
++                onClick={acknowledgeQuickRequest}
++                className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
++                style={{ backgroundColor: '#22c55e', color: '#052e16' }}
++              >
++                ✅ Entendido — Atiendo la mesa
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
+     </div>
+   );
+ }
