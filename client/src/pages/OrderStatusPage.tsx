@@ -583,7 +583,7 @@ export default function OrderStatusPage() {
         </div>
 
         {/* ─── TABLE QUICK REQUESTS ─── */}
-        {order.status !== 'cancelado' && !isDelivery && !isTakeout && (
+        {order.customer_table && order.status !== 'cancelado' && (
           <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
