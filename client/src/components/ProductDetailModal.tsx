@@ -209,26 +209,15 @@ export default function ProductDetailModal({
       .then(({ count }) => setHasModifiers((count ?? 0) > 0));
   }, [item?.id, isOpen]);
 
-  // V22.1: If item has modifiers, show ModifierSelector first; otherwise add directly
-  const handleAddToCart = useCallback(() => {
-    if (!item) return;
-    if (hasModifiers) {
-      setShowModifierSelector(true);
-      return;
-    }
-    addToCartDirectly([], 0);
-  }, [item, hasModifiers]);
-
+  // V22.2: addToCartDirectly declared FIRST to avoid hoisting issue with handleAddToCart
   const addToCartDirectly = useCallback((selectedModifiers: SelectedModifier[], modifiersTotal: number) => {
     if (!item) return;
-
     const mainCartId = addItemAdvanced(item, {
       quantity,
       preventCheckoutUpsell: true,
       selectedModifiers,
       modifiersTotal,
     });
-
     // Register "rejected" feedback for suggestions not added
     shownSuggestionIds.forEach(sugId => {
       if (!suggestionAdded[sugId]) {
@@ -241,7 +230,6 @@ export default function ProductDetailModal({
         }
       }
     });
-
     markUpsellHandled(mainCartId);
     setMainAdded(true);
     toast.success(
@@ -250,11 +238,20 @@ export default function ProductDetailModal({
         : `${item.name} added to cart`,
       { duration: 2000 }
     );
-
     setTimeout(() => {
       onClose();
     }, 600);
-  }, [item, quantity, aiSuggestions, suggestionAdded, shownSuggestionIds, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose, addToCartDirectly]);
+  }, [item, quantity, aiSuggestions, suggestionAdded, shownSuggestionIds, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose]);
+
+  // handleAddToCart declared AFTER addToCartDirectly so it can reference it safely
+  const handleAddToCart = useCallback(() => {
+    if (!item) return;
+    if (hasModifiers) {
+      setShowModifierSelector(true);
+      return;
+    }
+    addToCartDirectly([], 0);
+  }, [item, hasModifiers, addToCartDirectly]);
 
   if (!item) return null;
 
