@@ -108,7 +108,15 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
             options: (g.options || [])
               .filter((o: ModifierOption) => o.is_available)
               .sort((a: ModifierOption, b: ModifierOption) => a.sort_order - b.sort_order),
-          }));
+          }))
+          // Solo incluir grupos que tengan al menos una opción disponible
+          .filter((g: any) => g.options.length > 0);
+
+        // Si después de filtrar no hay grupos con opciones, agregar directamente sin modal
+        if (sorted.length === 0) {
+          onConfirm([], 0);
+          return;
+        }
 
         setGroups(sorted);
 

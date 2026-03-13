@@ -135,14 +135,19 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
       const { error } = await supabase.from('modifier_groups').update(payload).eq('id', editingGroup.id);
       if (error) { toast.error('Error: ' + error.message); return; }
       toast.success('Grupo actualizado');
+      setEditingGroup(null);
+      setIsCreatingGroup(false);
+      fetchData();
     } else {
-      const { error } = await supabase.from('modifier_groups').insert(payload);
+      const { data: newGroup, error } = await supabase.from('modifier_groups').insert(payload).select().single();
       if (error) { toast.error('Error: ' + error.message); return; }
-      toast.success('Grupo creado');
+      toast.success('✅ Grupo creado — ahora agrega las opciones abajo');
+      setEditingGroup(null);
+      setIsCreatingGroup(false);
+      await fetchData();
+      // Auto-expandir el grupo recién creado para que el admin agregue opciones de inmediato
+      if (newGroup) setExpandedGroup(newGroup.id);
     }
-    setEditingGroup(null);
-    setIsCreatingGroup(false);
-    fetchData();
   };
 
   const handleDeleteGroup = async (groupId: string) => {
@@ -328,7 +333,15 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
               {/* Group Header */}
               <div className="flex items-center gap-3 p-4">
                 <button
-                  onClick={() => setExpandedGroup(expandedGroup === group.id ? null : group.id)}
+                  onClick={() => {
+                    const next = expandedGroup === group.id ? null : group.id;
+                    setExpandedGroup(next);
+                    // Si el grupo no tiene opciones, abrir el formulario de nueva opción automáticamente
+                    if (next && group.options.length === 0) {
+                      setEditingOption({ groupId: group.id, option: null });
+                      setOptionForm({ name: '', pricing_type: 'included', price_delta: '0', is_available: true });
+                    }
+                  }}
                   className="flex-1 flex items-center gap-3 text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
@@ -344,8 +357,12 @@ export default function ModifiersTab({ tenant, items }: { tenant: Tenant; items:
                         {group.min_selections === 0 ? 'Opcional' : `Mín ${group.min_selections}`} · Máx {group.max_selections}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {group.options.length} opción{group.options.length !== 1 ? 'es' : ''} · {group.assignedProducts?.length ?? 0} platillo{(group.assignedProducts?.length ?? 0) !== 1 ? 's' : ''} asignado{(group.assignedProducts?.length ?? 0) !== 1 ? 's' : ''}
+                    <p className="text-xs mt-0.5">
+                      {group.options.length === 0 ? (
+                        <span className="text-amber-400 font-semibold">⚠ Sin opciones — haz clic para agregar</span>
+                      ) : (
+                        <span className="text-slate-500">{group.options.length} opción{group.options.length !== 1 ? 'es' : ''} · {group.assignedProducts?.length ?? 0} platillo{(group.assignedProducts?.length ?? 0) !== 1 ? 's' : ''} asignado{(group.assignedProducts?.length ?? 0) !== 1 ? 's' : ''}</span>
+                      )}
                     </p>
                   </div>
                   <div className="ml-auto text-slate-500">
