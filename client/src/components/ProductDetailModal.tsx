@@ -8,10 +8,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, Sparkles, Loader2, Check, ShoppingBag } from 'lucide-react';
-import type { MenuItem, ThemeSettings, Tenant } from '@/lib/types';
+import type { MenuItem, ThemeSettings, Tenant, SelectedModifier } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
+import { supabase } from '@/lib/supabase';
+import ModifierSelector from './ModifierSelector';
 import { toast } from 'sonner';
 
 interface AISuggestion {
@@ -68,6 +70,9 @@ export default function ProductDetailModal({
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiFetched, setAiFetched] = useState(false);
+  // V22.1: Modifier groups support
+  const [hasModifiers, setHasModifiers] = useState(false);
+  const [showModifierSelector, setShowModifierSelector] = useState(false);
   // Per-suggestion state: qty and added flag
   const [suggestionQtys, setSuggestionQtys] = useState<Record<string, number>>({});
   const [suggestionAdded, setSuggestionAdded] = useState<Record<string, boolean>>({});
@@ -194,12 +199,34 @@ export default function ProductDetailModal({
     );
   }, [item, suggestionQtys, addItemAdvanced, tenant.id, lang]);
 
+  // V22.1: Check if this item has modifier groups assigned
+  useEffect(() => {
+    if (!item || !isOpen) return;
+    supabase
+      .from('product_modifier_groups')
+      .select('group_id', { count: 'exact', head: true })
+      .eq('product_id', item.id)
+      .then(({ count }) => setHasModifiers((count ?? 0) > 0));
+  }, [item?.id, isOpen]);
+
+  // V22.1: If item has modifiers, show ModifierSelector first; otherwise add directly
   const handleAddToCart = useCallback(() => {
+    if (!item) return;
+    if (hasModifiers) {
+      setShowModifierSelector(true);
+      return;
+    }
+    addToCartDirectly([], 0);
+  }, [item, hasModifiers]);
+
+  const addToCartDirectly = useCallback((selectedModifiers: SelectedModifier[], modifiersTotal: number) => {
     if (!item) return;
 
     const mainCartId = addItemAdvanced(item, {
       quantity,
       preventCheckoutUpsell: true,
+      selectedModifiers,
+      modifiersTotal,
     });
 
     // Register "rejected" feedback for suggestions not added
@@ -227,7 +254,7 @@ export default function ProductDetailModal({
     setTimeout(() => {
       onClose();
     }, 600);
-  }, [item, quantity, aiSuggestions, suggestionAdded, shownSuggestionIds, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose]);
+  }, [item, quantity, aiSuggestions, suggestionAdded, shownSuggestionIds, addItemAdvanced, markUpsellHandled, tenant.id, lang, onClose, addToCartDirectly]);
 
   if (!item) return null;
 
@@ -523,13 +550,30 @@ export default function ProductDetailModal({
                 ) : (
                   <>
                     <ShoppingBag size={18} />
-                    <span>{lang === 'es' ? `Agregar al carrito — ${formatPrice(item.price * quantity)}` : `Add to cart — ${formatPrice(item.price * quantity)}`}</span>
+                    <span>
+                      {hasModifiers
+                        ? (lang === 'es' ? 'Personalizar y agregar' : 'Customize & add')
+                        : (lang === 'es' ? `Agregar al carrito — ${formatPrice(item.price * quantity)}` : `Add to cart — ${formatPrice(item.price * quantity)}`)}
+                    </span>
                   </>
                 )}
               </button>
             </div>
           </motion.div>
         </>
+      )}
+      {/* V22.1: ModifierSelector overlay — shown when item has modifier groups */}
+      {showModifierSelector && item && (
+        <ModifierSelector
+          item={item}
+          theme={{ primary_color: theme.primary_color, accent_color: theme.accent_color }}
+          lang={lang}
+          onConfirm={(selectedModifiers, modifiersTotal) => {
+            setShowModifierSelector(false);
+            addToCartDirectly(selectedModifiers, modifiersTotal);
+          }}
+          onCancel={() => setShowModifierSelector(false)}
+        />
       )}
     </AnimatePresence>
   );

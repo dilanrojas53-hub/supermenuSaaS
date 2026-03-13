@@ -58,6 +58,27 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
   const [itemModifierGroups, setItemModifierGroups] = useState<{ id: string; name: string }[]>([]);
   const [allModifierGroups, setAllModifierGroups] = useState<{ id: string; name: string }[]>([]);
   const [loadingModifiers, setLoadingModifiers] = useState(false);
+  // V22.2: Options per assigned group (for inline price editing)
+  const [groupOptions, setGroupOptions] = useState<Record<string, { id: string; name: string; pricing_type: string; price_delta: number }[]>>({});
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+
+  const fetchGroupOptions = useCallback(async (groupId: string) => {
+    const { data } = await supabase
+      .from('modifier_options')
+      .select('id, name, pricing_type, price_delta')
+      .eq('group_id', groupId)
+      .order('sort_order');
+    setGroupOptions(prev => ({ ...prev, [groupId]: data || [] }));
+  }, []);
+
+  const updateOptionPrice = async (optionId: string, groupId: string, pricing_type: string, price_delta: number) => {
+    await supabase.from('modifier_options').update({ pricing_type, price_delta }).eq('id', optionId);
+    setGroupOptions(prev => ({
+      ...prev,
+      [groupId]: (prev[groupId] || []).map(o => o.id === optionId ? { ...o, pricing_type, price_delta } : o)
+    }));
+    toast.success('Precio actualizado');
+  };
 
   const fetchItemModifiers = useCallback(async (itemId: string) => {
     setLoadingModifiers(true);
@@ -68,9 +89,12 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
       ]);
       setAllModifierGroups(allGroups || []);
       const assignedIds = (assigned || []).map((a: any) => a.group_id);
-      setItemModifierGroups((allGroups || []).filter((g: any) => assignedIds.includes(g.id)));
+      const assigned_groups = (allGroups || []).filter((g: any) => assignedIds.includes(g.id));
+      setItemModifierGroups(assigned_groups);
+      // Pre-fetch options for assigned groups
+      assigned_groups.forEach((g: any) => fetchGroupOptions(g.id));
     } catch { /* ignore */ } finally { setLoadingModifiers(false); }
-  }, [tenant.id]);
+  }, [tenant.id, fetchGroupOptions]);
 
   const toggleItemModifier = async (groupId: string, isAssigned: boolean) => {
     const itemId = editingItem?.id;
@@ -78,11 +102,16 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
     if (isAssigned) {
       await supabase.from('product_modifier_groups').delete().eq('product_id', itemId).eq('group_id', groupId);
       setItemModifierGroups(prev => prev.filter(g => g.id !== groupId));
+      if (expandedGroup === groupId) setExpandedGroup(null);
     } else {
       const sortOrder = itemModifierGroups.length;
       await supabase.from('product_modifier_groups').insert({ product_id: itemId, group_id: groupId, sort_order: sortOrder });
       const group = allModifierGroups.find(g => g.id === groupId);
-      if (group) setItemModifierGroups(prev => [...prev, group]);
+      if (group) {
+        setItemModifierGroups(prev => [...prev, group]);
+        fetchGroupOptions(groupId);
+        setExpandedGroup(groupId); // auto-expand newly assigned group
+      }
     }
   };
   const [form, setForm] = useState({
@@ -248,14 +277,14 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
               <ToggleSwitch checked={form.is_featured} onChange={(v) => setForm({ ...form, is_featured: v })} label="Platillo de la semana" colorOn="#F59E0B" colorOff="#64748B" />
             </div>
           </div>
-          {/* V22.1: Modifier Groups assignment (only when editing an existing item) */}
+          {/* V22.2: Modifier Groups assignment with inline option price editor */}
           {editingItem && (
             <div className="mt-5 pt-5 border-t border-slate-600/50">
               <div className="flex items-center gap-2 mb-2">
                 <Sliders size={14} className="text-amber-400" />
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Grupos de modificadores</span>
               </div>
-              <p className="text-[11px] text-slate-500 mb-3">Selecciona los grupos de opciones que aplican a este platillo (guarniciones, salsas, cocción, etc.).</p>
+              <p className="text-[11px] text-slate-500 mb-3">Activa los grupos y configura el precio de cada opción directamente aquí.</p>
               {loadingModifiers ? (
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <div className="w-4 h-4 border border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -264,23 +293,85 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
               ) : allModifierGroups.length === 0 ? (
                 <p className="text-xs text-slate-500 italic">Sin grupos creados. Ve a la pestaña <strong className="text-amber-400">Modificadores</strong> para crear grupos.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {allModifierGroups.map(group => {
                     const isAssigned = itemModifierGroups.some(g => g.id === group.id);
+                    const isExpanded = expandedGroup === group.id;
+                    const options = groupOptions[group.id] || [];
                     return (
-                      <button
-                        key={group.id}
-                        type="button"
-                        onClick={() => toggleItemModifier(group.id, isAssigned)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
-                          isAssigned
-                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                            : 'bg-slate-700/50 border-slate-600/50 text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        {isAssigned && <Check size={11} />}
-                        <span>{group.name}</span>
-                      </button>
+                      <div key={group.id} className={`rounded-xl border transition-all ${
+                        isAssigned ? 'border-amber-500/40 bg-amber-500/5' : 'border-slate-700/50 bg-slate-800/30'
+                      }`}>
+                        {/* Group header row */}
+                        <div className="flex items-center gap-2 px-3 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleItemModifier(group.id, isAssigned)}
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              isAssigned ? 'bg-amber-500 border-amber-500' : 'border-slate-500 bg-transparent'
+                            }`}
+                          >
+                            {isAssigned && <Check size={11} className="text-white" />}
+                          </button>
+                          <span className={`text-sm font-medium flex-1 ${
+                            isAssigned ? 'text-amber-300' : 'text-slate-400'
+                          }`}>{group.name}</span>
+                          {isAssigned && options.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
+                              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-amber-400 transition-colors"
+                            >
+                              <span>{options.length} opciones</span>
+                              <ChevronDown size={12} className={`transition-transform ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`} />
+                            </button>
+                          )}
+                        </div>
+                        {/* Inline option price editor */}
+                        {isAssigned && isExpanded && (
+                          <div className="px-3 pb-3 space-y-2 border-t border-amber-500/20 pt-2">
+                            <p className="text-[10px] text-slate-500 mb-1">Configura el precio de cada opción:</p>
+                            {options.map(opt => (
+                              <div key={opt.id} className="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2 py-1.5">
+                                <span className="text-xs text-slate-300 flex-1 min-w-0 truncate">{opt.name}</span>
+                                <select
+                                  value={opt.pricing_type}
+                                  onChange={e => {
+                                    const newType = e.target.value;
+                                    const newDelta = (newType === 'included' || newType === 'free') ? 0 : opt.price_delta;
+                                    updateOptionPrice(opt.id, group.id, newType, newDelta);
+                                  }}
+                                  className="text-[11px] bg-slate-700 border border-slate-600 rounded-lg text-white px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                >
+                                  <option value="included">Incluido</option>
+                                  <option value="free">Gratis</option>
+                                  <option value="extra">Extra (+₡)</option>
+                                  <option value="discounted">Especial (+₡)</option>
+                                </select>
+                                {(opt.pricing_type === 'extra' || opt.pricing_type === 'discounted') && (
+                                  <input
+                                    type="number"
+                                    value={opt.price_delta}
+                                    min={0}
+                                    onChange={e => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      setGroupOptions(prev => ({
+                                        ...prev,
+                                        [group.id]: (prev[group.id] || []).map(o => o.id === opt.id ? { ...o, price_delta: val } : o)
+                                      }));
+                                    }}
+                                    onBlur={e => updateOptionPrice(opt.id, group.id, opt.pricing_type, parseInt(e.target.value) || 0)}
+                                    className="w-20 text-[11px] bg-slate-700 border border-slate-600 rounded-lg text-white px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                    placeholder="0"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
