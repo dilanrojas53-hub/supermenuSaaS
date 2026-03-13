@@ -25,6 +25,7 @@ const getCartPlaceholderIcon = (itemName: string): React.ReactNode => {
 };
 
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
+import OrderTypeSelector from './OrderTypeSelector';
 import UpsellModal from './UpsellModal';
 import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -44,7 +45,7 @@ interface CartDrawerProps {
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
-type Step = 'cart' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
+type Step = 'cart' | 'order_type' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
 // ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
@@ -700,7 +701,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   const handleBack = () => {
     setErrorMsg('');
-    if (step === 'customer_info') setStep('cart');
+    if (step === 'order_type') setStep('cart');
+    else if (step === 'customer_info') setStep('order_type');
     else if (step === 'select_payment') { setStep('customer_info'); setPaymentMethod(null); }
     else if (step === 'payment') setStep('select_payment');
   };
@@ -708,13 +710,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   // Step titles
   const stepTitles: Record<Step, string> = {
     cart: t('cart.title'),
+    order_type: lang === 'es' ? '¿Cómo querés tu pedido?' : 'How would you like your order?',
     customer_info: t('checkout.customer_info'),
     select_payment: lang === 'es' ? '¿Cómo deseas pagar?' : 'How would you like to pay?',
     payment: t('payment.title'),
     confirmation: t('confirm.title'),
   };
 
-  const stepOrder: Step[] = ['customer_info', 'select_payment', 'payment', 'confirmation'];
+  const stepOrder: Step[] = ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
   // Payment method config
@@ -772,7 +775,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: `${theme.text_color}10` }}>
               <div className="flex items-center gap-3">
-                {step !== 'cart' && step !== 'confirmation' && (
+                {step !== 'cart' && step !== 'order_type' && step !== 'confirmation' && (
                   <button
                     onClick={handleBack}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-80"
@@ -809,7 +812,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             </div>
 
             {/* Step indicator */}
-            {step !== 'cart' && (
+            {step !== 'cart' && step !== 'order_type' && (
               <div className="flex items-center gap-1.5 px-5 py-3">
                 {stepOrder.map((s, idx) => {
                   const isActive = idx === currentStepIdx;
@@ -925,7 +928,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       </div>
                     )}
                     <motion.button
-                      onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('customer_info')}
+                      onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('order_type')}
                       whileTap={{ scale: 0.97 }}
                       className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
                       style={{
@@ -945,40 +948,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               </>
             )}
 
+            {/* ─── STEP: ORDER TYPE SELECTOR ─── */}
+            {step === 'order_type' && (
+              <OrderTypeSelector
+                theme={theme}
+                lang={lang}
+                onSelect={(_type) => {
+                  // Solo dine_in está activo; al seleccionarlo avanzamos a customer_info
+                  setDeliveryType('dine_in');
+                  setStep('customer_info');
+                }}
+              />
+            )}
+
             {/* ─── STEP: CUSTOMER INFO + DELIVERY TYPE ─── */}
             {step === 'customer_info' && (
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-                  {/* ── Delivery Type Selector ── */}
-                  <div>
-                    <label className="text-xs font-semibold mb-2 block" style={{ color: `${theme.text_color}80` }}>
-                      {lang === 'es' ? '¿Cómo recibes tu pedido?' : 'How will you receive your order?'}
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {([
-                        { type: 'dine_in' as DeliveryType, icon: <UtensilsCrossed size={18} />, label: lang === 'es' ? 'Comer Aquí' : 'Dine In' },
-                        { type: 'takeout' as DeliveryType, icon: <Package size={18} />, label: 'Takeout' },
-                        { type: 'delivery' as DeliveryType, icon: <Bike size={18} />, label: 'Delivery' },
-                      ] as { type: DeliveryType; icon: React.ReactNode; label: string }[]).map(({ type, icon, label }) => (
-                        <button
-                          key={type}
-                          onClick={() => setDeliveryType(type)}
-                          className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all"
-                          style={{
-                            backgroundColor: deliveryType === type ? `${theme.primary_color}20` : `${theme.text_color}06`,
-                            border: `2px solid ${deliveryType === type ? theme.primary_color : `${theme.text_color}10`}`,
-                            color: deliveryType === type ? theme.primary_color : `${theme.text_color}60`,
-                          }}
-                        >
-                          {icon}
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ── Scheduled Date + Time (Takeout or Delivery) ── */}
+                  {/* ── Scheduled Date + Time (Takeout or Delivery) ── — hidden since only dine_in is active */}
                   {(deliveryType === 'takeout' || deliveryType === 'delivery') && (
                     <div className="space-y-3">
                       <div>
