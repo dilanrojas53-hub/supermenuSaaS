@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import {
   LogOut, ChefHat, CheckCircle2, Clock, RefreshCw,
   Plus, Minus, ShoppingCart, X, AlertTriangle, Shield,
-  User, Lock, Eye, EyeOff, Zap, UtensilsCrossed
+  User, Lock, Eye, EyeOff, Zap, UtensilsCrossed,
+  Bell, CreditCard, Banknote, Smartphone
 } from 'lucide-react';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 
@@ -358,6 +359,14 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const { playBell } = useKitchenBell();
   const prevCountRef = useRef(0);
 
+  // ─── V21.0: Smart Bill Alert ───
+  const [billAlert, setBillAlert] = useState<{
+    orderId: string;
+    orderNumber: number;
+    tableNumber: string;
+    paymentMethod: string;
+  } | null>(null);
+
   // ─── Wake Lock ───
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
@@ -432,6 +441,40 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
+
+  // ─── V21.0: Listener Realtime para bill_requested ───
+  useEffect(() => {
+    const channel = supabase
+      .channel(`staff-bill-${tenant.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenant.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          // Solo disparar si bill_requested acaba de cambiar a true
+          if (updated.bill_requested === true && payload.old?.bill_requested === false) {
+            playBell();
+            // Vibrar 3 veces si está disponible
+            if ('vibrate' in navigator) {
+              navigator.vibrate([400, 150, 400, 150, 400]);
+            }
+            setBillAlert({
+              orderId: updated.id,
+              orderNumber: updated.order_number,
+              tableNumber: updated.customer_table || 'Sin mesa',
+              paymentMethod: updated.payment_method || 'efectivo',
+            });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [tenant.id, playBell]);
 
   const handleAdvanceStatus = async (order: Order) => {
     const statusFlow: Record<string, string> = {
@@ -674,6 +717,56 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           onConfirm={confirmCancel}
           onCancel={() => setPinModal(null)}
         />
+      )}
+
+      {/* ─── V21.0: SMART BILL ALERT MODAL ─── */}
+      {billAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div
+            className="w-full max-w-sm rounded-3xl overflow-hidden"
+            style={{ backgroundColor: '#0f172a', border: '2px solid #F59E0B', boxShadow: '0 0 60px rgba(245,158,11,0.4)' }}
+          >
+            {/* Animated top bar */}
+            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #F59E0B, #EF4444, #F59E0B)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
+
+            <div className="p-6 text-center">
+              {/* Bell icon pulsing */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F59E0B20', border: '2px solid #F59E0B50' }}>
+                  <Bell size={36} className="text-amber-400" style={{ animation: 'bounce 0.6s infinite' }} />
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-black text-white mb-1" style={{ fontFamily: "'Lora', serif" }}>
+                🛎️ ¡Mesa {billAlert.tableNumber} pide la cuenta!
+              </h2>
+              <p className="text-sm text-slate-400 mb-5">Pedido #{billAlert.orderNumber}</p>
+
+              {/* Payment method badge */}
+              <div
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm"
+                style={{
+                  backgroundColor: billAlert.paymentMethod === 'sinpe' ? '#6C63FF20' : billAlert.paymentMethod === 'tarjeta' ? '#3B82F620' : '#38A16920',
+                  border: `1px solid ${billAlert.paymentMethod === 'sinpe' ? '#6C63FF50' : billAlert.paymentMethod === 'tarjeta' ? '#3B82F650' : '#38A16950'}`,
+                  color: billAlert.paymentMethod === 'sinpe' ? '#a78bfa' : billAlert.paymentMethod === 'tarjeta' ? '#60a5fa' : '#6ee7b7',
+                }}
+              >
+                {billAlert.paymentMethod === 'sinpe' && <><Smartphone size={16} /><span>Verificar comprobante en sistema</span></>}
+                {billAlert.paymentMethod === 'tarjeta' && <><CreditCard size={16} /><span>Llevar Datáfono</span></>}
+                {billAlert.paymentMethod === 'efectivo' && <><Banknote size={16} /><span>Pago en Efectivo (Llevar cambio)</span></>}
+              </div>
+
+              {/* CTA button */}
+              <button
+                onClick={() => setBillAlert(null)}
+                className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
+                style={{ backgroundColor: '#F59E0B', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}
+              >
+                ✅ Entendido — Voy en camino
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

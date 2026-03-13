@@ -225,6 +225,36 @@ export default function OrderStatusPage() {
   const deliveryAddress = (order as any)?.delivery_address;
   const deliveryPhone = (order as any)?.delivery_phone;
 
+  // ── V21.0: Smart Bill ──
+  const [billRequested, setBillRequested] = useState(false);
+  const [billLoading, setBillLoading] = useState(false);
+
+  // Sincronizar estado con el order (por si ya fue solicitado antes)
+  useEffect(() => {
+    if (order && (order as any).bill_requested) {
+      setBillRequested(true);
+    }
+  }, [order?.id]);
+
+  const handleRequestBill = async () => {
+    if (!order || billRequested || billLoading) return;
+    setBillLoading(true);
+    try {
+      const { error: updateErr } = await supabase
+        .from('orders')
+        .update({ bill_requested: true, updated_at: new Date().toISOString() })
+        .eq('id', order.id);
+      if (updateErr) throw updateErr;
+      setBillRequested(true);
+      toast.success('🛎️ ¡Mesero notificado! Va en camino con tu cuenta.');
+    } catch (err: any) {
+      toast.error('Error al solicitar la cuenta. Intenta de nuevo.');
+      console.error('[SmartBill]', err);
+    } finally {
+      setBillLoading(false);
+    }
+  };
+
   // ── FASE 3: Auto-GPS ──
   const [gpsLink, setGpsLink] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -770,6 +800,53 @@ export default function OrderStatusPage() {
           </motion.div>
         )}
       </div>
+
+      {/* ─── V21.0: SMART BILL — Sticky Footer ─── */}
+      {/* Mostrar si el pedido fue entregado y el pago está pendiente */}
+      {isCompleted && (order as any).payment_status !== 'paid' && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 p-4"
+          style={{
+            background: 'linear-gradient(to top, rgba(2,6,23,0.98) 60%, transparent)',
+          }}
+        >
+          <div className="max-w-lg mx-auto">
+            <motion.button
+              onClick={handleRequestBill}
+              disabled={billRequested || billLoading}
+              whileTap={!billRequested ? { scale: 0.97 } : {}}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all"
+              style={{
+                backgroundColor: billRequested ? '#1e293b' : '#F59E0B',
+                color: billRequested ? '#94a3b8' : '#000',
+                boxShadow: billRequested ? 'none' : '0 4px 24px rgba(245,158,11,0.45)',
+                cursor: billRequested ? 'default' : 'pointer',
+                border: billRequested ? '1px solid #334155' : 'none',
+              }}
+            >
+              {billLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span>Enviando solicitud...</span>
+                </>
+              ) : billRequested ? (
+                <>
+                  <span className="text-xl">✅</span>
+                  <span>El mesero va en camino con tu cuenta...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xl">🛎️</span>
+                  <span>Pedir la Cuenta</span>
+                </>
+              )}
+            </motion.button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
