@@ -12,7 +12,7 @@
  *
  * Realtime: canal Supabase por tenant_id (INSERT + UPDATE en orders)
  * Audio: reutiliza useKitchenBell para pedidos que entran a cocina
- *//
+ */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'wouter';
 import { supabase } from '@/lib/supabase';
