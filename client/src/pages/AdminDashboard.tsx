@@ -2578,10 +2578,11 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
   const [savingPin, setSavingPin] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const handleCopyLink = (memberId: string) => {
-    const url = `${window.location.origin}/staff/${tenant.slug}`;
+  const handleCopyLink = (member: StaffMember) => {
+    const path = member.role === 'kitchen' ? 'kitchen' : 'staff';
+    const url = `${window.location.origin}/${path}/${tenant.slug}`;
     navigator.clipboard.writeText(url).then(() => {
-      setCopiedId(memberId);
+      setCopiedId(member.id);
       toast.success('Enlace copiado al portapapeles');
       setTimeout(() => setCopiedId(null), 2000);
     }).catch(() => toast.error('No se pudo copiar el enlace'));
@@ -2777,12 +2778,14 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
                   {member.is_active ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
                 <button
-                  onClick={() => handleCopyLink(member.id)}
-                  title="Copiar enlace de acceso para mesero"
+                  onClick={() => handleCopyLink(member)}
+                  title={member.role === 'kitchen' ? 'Copiar enlace de acceso para cocina' : 'Copiar enlace de acceso para mesero'}
                   className={`p-2 rounded-lg transition-colors ${
                     copiedId === member.id
                       ? 'bg-green-500/20 text-green-400'
-                      : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'
+                      : member.role === 'kitchen'
+                        ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400'
+                        : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-400'
                   }`}>
                   {copiedId === member.id ? <Check size={14} /> : <Link2 size={14} />}
                 </button>
