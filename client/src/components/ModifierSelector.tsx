@@ -201,7 +201,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
         <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" style={{ borderColor: theme.primary_color }} />
       </div>
     );
@@ -210,7 +210,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4"
         style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
