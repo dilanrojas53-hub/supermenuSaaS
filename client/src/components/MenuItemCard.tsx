@@ -1,8 +1,8 @@
 /*
- * MenuItemCard — V8.0 Polímata Visual
- * Inner Glow (inset shadow top), border white/5, jerarquía tipográfica.
- * Badges posicionados sobre la imagen (absolute top-2 left-2).
- * Precios: text-accent font-extrabold. Descripciones: text-main/60.
+ * MenuItemCard — V9.0 Premium UI Pass
+ * Jerarquía visual mejorada, imagen más grande (h-48 grid / w-32 list),
+ * CTA refinado con pill más elegante, sombras más profundas,
+ * micro-interacciones más fluidas, badges más visibles.
  * 4 CSS vars: --menu-bg, --menu-surface, --menu-text, --menu-accent
  */
 import { useState, useCallback } from 'react';
@@ -16,23 +16,18 @@ import SocialProofBadge from './SocialProofBadge';
 import ModifierSelector from './ModifierSelector';
 import { supabase } from '@/lib/supabase';
 
-// V11.0: Clasificación rápida para placeholder icon (sin acceso a allCategories)
 const DRINK_ICON_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
 const WINE_ICON_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
 
-/**
- * Devuelve el ícono Lucide apropiado según el nombre del item o su categoría.
- * Bebidas no alcohólicas → GlassWater | Alcohólicas → Wine | Comida → UtensilsCrossed
- */
 const getPlaceholderIcon = (itemName: string, categoryName?: string): React.ReactNode => {
   const combined = `${itemName} ${categoryName || ''}`.toLowerCase();
   if (WINE_ICON_KEYWORDS.some(k => combined.includes(k))) {
-    return <Wine className="text-accent/40 hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+    return <Wine size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
   }
   if (DRINK_ICON_KEYWORDS.some(k => combined.includes(k))) {
-    return <GlassWater className="hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+    return <GlassWater size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
   }
-  return <UtensilsCrossed className="hover:scale-105 transition-transform duration-300" size={32} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  return <UtensilsCrossed size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
 };
 
 interface MenuItemCardProps {
@@ -49,20 +44,16 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
   const [showModifiers, setShowModifiers] = useState(false);
-
-  // Check if product has modifier groups (quick check via Supabase)
   const [hasModifiers, setHasModifiers] = useState<boolean | null>(null);
 
   const checkAndAdd = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // If we already know it has no modifiers, quick add
     if (hasModifiers === false) {
       addItem(item);
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1200);
       return;
     }
-    // Check Supabase for modifier groups
     const { data } = await supabase
       .from('product_modifier_groups')
       .select('id')
@@ -94,24 +85,6 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
   const hasImage = Boolean(item.image_url);
 
-  /* Shared card container styles — Inner Glow + subtle border */
-  const cardContainerStyle: React.CSSProperties = {
-    borderRadius: '1.25rem',
-    overflow: 'hidden',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.25)',
-    border: '1px solid rgba(255,255,255,0.05)',
-  };
-
-  /* Card background layers as inline style — surface + dark overlay */
-  const cardBgStyle: React.CSSProperties = {
-    backgroundColor: 'var(--menu-surface)',
-  };
-  const cardOverlayStyle: React.CSSProperties = {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-  };
-
   // ── LIST VIEW ──
   if (viewMode === 'list') {
     return (
@@ -124,106 +97,95 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           onCancel={() => setShowModifiers(false)}
         />
       )}
-      <div
-        className="relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.99]"
         onClick={handleOpenDetail}
         style={{
-          // V15.0: micro-bisel premium — bg-surface + border white/5 + shadow-xl
-          backgroundColor: 'var(--bg-surface)',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.20)',
-          border: '1px solid rgba(255,255,255,0.05)',
+          backgroundColor: 'var(--menu-surface)',
+          boxShadow: '0 2px 16px rgba(0,0,0,0.45), 0 8px 32px rgba(0,0,0,0.25)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '1.25rem',
+          overflow: 'hidden',
         }}
       >
-        {/* Background layers */}
-        <div className="absolute inset-0" style={cardBgStyle} />
-        <div className="absolute inset-0" style={cardOverlayStyle} />
+        {/* Subtle inner glow top */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 40%)',
+          borderRadius: '1.25rem',
+        }} />
 
         {/* Content */}
-        <div className="relative z-10 flex gap-3 p-3 md:p-4">
-          {/* Image with badge overlay */}
-          {hasImage && (
-            <div className="relative w-28 h-28 md:w-32 md:h-32 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
+        <div className="relative z-10 flex gap-0 p-0">
+          {/* Image — square, larger */}
+          <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden" style={{ borderRadius: '1.25rem 0 0 1.25rem' }}>
+            {hasImage ? (
               <img
                 src={item.image_url!}
                 alt={item.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                 loading="lazy"
               />
-              {/* Badge floats on image */}
-              {showBadges && item.badge && (
-                <div className="absolute top-2 left-2 z-10">
-                  <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                {getPlaceholderIcon(item.name)}
+              </div>
+            )}
+            {/* Badge floats on image */}
+            {showBadges && item.badge && (
+              <div className="absolute top-2 left-2 z-10">
+                <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+              </div>
+            )}
+          </div>
 
-          {/* Placeholder inteligente si no hay imagen (V11.0) */}
-          {!hasImage && (
-            <div
-              className="relative w-28 h-28 md:w-32 md:h-32 rounded-xl flex-shrink-0 flex items-center justify-center"
-              style={{
-                backgroundColor: 'var(--menu-surface)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                opacity: 0.5,
-              }}
-            >
-              {getPlaceholderIcon(item.name)}
-              {/* Badge sobre el placeholder */}
-              {showBadges && item.badge && (
-                <div className="absolute top-2 left-2 z-10">
-                  <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex-1 min-w-0 flex flex-col justify-between">
+          {/* Text + CTA */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between p-3.5">
             <div>
-              {/* Title — bold, lg */}
               <h3
-                className="text-lg font-bold leading-tight mb-1"
-                style={{ color: 'var(--menu-text)' }}
+                className="text-base font-bold leading-snug mb-1"
+                style={{ color: 'var(--menu-text)', letterSpacing: '-0.01em' }}
               >
                 {item.name}
               </h3>
-              {/* Description — 60% opacity for harmony */}
               {item.description && (
                 <p
-                  className="text-sm leading-relaxed mb-2 line-clamp-2"
-                  style={{ color: 'var(--menu-text)', opacity: 0.6 }}
+                  className="text-xs leading-relaxed line-clamp-2"
+                  style={{ color: 'var(--menu-text)', opacity: 0.55 }}
                 >
                   {item.description}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center justify-between mt-auto pt-1">
-              {/* Price — accent, extrabold */}
+            <div className="flex items-center justify-between mt-2.5">
               <span
-                className="text-lg font-extrabold"
+                className="text-base font-black tracking-tight"
                 style={{ color: 'var(--menu-accent)' }}
               >
                 {formatPrice(item.price)}
               </span>
-              {/* CTA — accent bg */}
               <button
                 onClick={handleQuickAdd}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
                 style={{
-                  backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-                  color: 'var(--menu-accent-contrast)',
-                  boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
+                  backgroundColor: justAdded ? '#22c55e' : 'var(--menu-accent)',
+                  color: justAdded ? '#fff' : 'var(--menu-accent-contrast, #fff)',
+                  boxShadow: justAdded
+                    ? '0 4px 14px rgba(34,197,94,0.4)'
+                    : '0 4px 14px rgba(0,0,0,0.35)',
                 }}
               >
                 <AnimatePresence mode="wait">
                   {justAdded ? (
                     <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Check size={16} /><span>{t('menu.added')}</span>
+                      <Check size={13} /><span>{t('menu.added')}</span>
                     </motion.span>
                   ) : (
                     <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Plus size={16} /><span>{t('menu.add')}</span>
+                      <Plus size={13} /><span>{t('menu.add')}</span>
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -231,10 +193,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
       </>
     );
   }
+
   // ── GRID VIEW ──
   return (
     <>
@@ -247,58 +210,61 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       />
      )}
     <motion.div
-      initial={{ opacity: 0, scale: 0.96 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.35 }}
-      className="rounded-2xl overflow-hidden relative cursor-pointer transition-all hover:scale-[1.02] hover:shadow-2xl"
+      transition={{ duration: 0.3 }}
+      className="rounded-2xl overflow-hidden relative cursor-pointer transition-all duration-300 hover:scale-[1.025] hover:-translate-y-0.5"
       style={{
-        // V15.0: micro-bisel premium — bg-surface + border white/5 + shadow-xl
-        backgroundColor: 'var(--bg-surface)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.40), 0 10px 32px rgba(0,0,0,0.25)',
-        border: '1px solid rgba(255,255,255,0.05)',
+        backgroundColor: 'var(--menu-surface)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.50), 0 12px 40px rgba(0,0,0,0.30)',
+        border: '1px solid rgba(255,255,255,0.07)',
       }}
     >
-      {/* Background layers */}
-      <div className="absolute inset-0" style={cardBgStyle} />
-      <div className="absolute inset-0" style={cardOverlayStyle} />
+      {/* Inner glow top */}
+      <div className="absolute inset-0 pointer-events-none z-[1]" style={{
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 35%)',
+      }} />
 
-      {/* Image with badge overlay */}
+      {/* Image */}
       {hasImage && (
         <div
-          className="relative z-10 w-full h-44 overflow-hidden"
+          className="relative z-10 w-full overflow-hidden"
           onClick={handleOpenDetail}
-          style={{ borderRadius: '1.25rem 1.25rem 0 0' }}
+          style={{ height: '11rem', borderRadius: '1rem 1rem 0 0' }}
         >
           <img
             src={item.image_url!}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
             loading="lazy"
           />
+          {/* Gradient overlay on image bottom */}
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)',
+          }} />
           {/* Badge floats on image corner */}
           {showBadges && item.badge && (
-            <div className="absolute top-2 left-2 z-10">
+            <div className="absolute top-2.5 left-2.5 z-10">
               <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
             </div>
           )}
         </div>
       )}
 
-      {/* Placeholder inteligente si no hay imagen (V11.0) */}
+      {/* Placeholder */}
       {!hasImage && (
         <div
-          className="relative z-10 w-full h-44 flex items-center justify-center cursor-pointer"
+          className="relative z-10 w-full flex items-center justify-center cursor-pointer"
           onClick={handleOpenDetail}
           style={{
-            backgroundColor: 'var(--menu-surface)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '1.25rem 1.25rem 0 0',
+            height: '11rem',
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            borderRadius: '1rem 1rem 0 0',
           }}
         >
           {getPlaceholderIcon(item.name)}
-          {/* Badge sobre el placeholder */}
           {showBadges && item.badge && (
-            <div className="absolute top-2 left-2 z-10">
+            <div className="absolute top-2.5 left-2.5 z-10">
               <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
             </div>
           )}
@@ -306,52 +272,48 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       )}
 
       {/* Text content */}
-      <div className="relative z-10 p-4" onClick={handleOpenDetail}>
-        <div>
-          {/* Title — bold */}
-          <h3
-            className="text-base font-bold leading-tight mb-1"
-            style={{ color: 'var(--menu-text)' }}
+      <div className="relative z-10 p-3.5" onClick={handleOpenDetail}>
+        <h3
+          className="text-sm font-bold leading-snug mb-1"
+          style={{ color: 'var(--menu-text)', letterSpacing: '-0.01em' }}
+        >
+          {item.name}
+        </h3>
+        {item.description && (
+          <p
+            className="text-xs leading-relaxed mb-3 line-clamp-2"
+            style={{ color: 'var(--menu-text)', opacity: 0.52 }}
           >
-            {item.name}
-          </h3>
-          {/* Description — 60% opacity */}
-          {item.description && (
-            <p
-              className="text-xs leading-relaxed mb-3 line-clamp-2"
-              style={{ color: 'var(--menu-text)', opacity: 0.6 }}
-            >
-              {item.description}
-            </p>
-          )}
-        </div>
-
+            {item.description}
+          </p>
+        )}
         <div className="flex items-center justify-between">
-          {/* Price — accent, extrabold */}
           <span
-            className="text-lg font-extrabold"
+            className="text-base font-black tracking-tight"
             style={{ color: 'var(--menu-accent)' }}
           >
             {formatPrice(item.price)}
           </span>
-          {/* CTA — accent circle */}
+          {/* CTA — circle button */}
           <button
             onClick={handleQuickAdd}
-            className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 hover:brightness-110 active:scale-95"
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 hover:brightness-110 active:scale-95"
             style={{
-              backgroundColor: justAdded ? '#38A169' : 'var(--menu-accent)',
-              color: 'var(--menu-accent-contrast)',
-              boxShadow: '0 3px 12px rgba(0,0,0,0.3)',
+              backgroundColor: justAdded ? '#22c55e' : 'var(--menu-accent)',
+              color: justAdded ? '#fff' : 'var(--menu-accent-contrast, #fff)',
+              boxShadow: justAdded
+                ? '0 4px 14px rgba(34,197,94,0.45)'
+                : '0 4px 14px rgba(0,0,0,0.40)',
             }}
           >
             <AnimatePresence mode="wait">
               {justAdded ? (
                 <motion.div key="check" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
-                  <Check size={18} />
+                  <Check size={16} />
                 </motion.div>
               ) : (
                 <motion.div key="plus" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                  <Plus size={18} />
+                  <Plus size={16} />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -1995,47 +1995,30 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-bold text-white">Dashboard</h2>
+      <h2 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>Dashboard</h2>
 
-      {/* ── ROI / Upsell Module ── */}
+      {/* ── ROI / Upsell Module Premium V9.0 ── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={16} className="text-green-400" />
-          <h3 className="text-sm font-bold text-white">Prueba de ROI — Este Mes</h3>
+          <TrendingUp size={15} className="text-green-400" />
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Prueba de ROI — Este Mes</h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-[2rem] p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign size={15} className="text-amber-400" />
-              <p className="text-xs text-slate-400 font-semibold">Ventas Totales</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { icon: <DollarSign size={16} />, color: '#F59E0B', label: 'Ventas Totales', value: formatPrice(stats.totalRevenue), sub: `${stats.totalOrders} pedidos`, bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+            { icon: <Zap size={16} />, color: '#34d399', label: 'Revenue por IA ✨', value: formatPrice(stats.aiUpsellRevenue), sub: 'generado por GPT', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)' },
+            { icon: <TrendingUp size={16} />, color: '#4ade80', label: 'Upsell Estático', value: formatPrice(stats.staticUpsellRevenue), sub: `${stats.upsellOrders} pedidos con upsell`, bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.2)' },
+            { icon: <Users size={16} />, color: '#60a5fa', label: 'Tasa de Éxito', value: `${stats.upsellRate}%`, sub: 'de clientes aceptaron', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.2)' },
+          ].map((card, i) => (
+            <div key={i} className="rounded-2xl p-5 transition-all hover:scale-[1.01]" style={{ backgroundColor: card.bg, border: `1px solid ${card.border}`, boxShadow: `0 4px 20px ${card.bg}` }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ color: card.color }}>{card.icon}</span>
+                <p className="text-[11px] text-slate-400 font-bold">{card.label}</p>
+              </div>
+              <p className="text-2xl font-black" style={{ color: card.color }}>{card.value}</p>
+              <p className="text-[11px] text-slate-600 mt-1.5 font-medium">{card.sub}</p>
             </div>
-            <p className="text-2xl font-bold text-amber-400">{formatPrice(stats.totalRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1.5">{stats.totalOrders} pedidos</p>
-          </div>
-          <div className="bg-gradient-to-br from-emerald-500/10 to-rose-500/10 border border-rose-500/20 rounded-[2rem] p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap size={15} className="text-emerald-400" />
-              <p className="text-xs text-slate-300 font-bold">Revenue por IA ✨</p>
-            </div>
-            <p className="text-2xl font-bold text-emerald-400">{formatPrice(stats.aiUpsellRevenue)}</p>
-            <p className="text-xs text-rose-400/70 mt-1.5 font-medium">generado por GPT</p>
-          </div>
-          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-[2rem] p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp size={15} className="text-green-400" />
-              <p className="text-xs text-slate-400 font-semibold">Upsell Estático</p>
-            </div>
-            <p className="text-2xl font-bold text-green-400">{formatPrice(stats.staticUpsellRevenue)}</p>
-            <p className="text-xs text-slate-500 mt-1.5">{stats.upsellOrders} pedidos con upsell</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-[2rem] p-5 shadow-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={15} className="text-blue-400" />
-              <p className="text-xs text-slate-400 font-semibold">Tasa de Éxito</p>
-            </div>
-            <p className="text-2xl font-bold text-blue-400">{stats.upsellRate}%</p>
-            <p className="text-xs text-slate-500 mt-1.5">de clientes aceptaron</p>
-          </div>
+          ))}
         </div>
 
         {/* Revenue trend chart */}
@@ -2901,46 +2884,56 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
-      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)', borderColor: 'var(--border)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 92%, transparent)', borderColor: 'var(--border)', boxShadow: '0 1px 0 rgba(255,255,255,0.04)' }}>
+        <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-              <UtensilsCrossed size={16} className="text-white" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
+              <UtensilsCrossed size={17} className="text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{tenant.name}</h1>
-                <span className={`w-2 h-2 rounded-full ${tenant.is_open ? 'bg-green-400' : 'bg-red-400'}`} />
+                <h1 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{tenant.name}</h1>
+                <span className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  tenant.is_open
+                    ? 'bg-green-500/15 text-green-400 border border-green-500/25'
+                    : 'bg-red-500/15 text-red-400 border border-red-500/25'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${tenant.is_open ? 'bg-green-400' : 'bg-red-400'}`} />
+                  {tenant.is_open ? 'Abierto' : 'Cerrado'}
+                </span>
               </div>
-              <p className="text-[10px] text-slate-500">/{slug}</p>
+              <p className="text-[10px] text-slate-600 mt-0.5">/{slug}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <a href={`/${slug}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:brightness-110"
+              style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <Eye size={12} /> Ver menú <ExternalLink size={10} />
             </a>
             <button onClick={() => { logout(); navigate('/'); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-red-500/20 hover:text-red-400 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-red-500/15 hover:text-red-400"
+              style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <LogOut size={12} /> Salir
             </button>
           </div>
         </div>
       </header>
 
-      <div className="border-b sticky top-[57px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 80%, transparent)', borderColor: 'var(--border)' }}>
+      <div className="border-b sticky top-[61px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 85%, transparent)', borderColor: 'var(--border)' }}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-1 px-4 py-2">
+          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-0.5 px-4 py-2">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap flex-shrink-0 border"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
                 style={activeTab === tab.key ? {
-                  backgroundColor: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-                  color: 'var(--accent)',
-                  borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(249,115,22,0.15))',
+                  color: '#F59E0B',
+                  border: '1px solid rgba(245,158,11,0.35)',
+                  boxShadow: '0 2px 8px rgba(245,158,11,0.15)',
                 } : {
                   color: 'var(--text-secondary)',
-                  borderColor: 'transparent',
+                  border: '1px solid transparent',
                 }}>
                 {tab.icon} {tab.label}
               </button>
