@@ -2572,6 +2572,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
   const [newName, setNewName] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<'staff' | 'kitchen'>('staff');
   const [saving, setSaving] = useState(false);
   const [adminPin, setAdminPin] = useState((tenant as any).admin_pin || '');
   const [savingPin, setSavingPin] = useState(false);
@@ -2608,11 +2609,12 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       name: newName.trim(),
       username: newUsername.trim().toLowerCase(),
       password_hash,
-      role: 'staff',
+      role: newRole,
       is_active: true,
     });
+    const roleLabel = newRole === 'kitchen' ? 'Usuario de cocina' : 'Mesero';
     if (error) { toast.error('Error: ' + (error.message.includes('unique') ? 'Ese username ya existe' : error.message)); }
-    else { toast.success('Mesero creado'); setNewName(''); setNewUsername(''); setNewPassword(''); setShowForm(false); fetchStaff(); }
+    else { toast.success(`${roleLabel} creado`); setNewName(''); setNewUsername(''); setNewPassword(''); setNewRole('staff'); setShowForm(false); fetchStaff(); }
     setSaving(false);
   };
 
@@ -2649,7 +2651,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
           style={{ backgroundColor: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
-          <UserPlus size={14} /> Agregar Mesero
+          <UserPlus size={14} /> Agregar Usuario
         </button>
       </div>
 
@@ -2682,7 +2684,32 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       {/* Create staff form */}
       {showForm && (
         <div className="bg-slate-800/60 border border-slate-600/40 rounded-2xl p-5 space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><UserPlus size={14} /> Nuevo Mesero</h3>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><UserPlus size={14} /> Nuevo Usuario</h3>
+          {/* Role selector */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setNewRole('staff')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                newRole === 'staff'
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+              }`}
+            >
+              <UtensilsCrossed size={12} /> Mesero
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewRole('kitchen')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                newRole === 'kitchen'
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+              }`}
+            >
+              <ChefHat size={12} /> Cocina
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-xs text-slate-400 mb-1 block">Nombre completo</label>
@@ -2702,8 +2729,10 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
           </div>
           <div className="flex gap-2">
             <button onClick={handleCreateStaff} disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-500 transition-colors disabled:opacity-50">
-              <Save size={14} /> {saving ? 'Creando...' : 'Crear Mesero'}
+              className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
+                newRole === 'kitchen' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'
+              }`}>
+              <Save size={14} /> {saving ? 'Creando...' : newRole === 'kitchen' ? 'Crear Usuario Cocina' : 'Crear Mesero'}
             </button>
             <button onClick={() => setShowForm(false)}
               className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm hover:bg-slate-600 transition-colors">
@@ -2727,12 +2756,16 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
           {staff.map(member => (
             <div key={member.id} className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/40 rounded-2xl">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                    member.role === 'kitchen'
+                      ? 'bg-gradient-to-br from-orange-500 to-red-600'
+                      : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                  }`}>
                   {member.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white">{member.name}</p>
-                  <p className="text-xs text-slate-400">@{member.username} · Mesero</p>
+                  <p className="text-xs text-slate-400">@{member.username} · {member.role === 'kitchen' ? '🍳 Cocina' : 'Mesero'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -2763,10 +2796,13 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
         </div>
       )}
 
-      {/* Staff login URL info */}
-      <div className="bg-slate-800/40 border border-slate-600/20 rounded-2xl p-4">
+      {/* Login URLs info */}
+      <div className="bg-slate-800/40 border border-slate-600/20 rounded-2xl p-4 space-y-2">
         <p className="text-xs text-slate-400 flex items-center gap-2">
-          <Eye size={12} /> Los meseros inician sesión en: <span className="text-blue-400 font-mono">/staff/{tenant.slug}</span>
+          <Eye size={12} /> Meseros inician sesión en: <span className="text-blue-400 font-mono">/staff/{tenant.slug}</span>
+        </p>
+        <p className="text-xs text-slate-400 flex items-center gap-2">
+          <ChefHat size={12} className="text-orange-400" /> Cocina accede en: <span className="text-orange-400 font-mono">/kitchen/{tenant.slug}</span>
         </p>
       </div>
     </div>
