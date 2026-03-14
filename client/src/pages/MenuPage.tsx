@@ -225,18 +225,22 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
-      <div className="relative h-56 overflow-hidden">
+      <div className="relative overflow-hidden" style={{ height: '16rem' }}>
         {heroImage && (
           <img
             src={heroImage}
             alt={tenant.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover scale-105"
+            style={{ filter: 'brightness(0.85)' }}
           />
+        )}
+        {!heroImage && (
+          <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
         )}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)',
           }}
         />
 
@@ -260,30 +264,31 @@ function MenuContent() {
           </button>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 p-5">
+        <div className="absolute bottom-0 left-0 right-0 p-5 pb-6">
           {tenant.logo_url && (
             <img
               src={tenant.logo_url}
               alt={`${tenant.name} logo`}
-              className="w-14 h-14 rounded-xl object-cover mb-2 border-2 border-white/30 shadow-lg bg-white/10"
+              className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-2xl"
+              style={{ border: '2.5px solid rgba(255,255,255,0.35)' }}
             />
           )}
           <motion.h1
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold text-white leading-tight mb-1"
-            style={{ fontFamily: "'Lora', serif" }}
+            className="text-3xl font-black text-white leading-tight mb-1.5"
+            style={{ fontFamily: "'Lora', serif", textShadow: '0 2px 12px rgba(0,0,0,0.6)', letterSpacing: '-0.02em' }}
           >
             {tenant.name}
           </motion.h1>
           {tenant.description && (
-            <p className="text-white/80 text-sm leading-relaxed line-clamp-2">
+            <p className="text-white/75 text-sm leading-relaxed line-clamp-2" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
               {tenant.description}
             </p>
           )}
           {tenant.address && (
-            <div className="flex items-center gap-1.5 mt-2 text-white/60 text-xs">
-              <MapPin size={12} />
+            <div className="flex items-center gap-1.5 mt-2 text-white/55 text-xs">
+              <MapPin size={11} />
               <span>{tenant.address}</span>
             </div>
           )}
@@ -350,15 +355,16 @@ function MenuContent() {
         </div>
       )}
 
-      {/* Category Tabs — Sticky Glassmorphism */}
+      {/* Category Tabs — Sticky Glassmorphism V10.0 */}
       <div
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
@@ -368,13 +374,14 @@ function MenuContent() {
               <button
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                className="px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200"
+                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? 'var(--menu-accent)' : 'transparent',
-                  color: isActive ? 'var(--menu-accent-contrast)' : 'var(--menu-text)',
-                  fontWeight: isActive ? 600 : 400,
-                  boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
-                  opacity: isActive ? 1 : 0.7,
+                  backgroundColor: isActive ? 'var(--menu-accent)' : 'rgba(255,255,255,0.08)',
+                  color: isActive ? 'var(--menu-accent-contrast, #fff)' : 'var(--menu-text)',
+                  fontWeight: isActive ? 800 : 500,
+                  boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.35)' : 'none',
+                  border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                  letterSpacing: isActive ? '-0.01em' : '0',
                 }}
               >
                 {cat.name}
@@ -410,8 +417,8 @@ function MenuContent() {
               {/* Category header */}
               <div className="mb-4 mt-2">
                 <h2
-                  className="text-xl font-bold"
-                  style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}
+                  className="text-2xl font-black"
+                  style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
                 >
                   {cat.name}
                 </h2>
