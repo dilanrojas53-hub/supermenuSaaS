@@ -1,13 +1,8 @@
 /*
- * AdminAuthContext v2: Autenticación por tenant usando Supabase.
- * Cada tenant tiene su propio admin_email en la tabla tenants.
- * La contraseña se valida contra Supabase Auth.
- * Super Admin usa credenciales separadas de Supabase Auth.
- *
- * Para el MVP, usamos un enfoque híbrido:
- * - Se autentica contra Supabase Auth (signInWithPassword)
- * - Se verifica que el email pertenece al tenant correcto
- * - La sesión se persiste en localStorage
+ * AdminAuthContext v3: Autenticación robusta con timeout y manejo de errores.
+ * - Timeout de 12s en signInWithPassword para evitar colgarse en redes lentas
+ * - Timeout de 8s en la verificación del tenant
+ * - Siempre retorna, nunca se queda colgado
  */
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +20,16 @@ interface AdminAuth {
 const SUPER_ADMIN_EMAIL = 'admin@digitalatlas.com';
 
 const AdminAuthContext = createContext<AdminAuth | null>(null);
+
+/** Envuelve una promesa con un timeout. Lanza Error('timeout') si excede el límite. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms)
+    ),
+  ]);
+}
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -54,48 +59,57 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     targetRole: 'admin' | 'superadmin',
     slug?: string
   ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // 1. Autenticar contra Supabase Auth con timeout de 12s
+      const { data: authData, error: authError } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        12000
+      );
 
-    // Authenticate with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (authError || !authData.user) {
-      return { success: false, error: 'Credenciales incorrectas. Verifica tu email y contraseña.' };
-    }
-
-    // For super admin, verify the email matches
-    if (targetRole === 'superadmin') {
-      if (email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
-        await supabase.auth.signOut();
-        return { success: false, error: 'Este email no tiene permisos de Super Admin.' };
+      if (authError || !authData?.user) {
+        return { success: false, error: 'Credenciales incorrectas. Verifica tu email y contraseña.' };
       }
-    }
 
-    // For admin, verify the email belongs to the tenant
-    if (targetRole === 'admin' && slug) {
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('admin_email')
-        .eq('slug', slug)
-        .single();
-
-      if (!tenant || tenant.admin_email?.toLowerCase() !== email.toLowerCase()) {
-        await supabase.auth.signOut();
-        return { success: false, error: 'Este email no está asociado a este restaurante.' };
+      // 2. Verificar permisos según el rol
+      if (targetRole === 'superadmin') {
+        if (email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+          supabase.auth.signOut().catch(() => {});
+          return { success: false, error: 'Este email no tiene permisos de Super Admin.' };
+        }
       }
+
+      if (targetRole === 'admin' && slug) {
+        // Verificar que el email pertenece al tenant con timeout de 8s
+        const { data: tenant } = await withTimeout(
+          supabase.from('tenants').select('admin_email').eq('slug', slug).single(),
+          8000
+        );
+
+        if (!tenant || tenant.admin_email?.toLowerCase() !== email.toLowerCase()) {
+          supabase.auth.signOut().catch(() => {});
+          return { success: false, error: 'Este email no está asociado a este restaurante.' };
+        }
+      }
+
+      // 3. Éxito — persistir sesión
+      const session = { role: targetRole, tenantSlug: slug || null, userEmail: email };
+      localStorage.setItem('smartmenu_admin_session', JSON.stringify(session));
+      setIsAuthenticated(true);
+      setRole(targetRole);
+      setTenantSlug(slug || null);
+      setUserEmail(email);
+      return { success: true };
+
+    } catch (err: any) {
+      if (err?.message === 'timeout') {
+        return {
+          success: false,
+          error: 'La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.',
+        };
+      }
+      console.error('AdminAuthContext login error:', err);
+      return { success: false, error: 'Error inesperado. Intenta de nuevo.' };
     }
-
-    // Success — persist session
-    const session = { role: targetRole, tenantSlug: slug || null, userEmail: email };
-    localStorage.setItem('smartmenu_admin_session', JSON.stringify(session));
-    setIsAuthenticated(true);
-    setRole(targetRole);
-    setTenantSlug(slug || null);
-    setUserEmail(email);
-
-    return { success: true };
   }, []);
 
   const logout = useCallback(() => {
