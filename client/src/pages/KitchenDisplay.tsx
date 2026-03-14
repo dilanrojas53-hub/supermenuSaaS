@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import {
-  ChefHat, LogOut, Eye, EyeOff, Clock,
+  ChefHat, LogOut, Eye, EyeOff, Clock, CheckCircle2,
   UtensilsCrossed, Flame, Bell, Wifi, WifiOff, RefreshCw,
   Maximize2
 } from 'lucide-react';
@@ -58,7 +58,7 @@ interface KitchenOrder {
   customer_table?: string;
   items: OrderItem[];
   total: number;
-  status: 'en_cocina' | 'listo';
+  status: 'pendiente' | 'en_cocina' | 'listo';
   notes?: string;
   created_at: string;
   accepted_at?: string;
@@ -76,7 +76,8 @@ function formatElapsed(min: number): string {
   return `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
-function urgencyColor(min: number): string {
+function urgencyColor(min: number, status: string): string {
+  if (status === 'pendiente') return '#3B82F6'; // azul fijo — esperando que el mesero lo acepte
   // en_cocina: verde → naranja → rojo según tiempo
   if (min >= 15) return '#EF4444';
   if (min >= 10) return '#F59E0B';
@@ -243,8 +244,9 @@ function KitchenOrderCard({
     return () => clearInterval(t);
   }, [order.accepted_at, order.created_at]);
 
-  const urgency = urgencyColor(elapsed);
+  const urgency = urgencyColor(elapsed, order.status);
   const isLoading = actionLoading === order.id;
+  const isPending = order.status === 'pendiente';
 
   return (
     <div
@@ -343,28 +345,39 @@ function KitchenOrderCard({
         )}
       </div>
 
-      {/* Action button */}
-      <div className="px-4 pb-4">
-        <button
-          onClick={() => onAction(order.id)}
-          disabled={isLoading}
-          className="w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
-          style={{
-            backgroundColor: urgency,
-            color: '#fff',
-            boxShadow: `0 4px 16px ${urgency}40`,
-          }}
-        >
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <Bell size={15} />
-              Marcar listo
-            </>
-          )}
-        </button>
-      </div>
+      {/* Action button — solo visible cuando está en_cocina */}
+      {!isPending && (
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => onAction(order.id)}
+            disabled={isLoading}
+            className="w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+            style={{
+              backgroundColor: urgency,
+              color: '#fff',
+              boxShadow: `0 4px 16px ${urgency}40`,
+            }}
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Bell size={15} />
+                Marcar listo
+              </>
+            )}
+          </button>
+        </div>
+      )}
+      {/* Pedido pendiente: solo informativo */}
+      {isPending && (
+        <div className="px-4 pb-4">
+          <div className="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Clock size={13} />
+            Esperando que el mesero lo acepte
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,14 +400,14 @@ function KitchenScreen({
   const { playBell } = useKitchenBell();
   const prevOrderIds = useRef<Set<string>>(new Set());
 
-  // ── Fetch active orders (solo en_cocina — ya aceptados por mesero/admin) ──
+  // ── Fetch active orders (pendiente + en_cocina) ──
   const fetchOrders = useCallback(async () => {
     const { data, error } = await supabase
       .from('orders')
       .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items')
       .eq('tenant_id', tenant.id)
-      .eq('status', 'en_cocina')
-      .order('accepted_at', { ascending: true });
+      .in('status', ['pendiente', 'en_cocina'])
+      .order('created_at', { ascending: true });
 
     if (error) {
       setConnected(false);
@@ -539,9 +552,15 @@ function KitchenScreen({
       {/* ── Stats bar ── */}
       <div className="flex items-center gap-4 px-5 py-2.5 bg-gray-900/50 border-b border-gray-800/50 shrink-0">
         <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-blue-400" />
+          <span className="text-xs text-slate-400">
+            <span className="text-white font-bold">{orders.filter(o => o.status === 'pendiente').length}</span> nuevos
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
           <Flame size={13} className="text-orange-400" />
           <span className="text-xs text-slate-400">
-            <span className="text-white font-bold">{orders.length}</span> en preparación
+            <span className="text-white font-bold">{orders.filter(o => o.status === 'en_cocina').length}</span> en preparación
           </span>
         </div>
         <div className="ml-auto text-[11px] text-slate-600">
@@ -549,7 +568,7 @@ function KitchenScreen({
         </div>
       </div>
 
-      {/* ── Main area: una sola columna — pedidos en_cocina ── */}
+      {/* ── Main area: 2 columnas — Nuevos (pendiente) | En preparación (en_cocina) ── */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -558,39 +577,60 @@ function KitchenScreen({
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Column header */}
-          <div className="flex items-center gap-2 px-5 py-3 bg-orange-500/5 border-b border-orange-500/20 shrink-0">
-            <Flame size={13} className="text-orange-400 animate-pulse" />
-            <span className="text-xs font-black text-orange-400 uppercase tracking-widest">
-              En preparación
-            </span>
-            <span className="ml-auto text-xs font-bold text-orange-300 bg-orange-500/20 px-2 py-0.5 rounded-full">
-              {orders.length}
-            </span>
+        <div className="flex-1 grid grid-cols-2 divide-x divide-gray-800 overflow-hidden">
+
+          {/* ── Columna izquierda: NUEVOS (pendiente, solo lectura) ── */}
+          <div className="flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 bg-blue-500/5 border-b border-blue-500/20 shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="text-xs font-black text-blue-400 uppercase tracking-widest">Nuevos</span>
+              <span className="ml-auto text-xs font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-full">
+                {orders.filter(o => o.status === 'pendiente').length}
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {orders.filter(o => o.status === 'pendiente').length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <CheckCircle2 size={32} className="text-slate-700 mb-3" />
+                  <p className="text-sm font-semibold text-slate-600">Sin pedidos nuevos</p>
+                  <p className="text-xs text-slate-700 mt-1">Los pedidos nuevos aparecerán aquí</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.filter(o => o.status === 'pendiente').map(order => (
+                    <KitchenOrderCard key={order.id} order={order} onAction={handleAction} actionLoading={actionLoading} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Cards grid — responsive: 1 col móvil, 2 col tablet, 3 col desktop */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <UtensilsCrossed size={36} className="text-slate-700 mb-3" />
-                <p className="text-sm font-semibold text-slate-600">Nada en preparación</p>
-                <p className="text-xs text-slate-700 mt-1">Cuando un mesero acepte un pedido aparecerá aquí</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {orders.map(order => (
-                  <KitchenOrderCard
-                    key={order.id}
-                    order={order}
-                    onAction={handleAction}
-                    actionLoading={actionLoading}
-                  />
-                ))}
-              </div>
-            )}
+          {/* ── Columna derecha: EN PREPARACIÓN (en_cocina, con botón Marcar listo) ── */}
+          <div className="flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 bg-orange-500/5 border-b border-orange-500/20 shrink-0">
+              <Flame size={13} className="text-orange-400 animate-pulse" />
+              <span className="text-xs font-black text-orange-400 uppercase tracking-widest">En preparación</span>
+              <span className="ml-auto text-xs font-bold text-orange-300 bg-orange-500/20 px-2 py-0.5 rounded-full">
+                {orders.filter(o => o.status === 'en_cocina').length}
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {orders.filter(o => o.status === 'en_cocina').length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <UtensilsCrossed size={32} className="text-slate-700 mb-3" />
+                  <p className="text-sm font-semibold text-slate-600">Nada en preparación</p>
+                  <p className="text-xs text-slate-700 mt-1">Cuando el mesero acepte un pedido aparecerá aquí</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.filter(o => o.status === 'en_cocina').map(order => (
+                    <KitchenOrderCard key={order.id} order={order} onAction={handleAction} actionLoading={actionLoading} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
         </div>
       )}
 
