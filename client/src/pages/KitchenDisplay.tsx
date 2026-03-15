@@ -252,19 +252,19 @@ function KitchenOrderCard({
     <div
       className="relative flex flex-col rounded-2xl overflow-hidden transition-all duration-300"
       style={{
-        backgroundColor: isPending ? 'rgba(30,58,138,0.15)' : 'rgba(20,20,25,0.95)',
-        border: `2px solid ${urgency}35`,
-        boxShadow: `0 4px 24px ${urgency}20, 0 0 0 1px ${urgency}10`,
+        backgroundColor: isPending ? 'rgba(23,37,84,0.4)' : 'rgba(15,15,20,0.97)',
+        border: `2px solid ${urgency}45`,
+        boxShadow: `0 8px 32px ${urgency}25, 0 0 0 1px ${urgency}15`,
       }}
     >
-      {/* Status stripe — más gruesa */}
-      <div className="h-2 w-full" style={{ background: `linear-gradient(90deg, ${urgency}, ${urgency}80)` }} />
+      {/* Status stripe — muy gruesa y visible */}
+      <div className="h-3 w-full" style={{ background: `linear-gradient(90deg, ${urgency}, ${urgency}aa)` }} />
 
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-3.5 pb-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-3xl font-black tabular-nums leading-none" style={{ color: urgency }}>
+            <span className="text-4xl font-black tabular-nums leading-none" style={{ color: urgency, letterSpacing: '-0.04em' }}>
               #{order.order_number}
             </span>
             {order.has_new_items && (
@@ -285,10 +285,10 @@ function KitchenOrderCard({
 
         {/* Timer — más prominente */}
         <div
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black tabular-nums"
-          style={{ backgroundColor: `${urgency}18`, color: urgency, border: `1.5px solid ${urgency}35` }}
+          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-base font-black tabular-nums"
+          style={{ backgroundColor: `${urgency}22`, color: urgency, border: `2px solid ${urgency}45`, minWidth: '4.5rem', justifyContent: 'center' }}
         >
-          <Clock size={13} />
+          <Clock size={15} />
           {formatElapsed(elapsed)}
         </div>
       </div>
@@ -304,7 +304,7 @@ function KitchenOrderCard({
               {item.quantity}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-white leading-tight">{item.name}</p>
+              <p className="text-lg font-bold text-white leading-tight">{item.name}</p>
               {item.selectedModifiers && item.selectedModifiers.length > 0 && (
                 <div className="mt-0.5 space-y-0.5">
                   {item.selectedModifiers.map((mod, mi) => (
@@ -327,18 +327,18 @@ function KitchenOrderCard({
         )}
       </div>
 
-      {/* Action button — grande y prominente */}
+      {/* Action button — muy grande y prominente */}
       {!isPending && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-5">
           <button
             onClick={() => onAction(order.id)}
             disabled={isLoading}
-            className="w-full py-4 rounded-xl font-black text-base flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-60"
+            className="w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.97] disabled:opacity-60"
             style={{
               background: `linear-gradient(135deg, ${urgency}, ${urgency}cc)`,
               color: '#fff',
-              boxShadow: `0 6px 20px ${urgency}45`,
-              letterSpacing: '-0.01em',
+              boxShadow: `0 8px 28px ${urgency}55`,
+              letterSpacing: '-0.02em',
             }}
           >
             {isLoading ? (

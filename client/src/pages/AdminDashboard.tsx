@@ -2884,56 +2884,57 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
-      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 92%, transparent)', borderColor: 'var(--border)', boxShadow: '0 1px 0 rgba(255,255,255,0.04)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
-              <UtensilsCrossed size={17} className="text-white" />
+      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 95%, transparent)', borderColor: 'var(--border)', boxShadow: '0 2px 16px rgba(0,0,0,0.4)' }}>
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 6px 18px rgba(245,158,11,0.45)' }}>
+              <UtensilsCrossed size={20} className="text-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{tenant.name}</h1>
-                <span className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-base font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{tenant.name}</h1>
+                <span className={`flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full ${
                   tenant.is_open
-                    ? 'bg-green-500/15 text-green-400 border border-green-500/25'
-                    : 'bg-red-500/15 text-red-400 border border-red-500/25'
+                    ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                    : 'bg-red-500/15 text-red-400 border border-red-500/30'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${tenant.is_open ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className={`w-2 h-2 rounded-full ${tenant.is_open ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
                   {tenant.is_open ? 'Abierto' : 'Cerrado'}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-600 mt-0.5">/{slug}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">/{slug}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <a href={`/${slug}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:brightness-110"
-              style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Eye size={12} /> Ver menú <ExternalLink size={10} />
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:brightness-110"
+              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Eye size={13} /> Ver menú <ExternalLink size={11} />
             </a>
             <button onClick={() => { logout(); navigate('/'); }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-red-500/15 hover:text-red-400"
-              style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <LogOut size={12} /> Salir
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-red-500/15 hover:text-red-400"
+              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <LogOut size={13} /> Salir
             </button>
           </div>
         </div>
       </header>
 
-      <div className="border-b sticky top-[61px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 85%, transparent)', borderColor: 'var(--border)' }}>
+      <div className="border-b sticky top-[69px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)', borderColor: 'var(--border)', boxShadow: '0 1px 8px rgba(0,0,0,0.2)' }}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-0.5 px-4 py-2">
+          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-1 px-4 py-2.5">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
                 style={activeTab === tab.key ? {
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(249,115,22,0.15))',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(249,115,22,0.18))',
                   color: '#F59E0B',
-                  border: '1px solid rgba(245,158,11,0.35)',
-                  boxShadow: '0 2px 8px rgba(245,158,11,0.15)',
+                  border: '1.5px solid rgba(245,158,11,0.4)',
+                  boxShadow: '0 4px 12px rgba(245,158,11,0.2)',
                 } : {
                   color: 'var(--text-secondary)',
-                  border: '1px solid transparent',
+                  border: '1.5px solid rgba(255,255,255,0.06)',
+                  backgroundColor: 'rgba(255,255,255,0.03)',
                 }}>
                 {tab.icon} {tab.label}
               </button>

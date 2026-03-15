@@ -1,12 +1,12 @@
 /*
- * MenuItemCard — V10.0 RADICAL REDESIGN
- * Imagen h-56 (grid) / w-40 h-40 (list), nombre text-lg font-black,
- * precio text-xl font-black con color acento, botón pill con texto visible,
- * borde acento al hover, sombra profunda con color.
+ * MenuItemCard — V11.0 PREMIUM UI PASS
+ * Cambios estructurales: imagen h-60 (grid), layout lista rediseñado,
+ * precio en badge pill, botón CTA con gradiente y texto grande,
+ * card con borde de acento visible, sombra de color.
  */
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Check, GlassWater, Wine, UtensilsCrossed } from 'lucide-react';
+import { Plus, Check, GlassWater, Wine, UtensilsCrossed, ChevronRight } from 'lucide-react';
 import type { MenuItem, ThemeSettings, SelectedModifier } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -21,12 +21,12 @@ const WINE_ICON_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cer
 const getPlaceholderIcon = (itemName: string, categoryName?: string): React.ReactNode => {
   const combined = `${itemName} ${categoryName || ''}`.toLowerCase();
   if (WINE_ICON_KEYWORDS.some(k => combined.includes(k))) {
-    return <Wine size={40} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+    return <Wine size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
   }
   if (DRINK_ICON_KEYWORDS.some(k => combined.includes(k))) {
-    return <GlassWater size={40} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+    return <GlassWater size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
   }
-  return <UtensilsCrossed size={40} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
+  return <UtensilsCrossed size={36} style={{ color: 'var(--menu-accent)', opacity: 0.35 }} />;
 };
 
 interface MenuItemCardProps {
@@ -83,8 +83,9 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   }, [onOpenDetail, item]);
 
   const hasImage = Boolean(item.image_url);
+  const accentColor = 'var(--menu-accent)';
 
-  // ── LIST VIEW — Horizontal card con imagen grande cuadrada ──
+  // ── LIST VIEW V11.0 ──
   if (viewMode === 'list') {
     return (
       <>
@@ -97,91 +98,100 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         />
       )}
       <motion.div
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.25 }}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22 }}
         className="relative cursor-pointer group"
         onClick={handleOpenDetail}
         style={{
           backgroundColor: 'var(--menu-surface)',
-          border: '1.5px solid rgba(255,255,255,0.08)',
-          borderRadius: '1.5rem',
+          borderRadius: '1.25rem',
           overflow: 'hidden',
-          transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          boxShadow: '0 2px 16px rgba(0,0,0,0.45)',
+          border: '1px solid rgba(255,255,255,0.07)',
         }}
-        whileHover={{ scale: 1.01, y: -2 }}
+        whileTap={{ scale: 0.99 }}
       >
-        <div className="flex gap-0">
-          {/* Imagen cuadrada grande */}
-          <div className="relative flex-shrink-0 overflow-hidden" style={{ width: '9rem', height: '9rem', borderRadius: '1.5rem 0 0 1.5rem' }}>
+        {/* Accent left stripe */}
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: 'var(--menu-accent)', opacity: justAdded ? 1 : 0.5 }} />
+
+        <div className="flex gap-0 pl-1">
+          {/* Imagen cuadrada */}
+          <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem' }}>
             {hasImage ? (
               <img
                 src={item.image_url!}
                 alt={item.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                className="w-full h-full object-cover"
+                style={{ borderRadius: '0.75rem' }}
                 loading="lazy"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '0.75rem' }}>
                 {getPlaceholderIcon(item.name)}
               </div>
             )}
             {/* Badge */}
             {showBadges && item.badge && (
-              <div className="absolute top-2 left-2 z-10">
+              <div className="absolute top-1.5 left-1.5 z-10">
                 <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
               </div>
             )}
           </div>
 
           {/* Contenido */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between p-4">
+          <div className="flex-1 min-w-0 flex flex-col justify-between py-3 px-3">
             <div>
               <h3
-                className="text-base font-black leading-tight mb-1.5"
+                className="text-[15px] font-black leading-snug"
                 style={{ color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
               >
                 {item.name}
               </h3>
               {item.description && (
                 <p
-                  className="text-xs leading-relaxed line-clamp-2"
-                  style={{ color: 'var(--menu-text)', opacity: 0.5 }}
+                  className="text-[12px] leading-relaxed line-clamp-2 mt-0.5"
+                  style={{ color: 'var(--menu-text)', opacity: 0.45 }}
                 >
                   {item.description}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center justify-between mt-2.5">
+              {/* Precio en badge */}
               <span
-                className="text-lg font-black"
-                style={{ color: 'var(--menu-accent)', letterSpacing: '-0.03em' }}
+                className="text-[15px] font-black px-2.5 py-1 rounded-lg"
+                style={{
+                  color: 'var(--menu-accent)',
+                  backgroundColor: 'rgba(var(--menu-accent-rgb,230,57,70),0.12)',
+                  letterSpacing: '-0.02em',
+                }}
               >
                 {formatPrice(item.price)}
               </span>
+              {/* Botón agregar */}
               <button
                 onClick={handleQuickAdd}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all duration-200 active:scale-95"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-black transition-all duration-150 active:scale-95"
                 style={{
-                  backgroundColor: justAdded ? '#22c55e' : 'var(--menu-accent)',
+                  background: justAdded
+                    ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                    : 'var(--menu-accent)',
                   color: '#fff',
-                  boxShadow: justAdded
-                    ? '0 4px 16px rgba(34,197,94,0.5)'
-                    : '0 4px 16px rgba(0,0,0,0.4)',
-                  minWidth: '5.5rem',
+                  boxShadow: justAdded ? '0 4px 12px rgba(34,197,94,0.4)' : '0 4px 12px rgba(0,0,0,0.35)',
+                  minWidth: '5rem',
                   justifyContent: 'center',
                 }}
               >
                 <AnimatePresence mode="wait">
                   {justAdded ? (
-                    <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1.5">
-                      <Check size={14} /> Listo
+                    <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
+                      <Check size={13} /> Listo
                     </motion.span>
                   ) : (
-                    <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1.5">
-                      <Plus size={14} /> Agregar
+                    <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
+                      <Plus size={13} /> Agregar
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -194,7 +204,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
     );
   }
 
-  // ── GRID VIEW — Card vertical con imagen grande y CTA prominente ──
+  // ── GRID VIEW V11.0 ──
   return (
     <>
     {showModifiers && (
@@ -206,37 +216,49 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       />
     )}
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="relative overflow-hidden cursor-pointer group"
+      transition={{ duration: 0.25 }}
+      className="relative overflow-hidden cursor-pointer group flex flex-col"
       style={{
         backgroundColor: 'var(--menu-surface)',
-        border: '1.5px solid rgba(255,255,255,0.08)',
-        borderRadius: '1.5rem',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        transition: 'transform 0.25s, box-shadow 0.25s',
+        borderRadius: '1.25rem',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+        border: '1px solid rgba(255,255,255,0.07)',
       }}
-      whileHover={{ scale: 1.03, y: -4 }}
+      whileTap={{ scale: 0.98 }}
     >
       {/* Imagen — altura generosa */}
       <div
-        className="relative w-full overflow-hidden"
+        className="relative w-full overflow-hidden flex-shrink-0"
         onClick={handleOpenDetail}
-        style={{ height: '13rem', borderRadius: '1.5rem 1.5rem 0 0' }}
+        style={{ height: '11rem', borderRadius: '1.25rem 1.25rem 0 0' }}
       >
         {hasImage ? (
           <>
             <img
               src={item.image_url!}
               alt={item.name}
-              className="w-full h-full object-cover transition-transform duration-600 group-hover:scale-110"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
             />
-            {/* Gradiente oscuro en la parte inferior de la imagen */}
+            {/* Gradiente oscuro */}
             <div className="absolute inset-0" style={{
-              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.05) 45%, transparent 100%)',
             }} />
+            {/* Precio flotando */}
+            <div className="absolute bottom-2.5 left-3 z-10">
+              <span
+                className="text-[17px] font-black"
+                style={{
+                  color: '#fff',
+                  textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+                  letterSpacing: '-0.03em',
+                }}
+              >
+                {formatPrice(item.price)}
+              </span>
+            </div>
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -244,76 +266,60 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           </div>
         )}
 
-        {/* Badge sobre la imagen */}
+        {/* Badge */}
         {showBadges && item.badge && (
-          <div className="absolute top-3 left-3 z-10">
+          <div className="absolute top-2.5 left-2.5 z-10">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-          </div>
-        )}
-
-        {/* Precio flotando sobre la imagen (esquina inferior izquierda) */}
-        {hasImage && (
-          <div className="absolute bottom-3 left-3 z-10">
-            <span
-              className="text-xl font-black"
-              style={{
-                color: 'var(--menu-accent)',
-                textShadow: '0 2px 8px rgba(0,0,0,0.8)',
-                letterSpacing: '-0.03em',
-              }}
-            >
-              {formatPrice(item.price)}
-            </span>
           </div>
         )}
       </div>
 
-      {/* Contenido de texto */}
-      <div className="p-4" onClick={handleOpenDetail}>
+      {/* Contenido */}
+      <div className="flex flex-col flex-1 px-3 pt-2.5 pb-3" onClick={handleOpenDetail}>
         <h3
-          className="text-base font-black leading-tight mb-1"
+          className="text-[14px] font-black leading-snug"
           style={{ color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
         >
           {item.name}
         </h3>
         {item.description && (
           <p
-            className="text-xs leading-relaxed line-clamp-2"
-            style={{ color: 'var(--menu-text)', opacity: 0.5 }}
+            className="text-[11px] leading-relaxed line-clamp-2 mt-1"
+            style={{ color: 'var(--menu-text)', opacity: 0.42 }}
           >
             {item.description}
           </p>
         )}
         {/* Precio cuando no hay imagen */}
         {!hasImage && (
-          <p className="text-lg font-black mt-2" style={{ color: 'var(--menu-accent)', letterSpacing: '-0.03em' }}>
+          <p className="text-[16px] font-black mt-1.5" style={{ color: 'var(--menu-accent)', letterSpacing: '-0.03em' }}>
             {formatPrice(item.price)}
           </p>
         )}
       </div>
 
       {/* Botón CTA — ancho completo, prominente */}
-      <div className="px-4 pb-4">
+      <div className="px-3 pb-3">
         <button
           onClick={handleQuickAdd}
-          className="w-full py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98]"
+          className="w-full py-2.5 rounded-xl text-[13px] font-black flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-[0.97]"
           style={{
-            backgroundColor: justAdded ? '#22c55e' : 'var(--menu-accent)',
+            background: justAdded
+              ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+              : 'var(--menu-accent)',
             color: '#fff',
-            boxShadow: justAdded
-              ? '0 4px 20px rgba(34,197,94,0.5)'
-              : '0 4px 20px rgba(0,0,0,0.4)',
+            boxShadow: justAdded ? '0 4px 16px rgba(34,197,94,0.45)' : '0 4px 16px rgba(0,0,0,0.4)',
             letterSpacing: '-0.01em',
           }}
         >
           <AnimatePresence mode="wait">
             {justAdded ? (
-              <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-2">
-                <Check size={16} /> ¡Agregado!
+              <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1.5">
+                <Check size={14} /> ¡Agregado!
               </motion.span>
             ) : (
-              <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-2">
-                <Plus size={16} /> Agregar al pedido
+              <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1.5">
+                <Plus size={14} /> Agregar al pedido
               </motion.span>
             )}
           </AnimatePresence>

@@ -612,7 +612,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           {wakeLockActive && (
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_6px_rgba(74,222,128,0.6)]" title="App Activa" />
           )}
-          <button onClick={fetchOrders} className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center border border-white/5">
             <RefreshCw size={14} />
           </button>
           <button onClick={() => setShowQuickAdd(true)}
@@ -620,7 +620,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
             style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
             <Plus size={13} /> <span>Agregar</span>
           </button>
-          <button onClick={onLogout} className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-all flex items-center justify-center">
+          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-slate-800/80 text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-all flex items-center justify-center border border-white/5">
             <LogOut size={14} />
           </button>
         </div>
@@ -713,11 +713,11 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                     const elapsed = elapsedMin(order.created_at);
                     const isUrgent = elapsed >= 15;
                     return (
-                    <div key={order.id} className="rounded-xl p-3 space-y-2.5 transition-all" style={{ backgroundColor: isUrgent ? 'rgba(239,68,68,0.07)' : 'rgba(30,41,59,0.8)', border: isUrgent ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+                    <div key={order.id} className="rounded-2xl p-4 space-y-3 transition-all" style={{ backgroundColor: isUrgent ? 'rgba(239,68,68,0.08)' : 'rgba(15,23,42,0.9)', border: isUrgent ? '1.5px solid rgba(239,68,68,0.35)' : '1.5px solid rgba(255,255,255,0.08)', boxShadow: isUrgent ? '0 4px 20px rgba(239,68,68,0.15)' : '0 4px 16px rgba(0,0,0,0.3)' }}>
                       {/* Order header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-black text-white">#{order.order_number}</span>
+                          <span className="text-base font-black text-white">#{order.order_number}</span>
                           {order.customer_table && (
                             <span className="text-[11px] text-slate-400 bg-slate-700/60 px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>
                           )}
@@ -728,14 +728,14 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                           <Clock size={9} /> {elapsed}m
                         </span>
                       </div>
-                      {order.customer_name && <p className="text-xs text-slate-300 font-semibold">{order.customer_name}</p>}
+                      {order.customer_name && <p className="text-sm text-slate-200 font-bold">{order.customer_name}</p>}
                       {/* Items */}
-                      <div className="space-y-1 bg-slate-900/40 rounded-lg px-2.5 py-2">
+                      <div className="space-y-1.5 bg-slate-900/50 rounded-xl px-3 py-2.5">
                         {((order.items || []) as OrderItem[]).map((item, i) => (
                           <div key={i}>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-200 font-semibold">{item.quantity}× {item.name}</span>
-                              <span className="text-slate-500 flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
+                            <div className="flex justify-between text-[13px]">
+                              <span className="text-slate-100 font-bold">{item.quantity}× {item.name}</span>
+                              <span className="text-slate-400 flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
                             </div>
                             {item.selectedModifiers && item.selectedModifiers.length > 0 && (
                               <div className="pl-3 mt-0.5 space-y-0.5">
@@ -752,7 +752,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       </div>
                       {/* Total + method */}
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-black text-amber-400">{formatPrice(order.total)}</span>
+                        <span className="text-lg font-black text-amber-400">{formatPrice(order.total)}</span>
                         {order.payment_method && (
                           <span className="text-[10px] text-slate-500 uppercase tracking-wider bg-slate-800/80 px-2 py-0.5 rounded-full">{order.payment_method}</span>
                         )}
@@ -761,15 +761,15 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       <div className="flex gap-2">
                         {order.status !== 'entregado' && (
                           <button onClick={() => handleAdvanceStatus(order)}
-                            className="flex-1 py-3 rounded-xl text-xs font-black transition-all active:scale-95"
-                            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                            className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 6px 16px rgba(245,158,11,0.4)', letterSpacing: '-0.01em' }}>
                             {getActionLabel(order.status)}
                           </button>
                         )}
                         {order.status === 'entregado' && order.payment_status !== 'paid' && (
                           <button onClick={() => handleMarkPaid(order.id)}
-                            className="flex-1 py-3 rounded-xl text-xs font-black transition-all active:scale-95"
-                            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 4px 12px rgba(34,197,94,0.3)' }}>
+                            className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 6px 16px rgba(34,197,94,0.4)', letterSpacing: '-0.01em' }}>
                             ✅ Cobrar
                           </button>
                         )}
