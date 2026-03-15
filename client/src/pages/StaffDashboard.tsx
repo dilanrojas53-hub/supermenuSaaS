@@ -59,6 +59,12 @@ interface Order {
   quick_request_type?: 'water_ice' | 'napkins' | 'help' | null;
   quick_request_at?: string | null;
   quick_request_seen_by_staff?: boolean;
+  // V26.0: Ownership
+  claimed_by_staff_id?: string | null;
+  claimed_by_name?: string | null;
+  claimed_at?: string | null;
+  quick_request_claimed_by?: string | null;
+  quick_request_claimed_at?: string | null;
 }
 
 const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
@@ -535,12 +541,47 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
 
   const acknowledgeQuickRequest = async () => {
     if (!quickRequestAlert) return;
+    const now = new Date().toISOString();
     await supabase
       .from('orders')
-      .update({ quick_request_seen_by_staff: true, updated_at: new Date().toISOString() })
+      .update({
+        quick_request_seen_by_staff: true,
+        quick_request_claimed_by: staff.name,
+        quick_request_claimed_at: now,
+        updated_at: now,
+      })
       .eq('id', quickRequestAlert.orderId);
+    // Log event
+    const orderForLog = orders.find(o => o.id === quickRequestAlert.orderId);
+    if (orderForLog) await logStaffEvent('quick_request_attended', orderForLog, { request_type: quickRequestAlert.requestType });
     setQuickRequestAlert(null);
     fetchOrders();
+  };
+
+  // ─── V26.0: Log staff event ───
+  const logStaffEvent = async (eventType: string, order: Order, extraMeta?: Record<string, any>) => {
+    const now = new Date();
+    let responseTimeSec: number | null = null;
+    if (eventType === 'order_accepted' && order.created_at) {
+      responseTimeSec = Math.floor((now.getTime() - new Date(order.created_at).getTime()) / 1000);
+    } else if (eventType === 'order_ready' && order.accepted_at) {
+      responseTimeSec = Math.floor((now.getTime() - new Date(order.accepted_at).getTime()) / 1000);
+    } else if (eventType === 'order_delivered' && order.ready_at) {
+      responseTimeSec = Math.floor((now.getTime() - new Date(order.ready_at).getTime()) / 1000);
+    } else if (eventType === 'quick_request_attended' && order.quick_request_at) {
+      responseTimeSec = Math.floor((now.getTime() - new Date(order.quick_request_at).getTime()) / 1000);
+    }
+    await supabase.from('staff_events').insert({
+      tenant_id: tenant.id,
+      staff_id: staff.id,
+      staff_name: staff.name,
+      event_type: eventType,
+      order_id: order.id,
+      order_number: order.order_number,
+      table_number: order.customer_table || null,
+      response_time_seconds: responseTimeSec,
+      metadata: { status_from: order.status, ...extraMeta },
+    });
   };
 
   const handleAdvanceStatus = async (order: Order) => {
@@ -551,15 +592,25 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     };
     const next = statusFlow[order.status];
     if (!next) return;
+    const now = new Date().toISOString();
     const updateData: Record<string, any> = {
       status: next,
       handled_by: staff.id,
       handled_by_name: staff.name,
     };
-    if (next === 'en_cocina') updateData.accepted_at = new Date().toISOString();
-    if (next === 'listo') updateData.ready_at = new Date().toISOString();
-    if (next === 'entregado') updateData.completed_at = new Date().toISOString();
+    if (next === 'en_cocina') {
+      updateData.accepted_at = now;
+      // V26.0: Claim ownership when accepting
+      updateData.claimed_by_staff_id = staff.id;
+      updateData.claimed_by_name = staff.name;
+      updateData.claimed_at = now;
+    }
+    if (next === 'listo') updateData.ready_at = now;
+    if (next === 'entregado') updateData.completed_at = now;
     await supabase.from('orders').update(updateData).eq('id', order.id);
+    // Log event
+    const eventMap: Record<string, string> = { en_cocina: 'order_accepted', listo: 'order_ready', entregado: 'order_delivered' };
+    if (eventMap[next]) await logStaffEvent(eventMap[next], order);
     fetchOrders();
     toast.success(`Pedido #${order.order_number} → ${ORDER_STATUS_CONFIG[next as keyof typeof ORDER_STATUS_CONFIG]?.label || next}`);
   };
@@ -729,6 +780,18 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                         </span>
                       </div>
                       {order.customer_name && <p className="text-sm text-slate-200 font-bold">{order.customer_name}</p>}
+                      {/* V26.0: Ownership badge */}
+                      {order.claimed_by_name && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>
+                            <User size={9} /> {order.claimed_by_name}
+                          </span>
+                          {order.claimed_by_name === staff.name && (
+                            <span className="text-[10px] text-amber-500/60 font-bold">tú</span>
+                          )}
+                        </div>
+                      )}
                       {/* Items */}
                       <div className="space-y-1.5 bg-slate-900/50 rounded-xl px-3 py-2.5">
                         {((order.items || []) as OrderItem[]).map((item, i) => (

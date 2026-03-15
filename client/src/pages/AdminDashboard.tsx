@@ -657,6 +657,60 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
       </div>
 
       <ChangePasswordCard />
+
+      {/* V26.0: Modo Operativo */}
+      <OperativeModeCard tenant={tenant} onRefresh={onRefresh} />
+    </div>
+  );
+}
+
+// ─── Operative Mode Card — V26.0 ───
+function OperativeModeCard({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void }) {
+  const [mode, setMode] = useState<'shared' | 'exclusive'>((tenant as any).assignment_mode || 'shared');
+  const [timeout, setTimeout_] = useState<number>((tenant as any).claim_timeout_minutes || 30);
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('tenants').update({ assignment_mode: mode, claim_timeout_minutes: timeout }).eq('id', tenant.id);
+    if (error) toast.error('Error: ' + error.message);
+    else { toast.success('Modo operativo guardado'); onRefresh(); }
+    setSaving(false);
+  };
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Users size={16} className="text-blue-400" />
+        <h3 className="text-sm font-black text-white">Modo Operativo del Equipo</h3>
+      </div>
+      <p className="text-xs text-slate-400">Define cómo se asignan los pedidos entre los meseros.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {[
+          { key: 'shared', label: 'Operación Compartida', desc: 'Cualquier mesero puede tomar y atender cualquier pedido. Ideal para equipos pequeños.', icon: '👥' },
+          { key: 'exclusive', label: 'Mesa Asignada', desc: 'Cada mesero tiene sus mesas. Solo él ve y gestiona los pedidos de sus mesas.', icon: '📍' },
+        ].map(opt => (
+          <button key={opt.key} onClick={() => setMode(opt.key as any)}
+            className="text-left p-4 rounded-xl border-2 transition-all"
+            style={mode === opt.key ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.08)' } : { borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-lg">{opt.icon}</span>
+              <span className="text-sm font-black" style={{ color: mode === opt.key ? '#F59E0B' : '#e2e8f0' }}>{opt.label}</span>
+              {mode === opt.key && <span className="ml-auto text-[10px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">Activo</span>}
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">{opt.desc}</p>
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <label className="text-xs text-slate-400 flex-shrink-0">Timeout de claim (minutos):</label>
+        <input type="number" min={5} max={120} value={timeout} onChange={e => setTimeout_(Number(e.target.value))}
+          className="w-20 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+        <span className="text-[11px] text-slate-500">Si un pedido no se atiende en este tiempo, se libera automáticamente</span>
+      </div>
+      <button onClick={handleSave} disabled={saving}
+        className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+        style={{ background: 'linear-gradient(135deg,#F59E0B,#F97316)', color: '#000' }}>
+        <Save size={14} /> {saving ? 'Guardando...' : 'Guardar modo operativo'}
+      </button>
     </div>
   );
 }
@@ -2795,8 +2849,163 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
   );
 }
 
+// ─── Staff Analytics Tab — V26.0 ───
+function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'today' | 'week' | 'month'>('today');
+  const fmtTime = (sec: number) => { if (!sec) return '—'; if (sec < 60) return `${sec}s`; return `${Math.round(sec/60)}m`; };
+  const fetchEvents = useCallback(async () => {
+    setLoading(true);
+    const now = new Date();
+    let since: Date;
+    if (filter === 'today') { since = new Date(now); since.setHours(0,0,0,0); }
+    else if (filter === 'week') { since = new Date(now); since.setDate(now.getDate() - 7); }
+    else { since = new Date(now); since.setDate(now.getDate() - 30); }
+    const { data } = await supabase.from('staff_events').select('*').eq('tenant_id', tenant.id).gte('created_at', since.toISOString()).order('created_at', { ascending: false });
+    setEvents(data || []);
+    setLoading(false);
+  }, [tenant.id, filter]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  const staffMetrics = useMemo(() => {
+    const byStaff: Record<string, { name: string; ordersAccepted: number; ordersDelivered: number; quickRequests: number; acceptTimes: number[]; deliverTimes: number[]; avgAcceptTimeSec: number; avgDeliverTimeSec: number; }> = {};
+    events.forEach(e => {
+      if (!byStaff[e.staff_name]) byStaff[e.staff_name] = { name: e.staff_name, ordersAccepted: 0, ordersDelivered: 0, quickRequests: 0, acceptTimes: [], deliverTimes: [], avgAcceptTimeSec: 0, avgDeliverTimeSec: 0 };
+      const s = byStaff[e.staff_name];
+      if (e.event_type === 'order_accepted') { s.ordersAccepted++; if (e.response_time_seconds) s.acceptTimes.push(e.response_time_seconds); }
+      if (e.event_type === 'order_delivered') { s.ordersDelivered++; if (e.response_time_seconds) s.deliverTimes.push(e.response_time_seconds); }
+      if (e.event_type === 'quick_request_attended') s.quickRequests++;
+    });
+    Object.values(byStaff).forEach(s => {
+      if (s.acceptTimes.length) s.avgAcceptTimeSec = Math.round(s.acceptTimes.reduce((a,b)=>a+b,0)/s.acceptTimes.length);
+      if (s.deliverTimes.length) s.avgDeliverTimeSec = Math.round(s.deliverTimes.reduce((a,b)=>a+b,0)/s.deliverTimes.length);
+    });
+    return Object.values(byStaff).sort((a,b) => b.ordersDelivered - a.ordersDelivered);
+  }, [events]);
+  const insights = useMemo(() => {
+    const result: { type: 'good' | 'warn' | 'info'; text: string }[] = [];
+    if (staffMetrics.length === 0) { result.push({ type: 'info', text: 'Sin actividad registrada en este período' }); return result; }
+    const top = staffMetrics[0];
+    if (top) result.push({ type: 'good', text: `🏆 ${top.name} lideró con ${top.ordersDelivered} pedidos entregados` });
+    const slowAccept = staffMetrics.find(s => s.avgAcceptTimeSec > 180 && s.acceptTimes.length >= 2);
+    if (slowAccept) result.push({ type: 'warn', text: `⚠️ ${slowAccept.name} tarda en promedio ${Math.round(slowAccept.avgAcceptTimeSec/60)}m en aceptar pedidos` });
+    const fastAccept = staffMetrics.find(s => s.avgAcceptTimeSec > 0 && s.avgAcceptTimeSec < 60);
+    if (fastAccept) result.push({ type: 'good', text: `⚡ ${fastAccept.name} acepta pedidos en menos de 1 minuto en promedio` });
+    const qrChamp = [...staffMetrics].sort((a,b)=>b.quickRequests-a.quickRequests)[0];
+    if (qrChamp && qrChamp.quickRequests > 0) result.push({ type: 'info', text: `🔔 ${qrChamp.name} atendió ${qrChamp.quickRequests} solicitudes rápidas` });
+    return result;
+  }, [staffMetrics]);
+  const filterLabels = { today: 'Hoy', week: 'Últimos 7 días', month: 'Últimos 30 días' };
+  const eventLabels: Record<string, { label: string; color: string }> = {
+    order_accepted: { label: 'Pedido aceptado', color: '#3b82f6' },
+    order_ready: { label: 'Pedido listo', color: '#f59e0b' },
+    order_delivered: { label: 'Pedido entregado', color: '#22c55e' },
+    quick_request_attended: { label: 'Solicitud atendida', color: '#a78bfa' },
+  };
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-black text-white flex items-center gap-2"><TrendingUp size={20} className="text-amber-400" /> Rendimiento del Equipo</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Métricas operativas en tiempo real por mesero</p>
+        </div>
+        <div className="flex gap-1.5">
+          {(Object.keys(filterLabels) as (keyof typeof filterLabels)[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={filter === f ? { background: 'linear-gradient(135deg,#F59E0B,#F97316)', color: '#000' } : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {filterLabels[f]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {insights.length > 0 && (
+        <div className="space-y-2">
+          {insights.map((ins, i) => (
+            <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-xl"
+              style={{ backgroundColor: ins.type === 'good' ? 'rgba(34,197,94,0.08)' : ins.type === 'warn' ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.08)', border: `1px solid ${ins.type === 'good' ? 'rgba(34,197,94,0.2)' : ins.type === 'warn' ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)'}` }}>
+              <p className="text-sm text-slate-200">{ins.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" /></div>
+      ) : staffMetrics.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <UserCheck size={40} className="mx-auto mb-3 opacity-20" />
+          <p className="text-sm">Sin actividad registrada</p>
+          <p className="text-xs mt-1 text-slate-600">Los eventos se registran cuando los meseros aceptan o entregan pedidos</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {staffMetrics.map((member, idx) => (
+            <div key={member.name} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(30,41,59,0.6)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+                    style={{ background: idx === 0 ? 'linear-gradient(135deg,#F59E0B,#F97316)' : idx === 1 ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-white">{member.name}</p>
+                    {idx === 0 && <span className="text-[10px] font-bold text-amber-400">🏆 Top performer</span>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-white">{member.ordersDelivered}</p>
+                  <p className="text-[10px] text-slate-500">entregados</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                {[
+                  { label: 'Aceptados', value: member.ordersAccepted, color: '#3b82f6' },
+                  { label: 'Entregados', value: member.ordersDelivered, color: '#22c55e' },
+                  { label: 'T. aceptación', value: fmtTime(member.avgAcceptTimeSec), color: member.avgAcceptTimeSec > 180 ? '#ef4444' : '#f59e0b' },
+                  { label: 'Solicitudes', value: member.quickRequests, color: '#a78bfa' },
+                ].map(m => (
+                  <div key={m.label} className="px-4 py-3 text-center" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                    <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{m.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {events.length > 0 && (
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(30,41,59,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">Últimos eventos</h3>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+            {events.slice(0, 20).map(e => {
+              const ev = eventLabels[e.event_type] || { label: e.event_type, color: '#64748b' };
+              return (
+                <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                    <div>
+                      <p className="text-xs font-bold text-slate-200">{e.staff_name}</p>
+                      <p className="text-[10px] text-slate-500">{ev.label}{e.order_number ? ` — #${e.order_number}` : ''}{e.table_number ? ` · Mesa ${e.table_number}` : ''}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    {e.response_time_seconds && <p className="text-[10px] text-slate-500">{fmtTime(e.response_time_seconds)}</p>}
+                    <p className="text-[10px] text-slate-600">{new Date(e.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -2871,6 +3080,7 @@ export default function AdminDashboard() {
     { key: 'settings', label: 'Config', icon: <Settings size={16} /> },
     { key: 'theme', label: 'Tema', icon: <Palette size={16} /> },
     { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={16} /> },
+    { key: 'performance', label: 'Rendimiento', icon: <TrendingUp size={16} /> },
     { key: 'qr', label: 'QR', icon: <QrCode size={16} /> },
     { key: 'staff', label: 'Equipo', icon: <UserCheck size={16} /> },
   ];
@@ -2954,6 +3164,7 @@ export default function AdminDashboard() {
         {activeTab === 'history' && <HistoryTab tenant={tenant} />}
         {activeTab === 'qr' && <QRTab tenant={tenant} />}
         {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
+        {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
       </main>
     </div>
   );
