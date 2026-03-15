@@ -3072,17 +3072,17 @@ export default function AdminDashboard() {
   const planFeatures = getPlanFeatures(tenant.plan_tier || 'premium');
 
   const allTabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'orders', label: 'Pedidos', icon: <ClipboardList size={16} /> },
-    { key: 'history', label: 'Historial', icon: <Clock size={16} /> },
-    { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={16} /> },
-    { key: 'categories', label: 'Categorías', icon: <Tag size={16} /> },
-    { key: 'modifiers', label: 'Modificadores', icon: <Sliders size={16} /> },
-    { key: 'settings', label: 'Config', icon: <Settings size={16} /> },
-    { key: 'theme', label: 'Tema', icon: <Palette size={16} /> },
-    { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={16} /> },
-    { key: 'performance', label: 'Rendimiento', icon: <TrendingUp size={16} /> },
-    { key: 'qr', label: 'QR', icon: <QrCode size={16} /> },
-    { key: 'staff', label: 'Equipo', icon: <UserCheck size={16} /> },
+    { key: 'orders', label: 'Pedidos', icon: <ClipboardList size={14} /> },
+    { key: 'history', label: 'Historial', icon: <Clock size={14} /> },
+    { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={14} /> },
+    { key: 'categories', label: 'Categorías', icon: <Tag size={14} /> },
+    { key: 'modifiers', label: 'Mods', icon: <Sliders size={14} /> },
+    { key: 'settings', label: 'Config', icon: <Settings size={14} /> },
+    { key: 'theme', label: 'Tema', icon: <Palette size={14} /> },
+    { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={14} /> },
+    { key: 'performance', label: 'Rendimiento', icon: <TrendingUp size={14} /> },
+    { key: 'qr', label: 'QR', icon: <QrCode size={14} /> },
+    { key: 'staff', label: 'Equipo', icon: <UserCheck size={14} /> },
   ];
 
   // Feature flagging: filter tabs based on plan tier
@@ -3132,10 +3132,10 @@ export default function AdminDashboard() {
 
       <div className="border-b sticky top-[69px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)', borderColor: 'var(--border)', boxShadow: '0 1px 8px rgba(0,0,0,0.2)' }}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-1 px-4 py-2.5">
+          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-0.5 px-3 py-2">
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
                 style={activeTab === tab.key ? {
                   background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(249,115,22,0.18))',
                   color: '#F59E0B',
