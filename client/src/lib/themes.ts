@@ -224,6 +224,12 @@ export const RESTAURANT_THEMES: RestaurantThemePreset[] = [
     category: 'Especial', isDark: false,
     recommended: { background: '#FFF5F7', surface: '#FFFFFF', text: '#1A0A10', primary: '#DB2777', badge: '#EC4899' },
     paletteNote: 'Rosa floral sobre blanco. Para cocina creativa con flores comestibles.' },
+
+  // MEXICANO
+  { key: 'fiesta_mexicana', name: 'Fiesta Mexicana', emoji: '🌮', description: 'Multicolor festivo, estilo taquería',
+    category: 'Mexicano', isDark: true,
+    recommended: { background: '#1A1A1A', surface: '#2A1A0A', text: '#FFFFFF', primary: '#F5A623', badge: '#E91E8C' },
+    paletteNote: 'Negro festivo con dorado y magenta. Inspirado en la paleta vibrante del menú impreso: morado, amarillo, rojo, verde y rosa.' },
 ];
 
 export function getThemeCategories(): string[] {
