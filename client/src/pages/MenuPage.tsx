@@ -273,14 +273,33 @@ function MenuContent() {
               style={{ border: '2.5px solid rgba(255,255,255,0.35)' }}
             />
           )}
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl font-black text-white leading-tight mb-1.5"
-            style={{ fontFamily: "'Lora', serif", textShadow: '0 2px 12px rgba(0,0,0,0.6)', letterSpacing: '-0.02em' }}
-          >
-            {tenant.name}
-          </motion.h1>
+          {theme.wordmark_url ? (
+            <motion.img
+              src={theme.wordmark_url}
+              alt={tenant.name}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                maxWidth: `${theme.wordmark_max_width || 280}px`,
+                maxHeight: '90px',
+                objectFit: 'contain',
+                display: 'block',
+                marginBottom: '6px',
+                filter: 'drop-shadow(0 2px 12px rgba(0,0,0,0.6))',
+                marginLeft: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? 'auto' : '0',
+                marginRight: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? '0' : 'auto',
+              }}
+            />
+          ) : (
+            <motion.h1
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-3xl font-black text-white leading-tight mb-1.5"
+              style={{ fontFamily: "'Lora', serif", textShadow: '0 2px 12px rgba(0,0,0,0.6)', letterSpacing: '-0.02em' }}
+            >
+              {tenant.name}
+            </motion.h1>
+          )}
           {tenant.description && (
             <p className="text-white/75 text-sm leading-relaxed line-clamp-2" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
               {tenant.description}

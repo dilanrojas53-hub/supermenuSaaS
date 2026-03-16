@@ -828,6 +828,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     font_family:      theme.font_family      || 'Inter',
     view_mode:        theme.view_mode        || 'grid',
     hero_image_url:   theme.hero_image_url   || '',
+    wordmark_url:     theme.wordmark_url      || '',
+    wordmark_max_width: theme.wordmark_max_width ?? 280,
+    wordmark_align:   theme.wordmark_align    || 'left',
     theme_preset_key: (theme as any).theme_preset_key || '',
   });
   const [saving, setSaving] = useState(false);
@@ -881,6 +884,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
       font_family:      form.font_family,
       view_mode:        form.view_mode,
       hero_image_url:   form.hero_image_url || null,
+      wordmark_url:     form.wordmark_url || null,
+      wordmark_max_width: form.wordmark_max_width || 280,
+      wordmark_align:   form.wordmark_align || 'left',
       theme_preset_key: form.theme_preset_key || null,
       updated_at:       new Date().toISOString(),
     };
@@ -1083,6 +1089,58 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Imagen Hero</h3>
         <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url}
           onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
+
+        {/* Wordmark / Nombre visual */}
+        <h3 className="text-xs font-semibold mt-6 mb-1" style={{ color: 'var(--text-secondary)' }}>Nombre visual / Wordmark</h3>
+        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>PNG transparente con el nombre tipográfico del restaurante. Se muestra en el hero en lugar del texto plano.</p>
+        <ImageUpload bucket="logos" currentUrl={form.wordmark_url}
+          onUpload={(url) => setForm({ ...form, wordmark_url: url })} label="" previewSize="md" />
+        {form.wordmark_url && (
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: form.background_color, padding: '20px 16px' }}>
+              <img
+                src={form.wordmark_url}
+                alt="Wordmark preview"
+                style={{
+                  maxWidth: `${form.wordmark_max_width}px`,
+                  maxHeight: '80px',
+                  objectFit: 'contain',
+                  display: 'block',
+                  marginLeft: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? 'auto' : '0',
+                  marginRight: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? '0' : 'auto',
+                }}
+              />
+            </div>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>Ancho máximo (px)</label>
+                <input
+                  type="number" min={80} max={600} step={10}
+                  value={form.wordmark_max_width}
+                  onChange={e => setForm({ ...form, wordmark_max_width: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-lg text-sm border"
+                  style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>Alineación</label>
+                <div className="flex gap-1">
+                  {(['left','center','right'] as const).map(a => (
+                    <button key={a} onClick={() => setForm({ ...form, wordmark_align: a })}
+                      className="flex-1 py-2 rounded-lg text-xs font-medium border transition-all"
+                      style={{
+                        backgroundColor: form.wordmark_align === a ? `${form.primary_color}25` : 'var(--bg-surface)',
+                        borderColor: form.wordmark_align === a ? form.primary_color : 'var(--border)',
+                        color: form.wordmark_align === a ? form.primary_color : 'var(--text-secondary)',
+                      }}>
+                      {a === 'left' ? '⬅' : a === 'center' ? '↔' : '➡'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Live Preview */}
         <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: form.background_color, borderColor: `${form.text_color}20` }}>

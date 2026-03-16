@@ -78,6 +78,9 @@ export interface ThemeSettings {
   font_family: string;
   view_mode: 'grid' | 'list';
   hero_image_url: string | null;
+  wordmark_url: string | null;
+  wordmark_max_width: number | null;
+  wordmark_align: 'left' | 'center' | 'right' | null;
   theme_animation: ThemeAnimation | null;
   created_at: string;
   updated_at: string;
