@@ -308,7 +308,7 @@ function MenuContent() {
               borderRadius: '12px',
               fontWeight: 700,
               fontSize: '16px',
-              backgroundColor: theme.primary_color,
+              backgroundColor: (theme as any).badge_color || theme.primary_color,
               color: '#fff',
               border: 'none',
               cursor: 'pointer',
@@ -334,7 +334,7 @@ function MenuContent() {
               borderRadius: '12px',
               fontWeight: 700,
               fontSize: '16px',
-              backgroundColor: theme.primary_color,
+              backgroundColor: (theme as any).badge_color || theme.primary_color,
               color: '#fff',
               border: 'none',
               cursor: 'pointer',
@@ -376,8 +376,8 @@ function MenuContent() {
                 onClick={() => handleCategoryClick(cat.id)}
                 className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? 'var(--menu-accent)' : 'rgba(255,255,255,0.08)',
-                  color: isActive ? 'var(--menu-accent-contrast, #fff)' : 'var(--menu-text)',
+                  backgroundColor: isActive ? 'var(--menu-badge)' : 'rgba(255,255,255,0.08)',
+                  color: isActive ? '#ffffff' : 'var(--menu-text)',
                   fontWeight: isActive ? 800 : 500,
                   boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.35)' : 'none',
                   border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',

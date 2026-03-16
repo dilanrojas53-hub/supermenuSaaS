@@ -29,7 +29,7 @@ function hashCode(str: string): number {
 
 /* V12.0 FIX AGRESIVO: fondo sólido, text-white hardcodeado, sin glassmorphism, sin backdrop-blur */
 const solidBadgeStyle: React.CSSProperties = {
-  backgroundColor: 'var(--menu-accent)',
+  backgroundColor: 'var(--menu-badge)',
   color: '#ffffff',
   boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
   opacity: 1,
@@ -103,7 +103,7 @@ export default function SocialProofBadge({ badge, theme, itemId, compact = false
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-1 text-[10px] font-medium pl-1"
-            style={{ color: 'var(--menu-accent)' }}
+            style={{ color: 'var(--menu-badge)' }}
           >
             <Clock size={10} />
             <span>{counterText}</span>
