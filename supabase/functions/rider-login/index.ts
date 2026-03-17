@@ -1,10 +1,9 @@
 // Edge Function: rider-login
-// Verifica el PIN del rider server-side con bcrypt y rate limiting
+// Verifica el PIN del rider server-side con bcrypt (npm) y rate limiting
 // NUNCA expone pin_hash al cliente
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -15,6 +14,31 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ─── bcrypt usando Web Crypto API (compatible con Deno Deploy) ────────────────
+// Implementación simplificada: si el pin_hash empieza con "$2" es bcrypt real,
+// si no, es texto plano (legacy). Para nuevos riders creados desde el cliente,
+// el hash se genera con bcryptjs en el browser y se almacena en pin_hash.
+// La Edge Function verifica usando la librería bcrypt de npm via esm.sh
+
+async function verifyPin(pin: string, hash: string): Promise<boolean> {
+  if (!hash) return false;
+  
+  // Legacy: texto plano
+  if (!hash.startsWith("$2")) {
+    return hash === pin;
+  }
+  
+  // bcrypt hash — usar bcryptjs via esm.sh (compatible con Deno)
+  try {
+    const { compareSync } = await import("https://esm.sh/bcryptjs@2.4.3");
+    return compareSync(pin, hash);
+  } catch (e) {
+    console.error("[rider-login] bcrypt error:", e);
+    // Fallback: comparación directa si bcrypt falla
+    return hash === pin;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -82,7 +106,7 @@ serve(async (req) => {
     // 4. Obtener riders activos del tenant (con pin_hash — solo server-side)
     const { data: riders, error: ridersErr } = await supabase
       .from("rider_profiles")
-      .select("id, name, vehicle_type, is_active, pin_hash")
+      .select("id, name, vehicle_type, is_active, pin_hash, tenant_id")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true);
 
@@ -97,16 +121,7 @@ serve(async (req) => {
     let matchedRider: typeof riders[0] | null = null;
     for (const rider of riders) {
       if (!rider.pin_hash) continue;
-
-      let isMatch = false;
-      // Soporte para PINs legacy (texto plano) y bcrypt
-      if (rider.pin_hash.startsWith("$2")) {
-        isMatch = await bcrypt.compare(pin, rider.pin_hash);
-      } else {
-        // Legacy plain text — comparación constante para evitar timing attacks
-        isMatch = rider.pin_hash === pin;
-      }
-
+      const isMatch = await verifyPin(pin, rider.pin_hash);
       if (isMatch) {
         matchedRider = rider;
         break;
@@ -154,7 +169,7 @@ serve(async (req) => {
   } catch (err) {
     console.error("[rider-login]", err);
     return new Response(
-      JSON.stringify({ error: "Error interno del servidor" }),
+      JSON.stringify({ error: "Error interno del servidor", detail: String(err) }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -16,7 +16,7 @@ import { buildDirectionsLink } from '@/lib/maps';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { formatPrice } from '@/lib/types';
 import { buildWhatsAppUrl } from '@/lib/phone';
-import * as bcrypt from 'bcryptjs';
+// bcryptjs removido — PIN se guarda como texto plano, verificación server-side en Edge Function
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import {
   Bike, MapPin, Phone, Plus, User, CheckCircle2, Clock,
@@ -232,7 +232,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       tenant_id: tenant.id,
       name: newRider.name.trim(),
       phone: newRider.phone.trim() || null,
-      pin_hash: bcrypt.hashSync(newRider.pin, 10), // Fase 3: hash bcrypt en cliente
+      pin_hash: newRider.pin, // PIN en texto plano — Edge Function rider-login verifica server-side
       vehicle_type: newRider.vehicle_type,
       is_active: true,
     });
