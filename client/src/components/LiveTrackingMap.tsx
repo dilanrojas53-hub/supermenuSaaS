@@ -14,10 +14,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Navigation, Clock, MapPin, Bike, X } from 'lucide-react';
+import { loadGoogleMapsScript } from '@/lib/gmapsLoader';
 
-const GMAPS_API_KEY: string =
-  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
-  'AIzaSyCH8uwXit1G0LqobY-BOPKEwnaHV-qXkss';
 
 interface LiveTrackingMapProps {
   orderId: string;
@@ -29,30 +27,6 @@ interface LiveTrackingMapProps {
   clientAddress: string;
   orderNumber: number;
   onClose: () => void;
-}
-
-// ─── Loader de Google Maps JS API ─────────────────────────────────────────────
-let gmapsLoaded = false;
-let gmapsLoading = false;
-const gmapsCallbacks: (() => void)[] = [];
-
-function loadGoogleMaps(apiKey: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (gmapsLoaded) { resolve(); return; }
-    gmapsCallbacks.push(resolve);
-    if (gmapsLoading) return;
-    gmapsLoading = true;
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
-    script.async = true;
-    script.onload = () => {
-      gmapsLoaded = true;
-      gmapsLoading = false;
-      gmapsCallbacks.forEach(cb => cb());
-      gmapsCallbacks.length = 0;
-    };
-    document.head.appendChild(script);
-  });
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -78,7 +52,7 @@ export default function LiveTrackingMap({
 
   // ─── Cargar Google Maps ───────────────────────────────────────────────────
   useEffect(() => {
-    loadGoogleMaps(GMAPS_API_KEY).then(() => setMapReady(true));
+    loadGoogleMapsScript().then(() => setMapReady(true));
   }, []);
 
   // ─── Inicializar mapa ─────────────────────────────────────────────────────
