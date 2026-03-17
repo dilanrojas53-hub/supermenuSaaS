@@ -1,5 +1,8 @@
 /**
- * GOOGLE MAPS FRONTEND INTEGRATION - ESSENTIAL GUIDE
+ * GOOGLE MAPS FRONTEND INTEGRATION
+ *
+ * Usa VITE_GOOGLE_MAPS_API_KEY (configurada en Vercel).
+ * Patrón singleton: el script se carga UNA sola vez y nunca se elimina del DOM.
  *
  * USAGE FROM PARENT COMPONENT:
  * ======
@@ -7,71 +10,15 @@
  * const mapRef = useRef<google.maps.Map | null>(null);
  *
  * <MapView
- *   initialCenter={{ lat: 40.7128, lng: -74.0060 }}
- *   initialZoom={15}
+ *   initialCenter={{ lat: 9.9281, lng: -84.0907 }}
+ *   initialZoom={12}
  *   onMapReady={(map) => {
- *     mapRef.current = map; // Store to control map from parent anytime, google map itself is in charge of the re-rendering, not react state.
- * </MapView>
+ *     mapRef.current = map;
+ *   }}
+ * />
  *
  * ======
- * Available Libraries and Core Features:
- * -------------------------------
- * 📍 MARKER (from `marker` library)
- * - Attaches to map using { map, position }
- * new google.maps.marker.AdvancedMarkerElement({
- *   map,
- *   position: { lat: 37.7749, lng: -122.4194 },
- *   title: "San Francisco",
- * });
- *
- * -------------------------------
- * 🏢 PLACES (from `places` library)
- * - Does not attach directly to map; use data with your map manually.
- * const place = new google.maps.places.Place({ id: PLACE_ID });
- * await place.fetchFields({ fields: ["displayName", "location"] });
- * map.setCenter(place.location);
- * new google.maps.marker.AdvancedMarkerElement({ map, position: place.location });
- *
- * -------------------------------
- * 🧭 GEOCODER (from `geocoding` library)
- * - Standalone service; manually apply results to map.
- * const geocoder = new google.maps.Geocoder();
- * geocoder.geocode({ address: "New York" }, (results, status) => {
- *   if (status === "OK" && results[0]) {
- *     map.setCenter(results[0].geometry.location);
- *     new google.maps.marker.AdvancedMarkerElement({
- *       map,
- *       position: results[0].geometry.location,
- *     });
- *   }
- * });
- *
- * -------------------------------
- * 📐 GEOMETRY (from `geometry` library)
- * - Pure utility functions; not attached to map.
- * const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
- *
- * -------------------------------
- * 🛣️ ROUTES (from `routes` library)
- * - Combines DirectionsService (standalone) + DirectionsRenderer (map-attached)
- * const directionsService = new google.maps.DirectionsService();
- * const directionsRenderer = new google.maps.DirectionsRenderer({ map });
- * directionsService.route(
- *   { origin, destination, travelMode: "DRIVING" },
- *   (res, status) => status === "OK" && directionsRenderer.setDirections(res)
- * );
- *
- * -------------------------------
- * 🌦️ MAP LAYERS (attach directly to map)
- * - new google.maps.TrafficLayer().setMap(map);
- * - new google.maps.TransitLayer().setMap(map);
- * - new google.maps.BicyclingLayer().setMap(map);
- *
- * -------------------------------
- * ✅ SUMMARY
- * - "map-attached" → AdvancedMarkerElement, DirectionsRenderer, Layers.
- * - "standalone" → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
- * - "data-only" → Place, Geometry utilities.
+ * Available Libraries: marker, places, geocoding, geometry, drawing
  */
 /// <reference types="@types/google.maps" />
 import React, { useEffect, useRef } from "react";
@@ -84,39 +31,55 @@ declare global {
   }
 }
 
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const FORGE_BASE_URL =
-  import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-  "https://forge.butterfly-effect.dev";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
+const GMAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+const GMAPS_SCRIPT_ID = "gmaps-singleton-script";
 
-// Singleton: guarda la promesa de carga para no cargar el script dos veces
+// Singleton: una sola promesa de carga para toda la app
 let _loadPromise: Promise<void> | null = null;
 
 function loadMapScript(): Promise<void> {
-  // Si ya está cargado, resuelve inmediatamente
+  // Ya cargado
   if (window.google?.maps) {
     return Promise.resolve();
   }
-  // Si ya hay una carga en progreso, reutiliza la misma promesa
+  // Carga en progreso — reutilizar la misma promesa
   if (_loadPromise) {
     return _loadPromise;
   }
+  // Script ya en DOM (ej: recarga de módulo en HMR)
+  if (document.getElementById(GMAPS_SCRIPT_ID)) {
+    _loadPromise = new Promise<void>((resolve) => {
+      const check = setInterval(() => {
+        if (window.google?.maps) {
+          clearInterval(check);
+          resolve();
+        }
+      }, 100);
+    });
+    return _loadPromise;
+  }
+
+  if (!GMAPS_API_KEY) {
+    console.error("[MapView] VITE_GOOGLE_MAPS_API_KEY no está configurada.");
+    return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY no configurada"));
+  }
+
   _loadPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
-    script.id = "manus-gmaps-script";
-    script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry,drawing`;
+    script.id = GMAPS_SCRIPT_ID;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry,drawing`;
     script.async = true;
-    script.crossOrigin = "anonymous";
+    script.defer = true;
     script.onload = () => resolve();
     script.onerror = () => {
-      _loadPromise = null; // Permite reintentar en caso de error
-      reject(new Error("Failed to load Google Maps script"));
+      _loadPromise = null;
+      reject(new Error("Error cargando Google Maps script"));
     };
+    // IMPORTANTE: NO llamar script.remove() — el script debe permanecer en el DOM
+    // para que Google Maps pueda cargar tiles y sub-recursos correctamente
     document.head.appendChild(script);
-    // NOTA: NO llamar script.remove() — el script debe permanecer en el DOM
-    // para que Google Maps pueda cargar sub-recursos (tiles, etc.)
   });
+
   return _loadPromise;
 }
 
@@ -131,7 +94,7 @@ interface MapViewProps {
 export function MapView({
   className,
   style,
-  initialCenter = { lat: 37.7749, lng: -122.4194 },
+  initialCenter = { lat: 9.9281, lng: -84.0907 },
   initialZoom = 12,
   onMapReady,
 }: MapViewProps) {
@@ -142,14 +105,16 @@ export function MapView({
     try {
       await loadMapScript();
     } catch (err) {
-      console.error("MapView: error cargando Google Maps script", err);
+      console.error("[MapView] Error cargando Google Maps:", err);
       return;
     }
+
     if (!mapContainer.current) {
-      console.error("MapView: contenedor no encontrado");
+      console.error("[MapView] Contenedor no encontrado");
       return;
     }
-    // Evitar doble inicialización si el componente se re-monta
+
+    // Evitar doble inicialización
     if (map.current) return;
 
     map.current = new window.google!.maps.Map(mapContainer.current, {
@@ -158,9 +123,10 @@ export function MapView({
       mapTypeControl: true,
       fullscreenControl: true,
       zoomControl: true,
-      streetViewControl: true,
+      streetViewControl: false,
       mapId: "DEMO_MAP_ID",
     });
+
     if (onMapReady) {
       onMapReady(map.current);
     }
@@ -171,6 +137,10 @@ export function MapView({
   }, [init]);
 
   return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} style={style} />
+    <div
+      ref={mapContainer}
+      className={cn("w-full", className)}
+      style={{ height: "280px", ...style }}
+    />
   );
 }
