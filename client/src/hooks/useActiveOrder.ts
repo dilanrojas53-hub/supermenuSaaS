@@ -58,6 +58,9 @@ export interface ActiveOrderData {
   delivery_eta_minutes: number | null;
   delivery_distance_km: number | null;
 
+  // Items del pedido
+  items: any[];
+
   // Financiero
   total: number;
   payment_method: string;
@@ -154,6 +157,7 @@ function normalizeOrder(raw: any): ActiveOrderData {
     delivery_lon: raw.delivery_lon ?? null,
     delivery_eta_minutes: raw.delivery_eta_minutes ?? null,
     delivery_distance_km: raw.delivery_distance_km ?? null,
+    items: Array.isArray(raw.items) ? raw.items : [],
     total: raw.total ?? 0,
     payment_method: raw.payment_method ?? '',
     payment_status: raw.payment_status ?? null,
@@ -194,6 +198,7 @@ const ORDER_SELECT = `
   delivery_lat, delivery_lon,
   delivery_eta_minutes, delivery_distance_km,
   total, payment_method, payment_status,
+  items,
   created_at, updated_at,
   rider_profiles(id, name, phone, vehicle_type, current_lat, current_lon, last_location_at)
 `;

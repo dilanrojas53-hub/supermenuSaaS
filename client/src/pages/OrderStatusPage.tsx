@@ -742,7 +742,7 @@ export default function OrderStatusPage() {
         <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Detalle del pedido</h2>
           <div className="space-y-1.5">
-            {(order.items as any[]).map((item: any, i: number) => (
+            {((order.items as any[]) || []).map((item: any, i: number) => (
               <div key={i} className="flex justify-between text-sm">
                 <span className="text-slate-300">
                   {item.quantity}× {item.name}
