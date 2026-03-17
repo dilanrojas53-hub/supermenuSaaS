@@ -4,7 +4,7 @@
  *
  * Responsabilidades:
  * - Evaluar disponibilidad logística antes de comprometer un pedido
- * - Decidir si un pedido entra en soft_reserve, waitlist, o va directo a kitchen_commit
+ * - Decidir si un pedido entra en kitchen_commit directo o en waitlist
  * - Ejecutar el commit a cocina (escribe kitchen_committed_at)
  * - Gestionar la cola de waitlist (promover pedidos cuando hay disponibilidad)
  *
@@ -12,27 +12,34 @@
  * - delivery_status: intocable — flujo rider/dispatch ya construido
  * - logistic_status: nueva capa de orquestación previa y transversal
  * - orders.status: intocable — flujo pago/cocina dine_in/takeout
- * - kitchen_committed_at: único campo para el commit a cocina (ya existía en BD)
- * - Modo híbrido: sistema evalúa y sugiere, admin puede hacer commit manual
+ * - kitchen_committed_at: único campo para el commit a cocina
+ *
+ * Flujo híbrido aprobado:
+ * - canCommit = true  → kitchen_commit directo (cocina recibe el pedido inmediatamente)
+ * - canCommit = false → waitlist (admin promueve manualmente o auto al entregar)
+ * - soft_reserve: solo como estado transitorio de override manual del admin
+ *
+ * Fallback de error en evaluateAvailability: CONSERVADOR
+ * - Si no se puede evaluar disponibilidad → pedido va a waitlist
+ * - No se sobrecompromete cocina/logística por problemas técnicos
  *
  * Máquina de estados de logistic_status:
  *
- *   quote → soft_reserve → kitchen_commit → preparing → ready_for_pickup
- *                ↓                                              ↓
- *            waitlist ──────────────────────────────────→ (promoted)
- *
- *   kitchen_commit → assigned → picked_up → delivering → delivered
+ *   null → kitchen_commit → assigned → picked_up → delivering → delivered
+ *   null → waitlist → kitchen_commit (promoted)
+ *   null → soft_reserve → kitchen_commit (override manual)
  *   (cualquier estado) → cancelled
  *
  * Transiciones válidas:
+ *   null          → kitchen_commit | waitlist | soft_reserve | quote
  *   quote         → soft_reserve | waitlist | cancelled
- *   waitlist      → soft_reserve | cancelled
+ *   waitlist      → kitchen_commit | soft_reserve | cancelled
  *   soft_reserve  → kitchen_commit | waitlist | cancelled
- *   kitchen_commit→ preparing | cancelled
+ *   kitchen_commit→ preparing | assigned | cancelled
  *   preparing     → ready_for_pickup | cancelled
  *   ready_for_pickup → assigned | cancelled
  *   assigned      → picked_up | cancelled
- *   picked_up     → delivering | cancelled
+ *   picked_up     → delivering | delivered | cancelled
  *   delivering    → delivered | cancelled
  *   delivered     → (terminal)
  *   cancelled     → (terminal)
@@ -57,7 +64,7 @@ export type LogisticStatus =
 
 export interface AvailabilityResult {
   canCommit: boolean;
-  recommendation: 'soft_reserve' | 'waitlist';
+  recommendation: 'kitchen_commit' | 'waitlist';
   reason: string;
   availableRiders: number;
   busyRiders: number;
@@ -78,20 +85,23 @@ export interface CommitResult {
 
 const VALID_TRANSITIONS: Record<LogisticStatus, LogisticStatus[]> = {
   quote:            ['soft_reserve', 'waitlist', 'cancelled'],
-  waitlist:         ['soft_reserve', 'cancelled'],
+  waitlist:         ['kitchen_commit', 'soft_reserve', 'cancelled'],
   soft_reserve:     ['kitchen_commit', 'waitlist', 'cancelled'],
-  kitchen_commit:   ['preparing', 'cancelled'],
+  kitchen_commit:   ['preparing', 'assigned', 'cancelled'],
   preparing:        ['ready_for_pickup', 'cancelled'],
   ready_for_pickup: ['assigned', 'cancelled'],
   assigned:         ['picked_up', 'cancelled'],
-  picked_up:        ['delivering', 'cancelled'],
+  picked_up:        ['delivering', 'delivered', 'cancelled'],
   delivering:       ['delivered', 'cancelled'],
   delivered:        [],
   cancelled:        [],
 };
 
 export function isValidTransition(from: LogisticStatus | null, to: LogisticStatus): boolean {
-  if (!from) return to === 'quote' || to === 'soft_reserve' || to === 'waitlist';
+  if (!from) {
+    // Desde null se puede ir a cualquier estado inicial
+    return ['quote', 'soft_reserve', 'waitlist', 'kitchen_commit'].includes(to);
+  }
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
@@ -117,15 +127,12 @@ export const LOGISTIC_STATUS_LABELS: Record<LogisticStatus, { label: string; col
  *
  * Lógica de decisión:
  * 1. Contar riders disponibles (rider_status = 'available' Y active)
- *    Fallback: si no hay riders con rider_status seteado, inferir de rider_assignments activos
+ *    Fallback: si no hay riders con rider_status seteado, inferir de assignments activos
  * 2. Contar deliveries activos (logistic_status NOT IN terminal states)
  * 3. Comparar contra max_concurrent_deliveries del tenant
  * 4. canCommit = true si hay al menos 1 rider disponible Y capacidad no saturada
  *
- * Umbrales:
- * - capacityUsedPct < 80% → soft_reserve (hay holgura)
- * - capacityUsedPct >= 80% → waitlist (saturación)
- * - Sin riders disponibles → waitlist
+ * FALLBACK CONSERVADOR: si hay error de red/BD → canCommit = false → waitlist
  */
 export async function evaluateAvailability(tenantId: string): Promise<AvailabilityResult> {
   try {
@@ -165,7 +172,7 @@ export async function evaluateAvailability(tenantId: string): Promise<Availabili
         .not('delivery_status', 'in', '(delivered,cancelled)')
         .not('rider_id', 'is', null);
 
-      const busyRiderIds = new Set((activeAssignments ?? []).map(a => a.rider_id));
+      const busyRiderIds = new Set((activeAssignments ?? []).map((a: any) => a.rider_id));
       busyRiders = busyRiderIds.size;
       availableRiders = Math.max(0, allActiveRiders.length - busyRiders);
     }
@@ -198,11 +205,10 @@ export async function evaluateAvailability(tenantId: string): Promise<Availabili
     // 6. Decisión de disponibilidad
     const hasCapacity = totalActiveDeliveries < maxConcurrent;
     const hasRiders = availableRiders > 0;
-    const notSaturated = capacityUsedPct < 80;
 
     const canCommit = hasCapacity && hasRiders;
-    const recommendation: 'soft_reserve' | 'waitlist' = canCommit && notSaturated
-      ? 'soft_reserve'
+    const recommendation: 'kitchen_commit' | 'waitlist' = canCommit
+      ? 'kitchen_commit'
       : 'waitlist';
 
     // 7. Razón legible
@@ -211,8 +217,6 @@ export async function evaluateAvailability(tenantId: string): Promise<Availabili
       reason = `Sin riders disponibles (${allActiveRiders.length} activos, todos ocupados)`;
     } else if (!hasCapacity) {
       reason = `Capacidad saturada: ${totalActiveDeliveries}/${maxConcurrent} entregas activas`;
-    } else if (!notSaturated) {
-      reason = `Capacidad al ${capacityUsedPct}% — se recomienda lista de espera`;
     } else {
       reason = `${availableRiders} rider(s) disponible(s), capacidad al ${capacityUsedPct}%`;
     }
@@ -230,16 +234,18 @@ export async function evaluateAvailability(tenantId: string): Promise<Availabili
     };
   } catch (err) {
     console.error('[DeliveryCommitEngine] evaluateAvailability error:', err);
-    // En caso de error, ser conservador: permitir pero advertir
+    // Fallback CONSERVADOR: no asumir disponibilidad ante error técnico.
+    // El pedido irá a waitlist y el admin puede promoverlo manualmente.
+    // Esto evita sobrecomprometer cocina/logística por problemas de red o BD.
     return {
-      canCommit: true,
-      recommendation: 'soft_reserve',
-      reason: 'No se pudo evaluar disponibilidad (error de red)',
+      canCommit: false,
+      recommendation: 'waitlist',
+      reason: 'No se pudo evaluar disponibilidad — pedido en espera por precaución (error técnico)',
       availableRiders: 0,
       busyRiders: 0,
       totalActiveDeliveries: 0,
       maxConcurrentDeliveries: 3,
-      capacityUsedPct: 0,
+      capacityUsedPct: 100,
       waitlistLength: 0,
     };
   }
@@ -276,7 +282,6 @@ export async function setLogisticStatus(
     // Construir update
     const updatePayload: Record<string, unknown> = {
       logistic_status: newStatus,
-      ...extra,
     };
 
     // Timestamps especiales por estado
@@ -318,12 +323,16 @@ export async function setLogisticStatus(
 // ─── initOrderLogistics ───────────────────────────────────────────────────────
 /**
  * Inicializa la logística de un pedido delivery recién creado.
- * Evalúa disponibilidad y decide: soft_reserve o waitlist.
- * Llamar desde CartDrawer después del insert del pedido.
  *
- * Modo híbrido:
- * - soft_reserve: sistema reserva capacidad, admin puede hacer commit manual
- * - waitlist: sistema encola, admin puede promover manualmente o el sistema lo hace automático
+ * Flujo híbrido aprobado:
+ * - canCommit = true  → kitchen_commit directo (cocina recibe el pedido inmediatamente)
+ * - canCommit = false → waitlist (admin promueve manualmente o auto al entregar)
+ *
+ * soft_reserve NO se usa como estado de entrada normal.
+ * Solo existe como estado transitorio de override manual del admin.
+ *
+ * Si evaluateAvailability falla (error de red/BD), el fallback es conservador:
+ * el pedido va a waitlist y el admin decide.
  */
 export async function initOrderLogistics(
   orderId: string,
@@ -331,10 +340,15 @@ export async function initOrderLogistics(
 ): Promise<{ logisticStatus: LogisticStatus; availability: AvailabilityResult }> {
   const availability = await evaluateAvailability(tenantId);
 
-  const targetStatus: LogisticStatus = availability.recommendation;
+  // Decisión binaria: capacidad real → commit directo a cocina
+  //                   sin capacidad   → waitlist (incluyendo fallback de error)
+  const targetStatus: LogisticStatus = availability.canCommit
+    ? 'kitchen_commit'
+    : 'waitlist';
 
   await setLogisticStatus(orderId, targetStatus, tenantId, {
     init_reason: availability.reason,
+    auto_committed: availability.canCommit,
   });
 
   return { logisticStatus: targetStatus, availability };
@@ -348,6 +362,7 @@ export async function initOrderLogistics(
  * - Automáticamente cuando un pedido en waitlist puede ser promovido
  *
  * Precondición: logistic_status debe ser 'soft_reserve' o 'waitlist'
+ * El admin puede hacer commit aunque no haya disponibilidad (override operativo).
  */
 export async function commitToKitchen(
   orderId: string,
@@ -357,6 +372,8 @@ export async function commitToKitchen(
   // Re-evaluar disponibilidad antes de commitear
   const availability = await evaluateAvailability(tenantId);
 
+  // Solo bloquear auto-commits si no hay disponibilidad
+  // El admin puede hacer override manual siempre
   if (!availability.canCommit && triggeredBy === 'auto') {
     return {
       success: false,
@@ -411,9 +428,12 @@ export async function addToWaitlist(
 
 // ─── promoteFromWaitlist ──────────────────────────────────────────────────────
 /**
- * Promueve el siguiente pedido en waitlist a soft_reserve cuando hay disponibilidad.
+ * Promueve el siguiente pedido en waitlist directamente a kitchen_commit.
  * Usa FIFO por waitlisted_at.
  * Llamar cuando un delivery se completa o un rider queda disponible.
+ *
+ * Promueve directo a kitchen_commit (consistente con initOrderLogistics):
+ * canCommit = true → kitchen_commit directo, sin pasar por soft_reserve.
  */
 export async function promoteFromWaitlist(tenantId: string): Promise<{
   promoted: boolean;
@@ -426,7 +446,7 @@ export async function promoteFromWaitlist(tenantId: string): Promise<{
     return { promoted: false, reason: availability.reason };
   }
 
-  // Obtener el pedido más antiguo en waitlist
+  // Obtener el pedido más antiguo en waitlist (FIFO)
   const { data: nextInQueue } = await supabase
     .from('orders')
     .select('id, order_number, waitlisted_at')
@@ -440,9 +460,11 @@ export async function promoteFromWaitlist(tenantId: string): Promise<{
     return { promoted: false, reason: 'Cola de espera vacía' };
   }
 
-  const result = await setLogisticStatus(nextInQueue.id, 'soft_reserve', tenantId, {
+  // Promover directo a kitchen_commit
+  const result = await setLogisticStatus(nextInQueue.id, 'kitchen_commit', tenantId, {
     promoted_from_waitlist: true,
     promoted_at: new Date().toISOString(),
+    auto_committed: true,
   });
 
   if (result.success) {
@@ -482,7 +504,7 @@ export async function syncLogisticFromDeliveryStatus(
     synced_from_delivery_status: newDeliveryStatus,
   });
 
-  // Si se entregó, promover el siguiente en waitlist
+  // Si se entregó, promover el siguiente en waitlist automáticamente
   if (logisticTarget === 'delivered') {
     await promoteFromWaitlist(tenantId);
   }
