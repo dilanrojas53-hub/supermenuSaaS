@@ -9,8 +9,7 @@
  */
 
 const GMAPS_SCRIPT_ID = "gmaps-singleton-script";
-const GMAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
-  "AIzaSyCH8uwXit1G0LqobY-BOPKEwnaHV-qXkss";
+const GMAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 
 // Singleton: una sola promesa para toda la app
 let _loadPromise: Promise<void> | null = null;
