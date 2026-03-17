@@ -32,9 +32,10 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp, ChevronRight, Menu as MenuIcon
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
+import { AdminSidebar } from '@/components/AdminSidebar';
 import { useUITheme } from '@/contexts/UIThemeContext';
 import { themes, type ThemeKey, RESTAURANT_THEMES, type RestaurantThemePreset, getThemeCategories, getThemePreset, applyRestaurantTheme, isColorDark } from '@/lib/themes';
 import { toast } from 'sonner';
@@ -2390,9 +2391,31 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     }
   };
 
+  // ── Section header helper ──
+  const SectionHeader = ({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) => (
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)' }}>
+        <span className="text-amber-400">{icon}</span>
+      </div>
+      <div>
+        <h3 className="text-sm font-black text-white leading-tight">{title}</h3>
+        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>Dashboard</h2>
+    <div className="space-y-10">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Analítica</h2>
+        <span className="text-[11px] text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/40">Este mes</span>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          A. RESUMEN EJECUTIVO
+      ═══════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionHeader icon={<BarChart3 size={15} />} title="Resumen Ejecutivo" subtitle="KPIs principales del negocio" />
 
       {/* ── ROI / Upsell Module Premium V9.0 ── */}
       <div>
@@ -2440,6 +2463,14 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
           </div>
         )}
       </div>
+
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          B. VENTAS Y COMPORTAMIENTO
+      ═══════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionHeader icon={<TrendingUp size={15} />} title="Ventas y Comportamiento" subtitle="Cuándo vendes más y cómo fluye el negocio" />
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -2532,6 +2563,14 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         </div>
       </div>
 
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          C. PRODUCTOS
+      ═══════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionHeader icon={<Trophy size={15} />} title="Productos" subtitle="Qué se vende más y qué mueve ingresos" />
+
       {/* ── Top 5 + Horas Pico ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Top 5 Platillos */}
@@ -2583,6 +2622,14 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
           </ResponsiveContainer>
         </div>
       </div>
+
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          D. EQUIPO
+      ═══════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionHeader icon={<Users size={15} />} title="Equipo" subtitle="Cómo está rindiendo el personal hoy" />
 
       {/* ── Rendimiento del Equipo ── */}
       <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
@@ -2661,62 +2708,16 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         )}
       </div>
 
-      {/* ── Corte Z ── */}
-      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Scissors size={14} className="text-purple-400" />
-            <h3 className="text-sm font-bold text-white">Corte Z Diario</h3>
-            <span className="text-xs text-slate-500">(hoy)</span>
-          </div>
-          <button onClick={() => setCorteVisible(!corteVisible)}
-            className="text-xs text-slate-400 hover:text-white transition-colors">
-            {corteVisible ? 'Ocultar' : 'Ver detalle'}
-          </button>
-        </div>
+      </section>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: 'Total del día', value: formatPrice(corteStats.total), color: 'text-amber-400', bold: true },
-            { label: 'SINPE Móvil', value: formatPrice(corteStats.byMethod.sinpe), color: 'text-purple-400', bold: false },
-            { label: 'Efectivo', value: formatPrice(corteStats.byMethod.efectivo), color: 'text-green-400', bold: false },
-            { label: 'Tarjeta', value: formatPrice(corteStats.byMethod.tarjeta), color: 'text-blue-400', bold: false },
-          ].map(({ label, value, color, bold }) => (
-            <div key={label} className="bg-slate-900/50 rounded-xl p-3">
-              <p className="text-xs text-slate-500 mb-1">{label}</p>
-              <p className={`${bold ? 'text-lg' : 'text-base'} font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
+      {/* ═══════════════════════════════════════════════════════════════
+          E. DELIVERY
+      ═══════════════════════════════════════════════════════════════ */}
+      <section>
+        <SectionHeader icon={<Bike size={15} />} title="Delivery" subtitle="Cómo está funcionando el delivery como unidad operativa" />
+        <DeliveryAnalyticsCard orders={orders as any} filter={analyticsFilter} />
+      </section>
 
-        {corteVisible && corteStats.orders.length > 0 && (
-          <div className="mb-4 max-h-48 overflow-y-auto space-y-1">
-            {corteStats.orders.map(o => (
-              <div key={o.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/30">
-                <span className="text-slate-400">#{o.order_number} — {new Date(o.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-500 capitalize">{o.payment_method}</span>
-                  <span className="text-white font-medium">{formatPrice(o.total)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <button onClick={handleDownloadCorte}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-xs font-medium hover:bg-slate-600 transition-colors">
-            <Download size={13} /> Descargar TXT
-          </button>
-          <button onClick={handleWhatsAppCorte}
-            className="flex items-center gap-1.5 px-4 py-2 bg-green-600/20 text-green-400 border border-green-600/30 rounded-xl text-xs font-medium hover:bg-green-600/30 transition-colors">
-            <MessageCircle size={13} /> Enviar por WhatsApp
-          </button>
-        </div>
-      </div>
-
-      {/* ── Delivery Analytics ── */}
-      <DeliveryAnalyticsCard orders={orders as any} filter={analyticsFilter} />
     </div>
   );
 }
@@ -3362,15 +3363,238 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
   );
 }
 
+// ─── Smart Closing Tab — Corte Inteligente ───
+function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }) {
+  const [corteVisible, setCorteVisible] = useState(false);
+  const [arqueoValues, setArqueoValues] = useState({ sinpe: '', efectivo: '', tarjeta: '' });
+  const [arqueoSaved, setArqueoSaved] = useState(false);
+
+  const corteStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayOrders = orders.filter(o => o.status !== 'cancelado' && new Date(o.created_at) >= today);
+    const byMethod: Record<string, number> = { sinpe: 0, efectivo: 0, tarjeta: 0 };
+    todayOrders.forEach(o => {
+      const m = (o.payment_method || 'efectivo').toLowerCase();
+      if (m.includes('sinpe')) byMethod.sinpe += o.total;
+      else if (m.includes('tarjeta') || m.includes('card')) byMethod.tarjeta += o.total;
+      else byMethod.efectivo += o.total;
+    });
+    return { total: todayOrders.reduce((s, o) => s + o.total, 0), count: todayOrders.length, byMethod, orders: todayOrders };
+  }, [orders]);
+
+  const arqueoTotal = useMemo(() => {
+    const s = parseFloat(arqueoValues.sinpe.replace(/,/g, '')) || 0;
+    const e = parseFloat(arqueoValues.efectivo.replace(/,/g, '')) || 0;
+    const t = parseFloat(arqueoValues.tarjeta.replace(/,/g, '')) || 0;
+    return s + e + t;
+  }, [arqueoValues]);
+
+  const diferencia = arqueoTotal - corteStats.total;
+
+  const handleDownloadCorte = () => {
+    const now = new Date().toLocaleString('es-CR');
+    const lines = [
+      `CORTE INTELIGENTE — ${tenant.name}`,
+      `Fecha: ${now}`,
+      `${'='.repeat(40)}`,
+      `Total de pedidos: ${corteStats.count}`,
+      ``,
+      `SISTEMA`,
+      `SINPE Móvil:  ${formatPrice(corteStats.byMethod.sinpe)}`,
+      `Efectivo:     ${formatPrice(corteStats.byMethod.efectivo)}`,
+      `Tarjeta:      ${formatPrice(corteStats.byMethod.tarjeta)}`,
+      `TOTAL SISTEMA: ${formatPrice(corteStats.total)}`,
+      ``,
+      ...(arqueoSaved ? [
+        `ARQUEO MANUAL`,
+        `SINPE Móvil:  ${formatPrice(parseFloat(arqueoValues.sinpe) || 0)}`,
+        `Efectivo:     ${formatPrice(parseFloat(arqueoValues.efectivo) || 0)}`,
+        `Tarjeta:      ${formatPrice(parseFloat(arqueoValues.tarjeta) || 0)}`,
+        `TOTAL ARQUEO: ${formatPrice(arqueoTotal)}`,
+        ``,
+        `DIFERENCIA:   ${diferencia >= 0 ? '+' : ''}${formatPrice(diferencia)}`,
+      ] : []),
+      `${'='.repeat(40)}`,
+      `TOTAL DEL DÍA: ${formatPrice(corteStats.total)}`,
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `corte-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast.success('Corte descargado');
+  };
+
+  const handleWhatsAppCorte = () => {
+    const now = new Date().toLocaleString('es-CR');
+    let msg = `*CORTE — ${tenant.name}*\n${now}\n\n` +
+      `Pedidos: ${corteStats.count}\n` +
+      `SINPE: ${formatPrice(corteStats.byMethod.sinpe)}\n` +
+      `Efectivo: ${formatPrice(corteStats.byMethod.efectivo)}\n` +
+      `Tarjeta: ${formatPrice(corteStats.byMethod.tarjeta)}\n` +
+      `*TOTAL: ${formatPrice(corteStats.total)}*`;
+    if (arqueoSaved) {
+      msg += `\n\n*ARQUEO MANUAL*\n` +
+        `SINPE: ${formatPrice(parseFloat(arqueoValues.sinpe) || 0)}\n` +
+        `Efectivo: ${formatPrice(parseFloat(arqueoValues.efectivo) || 0)}\n` +
+        `Tarjeta: ${formatPrice(parseFloat(arqueoValues.tarjeta) || 0)}\n` +
+        `Total arqueo: ${formatPrice(arqueoTotal)}\n` +
+        `Diferencia: ${diferencia >= 0 ? '+' : ''}${formatPrice(diferencia)}`;
+    }
+    const waUrl = buildWhatsAppUrl(tenant.whatsapp_number || tenant.phone, msg);
+    if (waUrl) window.open(waUrl, '_blank');
+    else window.open(`https://wa.me/?text=${encodeURIComponent(msg.normalize('NFC'))}`, '_blank');
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Corte Inteligente</h2>
+          <p className="text-[12px] text-slate-500 mt-0.5">Cierre del día con arqueo manual y cuadre automático</p>
+        </div>
+        <span className="text-[11px] text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/40">
+          {new Date().toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </span>
+      </div>
+
+      {/* Resumen del sistema */}
+      <div>
+        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3">Resumen del sistema</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total del día', value: formatPrice(corteStats.total), color: 'text-amber-400', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+            { label: 'SINPE Móvil', value: formatPrice(corteStats.byMethod.sinpe), color: 'text-purple-400', bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.15)' },
+            { label: 'Efectivo', value: formatPrice(corteStats.byMethod.efectivo), color: 'text-green-400', bg: 'rgba(52,211,153,0.06)', border: 'rgba(52,211,153,0.15)' },
+            { label: 'Tarjeta', value: formatPrice(corteStats.byMethod.tarjeta), color: 'text-blue-400', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.15)' },
+          ].map(({ label, value, color, bg, border }) => (
+            <div key={label} className="rounded-2xl p-4" style={{ backgroundColor: bg, border: `1px solid ${border}` }}>
+              <p className="text-[11px] text-slate-500 mb-1.5">{label}</p>
+              <p className={`text-lg font-bold ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Detalle de pedidos */}
+      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={14} className="text-slate-400" />
+            <span className="text-sm font-bold text-white">{corteStats.count} pedidos hoy</span>
+          </div>
+          <button onClick={() => setCorteVisible(!corteVisible)}
+            className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+            {corteVisible ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            {corteVisible ? 'Ocultar' : 'Ver detalle'}
+          </button>
+        </div>
+        {corteVisible && corteStats.orders.length > 0 && (
+          <div className="max-h-52 overflow-y-auto space-y-1">
+            {corteStats.orders.map(o => (
+              <div key={o.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/30 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">#{o.order_number}</span>
+                  <span className="text-slate-500">{new Date(o.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-slate-600 capitalize">{o.payment_method || 'efectivo'}</span>
+                </div>
+                <span className="text-white font-medium">{formatPrice(o.total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Arqueo Manual */}
+      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Scissors size={15} className="text-purple-400" />
+          <h3 className="text-sm font-bold text-white">Arqueo Manual</h3>
+          <span className="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">Ingresa lo que contaste físicamente</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          {[
+            { key: 'sinpe' as const, label: 'SINPE Móvil', color: '#8B5CF6' },
+            { key: 'efectivo' as const, label: 'Efectivo', color: '#34d399' },
+            { key: 'tarjeta' as const, label: 'Tarjeta', color: '#60a5fa' },
+          ].map(({ key, label, color }) => (
+            <div key={key}>
+              <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">{label}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">₡</span>
+                <input
+                  type="number"
+                  value={arqueoValues[key]}
+                  onChange={e => { setArqueoValues(prev => ({ ...prev, [key]: e.target.value })); setArqueoSaved(false); }}
+                  placeholder="0"
+                  className="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl pl-7 pr-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-1 transition-all"
+                  style={{ color }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => setArqueoSaved(true)}
+          className="w-full py-2.5 rounded-xl text-sm font-bold transition-all"
+          style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B' }}
+        >
+          Calcular cuadre
+        </button>
+        {arqueoSaved && (
+          <div className="mt-4 rounded-xl p-4 space-y-3" style={{
+            background: diferencia === 0 ? 'rgba(52,211,153,0.08)' : diferencia > 0 ? 'rgba(96,165,250,0.08)' : 'rgba(239,68,68,0.08)',
+            border: `1px solid ${diferencia === 0 ? 'rgba(52,211,153,0.2)' : diferencia > 0 ? 'rgba(96,165,250,0.2)' : 'rgba(239,68,68,0.2)'}`
+          }}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400">Total arqueo</span>
+              <span className="text-base font-bold text-white">{formatPrice(arqueoTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400">Total sistema</span>
+              <span className="text-base font-bold text-amber-400">{formatPrice(corteStats.total)}</span>
+            </div>
+            <div className="h-px bg-slate-700/40" />
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-white">Diferencia</span>
+              <span className={`text-lg font-black ${diferencia === 0 ? 'text-green-400' : diferencia > 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                {diferencia >= 0 ? '+' : ''}{formatPrice(diferencia)}
+              </span>
+            </div>
+            <p className="text-[11px] text-center" style={{ color: diferencia === 0 ? '#34d399' : diferencia > 0 ? '#60a5fa' : '#f87171' }}>
+              {diferencia === 0 ? '✓ Cuadre perfecto' : diferencia > 0 ? `Sobrante de ${formatPrice(Math.abs(diferencia))}` : `Faltante de ${formatPrice(Math.abs(diferencia))}`}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Acciones */}
+      <div className="flex gap-3">
+        <button onClick={handleDownloadCorte}
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-700 text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-600 transition-colors">
+          <Download size={13} /> Descargar TXT
+        </button>
+        <button onClick={handleWhatsAppCorte}
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-green-600/20 text-green-400 border border-green-600/30 rounded-xl text-xs font-bold hover:bg-green-600/30 transition-colors">
+          <MessageCircle size={13} /> Enviar por WhatsApp
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const { isAuthenticated, role, logout } = useAdminAuth();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabKey>('menu');
+  const [activeTab, setActiveTab] = useState<TabKey>('orders');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -3429,101 +3653,69 @@ export default function AdminDashboard() {
 
   const planFeatures = getPlanFeatures(tenant.plan_tier || 'premium');
 
-  const allTabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'orders', label: 'Pedidos', icon: <ClipboardList size={14} /> },
-    { key: 'history', label: 'Historial', icon: <Clock size={14} /> },
-    { key: 'menu', label: 'Menú', icon: <UtensilsCrossed size={14} /> },
-    { key: 'categories', label: 'Categorías', icon: <Tag size={14} /> },
-    { key: 'modifiers', label: 'Mods', icon: <Sliders size={14} /> },
-    { key: 'settings', label: 'Config', icon: <Settings size={14} /> },
-    { key: 'theme', label: 'Tema', icon: <Palette size={14} /> },
-    { key: 'analytics', label: 'Analítica', icon: <BarChart3 size={14} /> },
-    { key: 'performance', label: 'Rendimiento', icon: <TrendingUp size={14} /> },
-    { key: 'qr', label: 'QR', icon: <QrCode size={14} /> },
-    { key: 'staff', label: 'Equipo', icon: <UserCheck size={14} /> },
-  ];
-
-  // Feature flagging: filter tabs based on plan tier
-  const tabs = allTabs.filter(tab => {
-    if (tab.key === 'orders' && !planFeatures.kds) return false;
-    if (tab.key === 'analytics' && !planFeatures.analytics) return false;
-    return true;
-  });
-
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
-      <header className="backdrop-blur-xl border-b sticky top-0 z-40" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 95%, transparent)', borderColor: 'var(--border)', boxShadow: '0 2px 16px rgba(0,0,0,0.4)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 6px 18px rgba(245,158,11,0.45)' }}>
-              <UtensilsCrossed size={20} className="text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-base font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{tenant.name}</h1>
-                <span className={`flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full ${
-                  tenant.is_open
-                    ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                    : 'bg-red-500/15 text-red-400 border border-red-500/30'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${tenant.is_open ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                  {tenant.is_open ? 'Abierto' : 'Cerrado'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">/{slug}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a href={`/${slug}`} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:brightness-110"
-              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <Eye size={13} /> Ver menú <ExternalLink size={11} />
-            </a>
-            <button onClick={() => { logout(); navigate('/'); }}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-red-500/15 hover:text-red-400"
-              style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <LogOut size={13} /> Salir
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
+      {/* ── Sidebar ── */}
+      <AdminSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        tenantName={tenant.name}
+        tenantSlug={slug || ''}
+        isOpen={true}
+        isOpen_mobile={mobileSidebarOpen}
+        onToggleMobile={() => setMobileSidebarOpen(p => !p)}
+        onLogout={() => { logout(); navigate('/'); }}
+        planFeatures={planFeatures}
+      />
 
-      <div className="border-b sticky top-[69px] z-30 backdrop-blur-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 90%, transparent)', borderColor: 'var(--border)', boxShadow: '0 1px 8px rgba(0,0,0,0.2)' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex overflow-x-auto scrollbar-hide whitespace-nowrap gap-0.5 px-3 py-2">
-            {tabs.map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-black transition-all duration-200 whitespace-nowrap flex-shrink-0"
-                style={activeTab === tab.key ? {
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(249,115,22,0.18))',
-                  color: '#F59E0B',
-                  border: '1.5px solid rgba(245,158,11,0.4)',
-                  boxShadow: '0 4px 12px rgba(245,158,11,0.2)',
-                } : {
-                  color: 'var(--text-secondary)',
-                  border: '1.5px solid rgba(255,255,255,0.06)',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
-                }}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+      {/* ── Main content (offset by sidebar width on desktop) ── */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-56">
+        {/* Top bar (mobile: shows tenant name + status; desktop: minimal) */}
+        <header
+          className="sticky top-0 z-30 backdrop-blur-xl border-b flex items-center justify-between px-4 py-3 lg:px-6"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--bg-surface) 95%, transparent)',
+            borderColor: 'var(--border)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          {/* Mobile: spacer for hamburger button */}
+          <div className="lg:hidden w-10" />
+
+          {/* Tenant name + status */}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-sm font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{tenant.name}</h1>
+            <span className={`flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
+              tenant.is_open
+                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                : 'bg-red-500/15 text-red-400 border border-red-500/30'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${tenant.is_open ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+              {tenant.is_open ? 'Abierto' : 'Cerrado'}
+            </span>
           </div>
-        </div>
+
+          {/* Right: current section label */}
+          <p className="text-xs text-slate-500 font-mono hidden lg:block">/{slug}</p>
+          <div className="lg:hidden w-10" />
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 px-4 py-6 lg:px-8 overflow-y-auto">
+          {activeTab === 'orders' && <OrdersTab tenant={tenant} />}
+          {activeTab === 'menu' && <MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} />}
+          {activeTab === 'categories' && <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />}
+          {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
+          {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
+          {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
+          {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
+          {activeTab === 'history' && <HistoryTab tenant={tenant} />}
+          {activeTab === 'qr' && <QRTab tenant={tenant} />}
+          {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
+          {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
+          {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
+        </main>
       </div>
-
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        {activeTab === 'orders' && <OrdersTab tenant={tenant} />}
-        {activeTab === 'menu' && <MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} />}
-        {activeTab === 'categories' && <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />}
-        {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
-        {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
-        {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
-        {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
-        {activeTab === 'history' && <HistoryTab tenant={tenant} />}
-        {activeTab === 'qr' && <QRTab tenant={tenant} />}
-        {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
-        {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
-      </main>
     </div>
   );
 }
