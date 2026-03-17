@@ -5,6 +5,7 @@
  * Route: /order-status/:orderId
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useActiveOrder } from '@/hooks/useActiveOrder';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check } from 'lucide-react';
@@ -328,9 +329,11 @@ function getStepIndex(status: OrderStatus): number {
 export default function OrderStatusPage() {
   const params = useParams<{ orderId: string }>();
   const [, navigate] = useLocation();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // F8: Hook unificado — fuente de verdad compartida con realtime incluido
+  const { order: activeOrder, loading, error } = useActiveOrder(params.orderId);
+  // Cast al tipo Order legacy para compatibilidad con el resto del componente
+  const order = activeOrder as any as Order | null;
 
   // F6-B: Push Notifications para el cliente (solo pedidos delivery)
   const { subscribe: subscribePush } = usePushNotifications({
@@ -373,53 +376,7 @@ export default function OrderStatusPage() {
     })();
   }, [order?.tenant_id, setAnimationConfig]);
 
-  // Fetch order initially
-  const fetchOrder = useCallback(async () => {
-    if (!params.orderId) return;
-    const { data, error: fetchErr } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', params.orderId)
-      .single();
-
-    if (fetchErr || !data) {
-      setError('No se encontró la orden');
-      setLoading(false);
-      return;
-    }
-    setOrder(data as Order);
-    setLoading(false);
-  }, [params.orderId]);
-
-  useEffect(() => {
-    fetchOrder();
-  }, [fetchOrder]);
-
-  // Supabase Realtime subscription
-  useEffect(() => {
-    if (!params.orderId) return;
-
-    const channel = supabase
-      .channel(`order-${params.orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${params.orderId}`,
-        },
-        (payload) => {
-          console.log('[OrderStatus] Realtime update:', payload.new);
-          setOrder(payload.new as Order);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [params.orderId]);
+  // F8: fetch y realtime manejados por useActiveOrder — sin duplicación
 
   // Save active order to localStorage for FAB
   // V17.2.2: Keep FAB visible if SINPE payment is still pending after delivery

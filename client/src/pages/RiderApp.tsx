@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useRiderActiveOrders } from '@/hooks/useActiveOrder';
 import { syncLogisticFromDeliveryStatus } from '@/lib/DeliveryCommitEngine';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -80,7 +81,14 @@ export default function RiderApp() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string>('');
   const [rider, setRider] = useState<RiderProfile | null>(null);
-  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
+  // F8: Hook unificado — fuente de verdad compartida con realtime incluido
+  const {
+    orders: activeOrdersRaw,
+    currentOrder: currentActiveOrder,
+    refetch: refetchOrders,
+  } = useRiderActiveOrders(rider?.id);
+  // Adaptar al tipo DeliveryOrder para compatibilidad con el resto del componente
+  const orders = activeOrdersRaw as any as DeliveryOrder[];
   const [loading, setLoading] = useState(true);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -150,63 +158,7 @@ export default function RiderApp() {
       });
   }, [slug]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Cargar pedidos del rider ───────────────────────────────────────────────
-  const fetchOrders = useCallback(async (riderId: string) => {
-    const { data } = await supabase
-      .from('orders')
-      .select(`
-        id, order_number, delivery_address, delivery_phone,
-        delivery_lat, delivery_lon, delivery_formatted_address,
-        delivery_eta_minutes, delivery_distance_km, delivery_status,
-        total, notes, created_at, items,
-        rider_assignments!inner(id, accepted_at, picked_up_at, delivered_at)
-      `)
-      .eq('rider_id', riderId)
-      .eq('delivery_type', 'delivery')
-      .not('delivery_status', 'in', '(delivered,cancelled)')
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      const mapped = data.map((o: any) => ({
-        ...o,
-        assignment: o.rider_assignments?.[0] || null,
-      }));
-      setOrders(mapped);
-    }
-  }, []);
-
-  // ─── Realtime: escuchar cambios en orders del rider ─────────────────────────
-  useEffect(() => {
-    if (!rider) return;
-    fetchOrders(rider.id);
-
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    const channel = supabase
-      .channel(`rider-orders-${rider.id}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'orders',
-        filter: `rider_id=eq.${rider.id}`,
-      }, () => fetchOrders(rider.id))
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'rider_assignments',
-        filter: `rider_id=eq.${rider.id}`,
-      }, () => fetchOrders(rider.id))
-      .subscribe((status) => {
-        // P1: Manejar CHANNEL_ERROR y TIMED_OUT con reconexion automática
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[RiderApp] Canal realtime caido, reconectando en 5s...');
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          reconnectTimer = setTimeout(() => {
-            supabase.removeChannel(channel);
-            fetchOrders(rider.id); // refetch manual como fallback
-          }, 5000);
-        }
-      });
-    return () => {
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      supabase.removeChannel(channel);
-    };;
-  }, [rider, fetchOrders]);
+  // F8: fetch y realtime de pedidos manejados por useRiderActiveOrders
 
   // ─── Tracking GPS automático ─────────────────────────────────────────────────
   useEffect(() => {
@@ -357,7 +309,7 @@ export default function RiderApp() {
     }
 
     toast.success(DELIVERY_STATUS_LABELS[newStatus]?.label + ' ✅');
-    if (rider) fetchOrders(rider.id);
+    if (rider) refetchOrders();
   };
 
   const getNextAction = (status: string | null): { label: string; nextStatus: string; color: string } | null => {
@@ -498,7 +450,7 @@ export default function RiderApp() {
             </button>
           )}
           <button
-            onClick={() => rider && fetchOrders(rider.id)}
+            onClick={() => rider && refetchOrders()}
             className="p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
           >
             <RefreshCw size={16} />

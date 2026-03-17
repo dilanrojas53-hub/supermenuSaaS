@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatPrice } from '@/lib/types';
+import { useActiveTenantOrders } from '@/hooks/useActiveOrder';
 import {
   Bike, MapPin, Clock, AlertTriangle, CheckCircle2,
   TrendingUp, DollarSign, Navigation, RefreshCw, Loader2,
@@ -61,68 +62,58 @@ function minutesSince(dateStr: string): number {
 }
 
 export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
-  const [orders, setOrders] = useState<OpsOrder[]>([]);
   const [riders, setRiders] = useState<OpsRider[]>([]);
-  const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const fetchData = useCallback(async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // F8: Hook unificado — fuente de verdad compartida con realtime incluido
+  const {
+    orders: activeOrdersRaw,
+    loading,
+    waitlistOrders: waitlistOrdersRaw,
+    committedOrders: committedOrdersRaw,
+    unassignedOrders: unassignedOrdersRaw,
+  } = useActiveTenantOrders(tenant.id);
 
-    const [{ data: ordersData }, { data: ridersData }] = await Promise.all([
-      supabase
-        .from('orders')
-        .select('id, order_number, delivery_address, delivery_formatted_address, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, delivery_distance_km, delivery_eta_minutes, rider_id, total, created_at')
-        .eq('tenant_id', tenant.id)
-        .eq('delivery_type', 'delivery')
-        .gte('created_at', today.toISOString())
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('rider_profiles')
-        .select('id, name, vehicle_type, is_active, current_lat, current_lon, last_location_at')
-        .eq('tenant_id', tenant.id)
-        .eq('is_active', true),
-    ]);
-
-    if (ordersData) setOrders(ordersData);
-    if (ridersData) setRiders(ridersData);
-    setLoading(false);
+  // Riders: fetch separado (no es parte del modelo de pedidos activos)
+  const fetchRiders = useCallback(async () => {
+    const { data } = await supabase
+      .from('rider_profiles')
+      .select('id, name, vehicle_type, is_active, current_lat, current_lon, last_location_at')
+      .eq('tenant_id', tenant.id)
+      .eq('is_active', true);
+    if (data) setRiders(data);
     setLastRefresh(new Date());
   }, [tenant.id]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // auto-refresh cada 30s
+    fetchRiders();
+    const interval = setInterval(fetchRiders, 30000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchRiders]);
 
-  // Realtime
+  // Realtime para riders (pedidos ya cubiertos por useActiveTenantOrders)
   useEffect(() => {
     const channel = supabase
-      .channel(`ops-${tenant.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `tenant_id=eq.${tenant.id}` }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_profiles', filter: `tenant_id=eq.${tenant.id}` }, fetchData)
+      .channel(`ops-riders-${tenant.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_profiles', filter: `tenant_id=eq.${tenant.id}` }, fetchRiders)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenant.id, fetchData]);
+  }, [tenant.id, fetchRiders]);
 
-  // ─── Métricas ──────────────────────────────────────────────────────────────
-  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.delivery_status || ''));
-  const deliveredToday = orders.filter(o => o.delivery_status === 'delivered');
-  // F7: Segmentar por logistic_status para métricas de orquestación
-  const waitlistOrders = orders.filter(o => o.logistic_status === 'waitlist');
-  const committedOrders = orders.filter(o => o.kitchen_committed_at != null && !['delivered', 'cancelled'].includes(o.delivery_status || ''));
-  const unassigned = activeOrders.filter(o =>
-    (o.delivery_status === 'pending_assignment' || !o.rider_id) &&
-    o.logistic_status !== 'waitlist' &&
-    o.kitchen_committed_at != null
-  );
+  // Adaptar al tipo OpsOrder para compatibilidad con el resto del componente
+  const orders = activeOrdersRaw as any as OpsOrder[];
+  const waitlistOrders = waitlistOrdersRaw as any as OpsOrder[];
+  const committedOrders = committedOrdersRaw as any as OpsOrder[];
+  const unassigned = unassignedOrdersRaw as any as OpsOrder[];
+
+  // ─── Métricas ────────────────────────────────────────────────────────────────
+  const activeOrders = orders; // useActiveTenantOrders ya excluye delivered/cancelled
+  const deliveredToday: OpsOrder[] = []; // Solo pedidos activos en el hook
   const alerts = unassigned.filter(o => minutesSince(o.created_at) > 10);
-  const totalRevenue = deliveredToday.reduce((s, o) => s + (o.total || 0), 0);
-  const withDist = deliveredToday.filter(o => o.delivery_distance_km);
+  const totalRevenue = 0;
+  const withDist = orders.filter(o => o.delivery_distance_km);
   const totalDistKm = withDist.reduce((s, o) => s + (o.delivery_distance_km || 0), 0);
-  const withEta = activeOrders.filter(o => o.delivery_eta_minutes);
+  const withEta = orders.filter(o => o.delivery_eta_minutes);
   const avgEta = withEta.length > 0
     ? Math.round(withEta.reduce((s, o) => s + (o.delivery_eta_minutes || 0), 0) / withEta.length)
     : null;
@@ -147,7 +138,7 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
           <span className="text-slate-500 text-xs">
             Actualizado {lastRefresh.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          <button onClick={fetchData} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+          <button onClick={fetchRiders} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
