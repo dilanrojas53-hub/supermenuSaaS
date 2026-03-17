@@ -16,6 +16,7 @@ import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyTheme, getStoredTheme } from '@/lib/themes';
 import { toast } from 'sonner';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const TABLE_QUICK_REQUESTS = [
   { type: 'water_ice', label: 'Agua / Hielo', emoji: '💧' },
@@ -239,7 +240,22 @@ export default function OrderStatusPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el tracking
+  // F6-B: Push Notifications para el cliente (solo pedidos delivery)
+  const { subscribe: subscribePush } = usePushNotifications({
+    tenantId: order?.tenant_id || '',
+    subscriberType: 'client',
+    subscriberId: params.orderId || '',
+    orderId: params.orderId,
+    autoSubscribe: false,
+  });
+  // Suscribir al cliente cuando se carga el pedido delivery
+  useEffect(() => {
+    if (order && order.delivery_type === 'delivery' && order.tenant_id) {
+      setTimeout(() => subscribePush(), 1500);
+    }
+  }, [order?.id, order?.delivery_type, order?.tenant_id]);
+
+  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el trackingg
   useEffect(() => {
     applyTheme(getStoredTheme());
   }, []);

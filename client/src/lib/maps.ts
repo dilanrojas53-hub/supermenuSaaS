@@ -6,9 +6,11 @@
  * No depende de proxies externos.
  */
 
-const GMAPS_API_KEY: string =
-  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
-  'AIzaSyCH8uwXit1G0LqobY-BOPKEwnaHV-qXkss';
+// P0 Security: API key solo via variable de entorno, nunca hardcoded en el bundle
+const GMAPS_API_KEY: string = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+if (!GMAPS_API_KEY && import.meta.env.DEV) {
+  console.warn('[maps.ts] VITE_GOOGLE_MAPS_API_KEY no configurada. Agrégala en Vercel > Settings > Environment Variables.');
+}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 

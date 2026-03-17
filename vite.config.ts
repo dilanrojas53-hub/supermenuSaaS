@@ -153,29 +153,50 @@ function vitePluginManusDebugCollector(): Plugin {
 
 const pwaPlugin = VitePWA({
   registerType: 'autoUpdate',
-  includeAssets: ['icon-192.png', 'icon-512.png'],
+  includeAssets: ['icon-192.png', 'icon-512.png', 'sw-push.js'],
   manifest: {
-    name: 'Digital Atlas Menu',
-    short_name: 'Atlas Menu',
+    name: 'Digital Atlas SmartMenu',
+    short_name: 'SmartMenu',
     description: 'Sistema de gestión de pedidos para restaurantes',
     start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',
-    theme_color: '#0a0a0a',
+    theme_color: '#F97316',
     orientation: 'portrait',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ],
+    shortcuts: [
+      {
+        name: 'Panel Rider',
+        short_name: 'Rider',
+        description: 'Acceso rápido al panel de repartidor',
+        url: '/rider',
+        icons: [{ src: '/icon-192.png', sizes: '192x192' }],
+      },
+    ],
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     navigateFallback: null,
+    globIgnores: ['sw-push.js'], // sw-push.js se registra manualmente, no via workbox
     runtimeCaching: [
+      {
+        // Edge Functions: siempre network (no cachear respuestas de push/login)
+        urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/.*/i,
+        handler: 'NetworkOnly',
+      },
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',
         options: { cacheName: 'supabase-cache', expiration: { maxEntries: 50, maxAgeSeconds: 300 } },
+      },
+      {
+        // Google Maps tiles y scripts: cache agresivo
+        urlPattern: /^https:\/\/maps\.googleapis\.com\/.*/i,
+        handler: 'CacheFirst',
+        options: { cacheName: 'gmaps-cache', expiration: { maxEntries: 50, maxAgeSeconds: 3600 } },
       },
     ],
   },

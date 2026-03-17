@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'wouter';
 import { supabase } from '@/lib/supabase';
-import * as bcrypt from 'bcryptjs';
+// bcryptjs removido — login ahora es server-side via Edge Function rider-login
 import { buildDirectionsLink, buildMapsLink } from '@/lib/maps';
 import { formatPrice } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,14 +24,20 @@ import {
   ExternalLink, RefreshCw, User
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface RiderProfile {
   id: string;
   name: string;
-  phone: string | null;
+  phone?: string | null;
   vehicle_type: string;
   is_active: boolean;
+  tenant_id?: string;
+  pin_hash?: string;
+  current_lat?: number | null;
+  current_lon?: number | null;
+  last_location_at?: string | null;
 }
 
 interface DeliveryOrder {
@@ -80,15 +86,68 @@ export default function RiderApp() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // F6-A: PWA install prompt
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // ─── Cargar tenant ──────────────────────────────────────────────────────────
+  // Capturar el evento beforeinstallprompt para mostrar botón de instalación
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    const onlineHandler = () => setIsOnline(true);
+    const offlineHandler = () => setIsOnline(false);
+    window.addEventListener('online', onlineHandler);
+    window.addEventListener('offline', offlineHandler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('online', onlineHandler);
+      window.removeEventListener('offline', offlineHandler);
+    };
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!installPrompt) return;
+    (installPrompt as any).prompt();
+    const { outcome } = await (installPrompt as any).userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+      toast.success('App instalada en tu pantalla de inicio 🚀');
+    }
+  };
+
+  // F6-B: Push Notifications para el rider
+  const { subscribe: subscribePush, sendPush } = usePushNotifications({
+    tenantId: tenantId || '',
+    subscriberType: 'rider',
+    subscriberId: rider?.id || '',
+    riderId: rider?.id,
+    autoSubscribe: false, // Se activa manualmente tras login exitoso
+  });
+
+  // ─── Cargar tenant + restaurar sesión desde localStorage ──────────────────────
   useEffect(() => {
     supabase.from('tenants').select('id, name').eq('slug', slug).single()
       .then(({ data }) => {
-        if (data) { setTenantId(data.id); setTenantName(data.name); }
+        if (data) {
+          setTenantId(data.id);
+          setTenantName(data.name);
+          // Restaurar sesión del rider si existe (PWA persistencia)
+          const saved = localStorage.getItem(`rider_session_${slug}`);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              // Sesión válida por 12 horas
+              if (parsed.loginAt && Date.now() - parsed.loginAt < 12 * 60 * 60 * 1000) {
+                setRider(parsed);
+              } else {
+                localStorage.removeItem(`rider_session_${slug}`);
+              }
+            } catch { localStorage.removeItem(`rider_session_${slug}`); }
+          }
+        }
         setLoading(false);
       });
-  }, [slug]);
+  }, [slug]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Cargar pedidos del rider ───────────────────────────────────────────────
   const fetchOrders = useCallback(async (riderId: string) => {
@@ -120,6 +179,7 @@ export default function RiderApp() {
     if (!rider) return;
     fetchOrders(rider.id);
 
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`rider-orders-${rider.id}`)
       .on('postgres_changes', {
@@ -130,9 +190,21 @@ export default function RiderApp() {
         event: '*', schema: 'public', table: 'rider_assignments',
         filter: `rider_id=eq.${rider.id}`,
       }, () => fetchOrders(rider.id))
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status) => {
+        // P1: Manejar CHANNEL_ERROR y TIMED_OUT con reconexion automática
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[RiderApp] Canal realtime caido, reconectando en 5s...');
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            supabase.removeChannel(channel);
+            fetchOrders(rider.id); // refetch manual como fallback
+          }, 5000);
+        }
+      });
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      supabase.removeChannel(channel);
+    };;
   }, [rider, fetchOrders]);
 
   // ─── Tracking GPS automático ─────────────────────────────────────────────────
@@ -184,41 +256,57 @@ export default function RiderApp() {
     return () => { if (locationIntervalRef.current) clearInterval(locationIntervalRef.current); };
   }, [rider, activeOrderId, orders]);
 
-  // ─── Login con PIN ──────────────────────────────────────────────────────────
+  // ─── Login con PIN (server-side via Edge Function — pin_hash nunca llega al cliente) ──────
   const handlePinLogin = async () => {
-    if (!tenantId || pinInput.length < 4) return;
+    if (!slug || pinInput.length < 4) return;
     setLoginLoading(true);
     setPinError('');
-
-    // Buscar riders activos del tenant
-    const { data: riders } = await supabase
-      .from('rider_profiles')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('is_active', true);
-
-    if (!riders?.length) {
-      setPinError('No hay repartidores registrados para este restaurante');
-      setLoginLoading(false);
-      return;
-    }
-
-    // Verificar PIN con bcrypt (Fase 3) — soporte para hashes nuevos y legacy texto plano
-    const match = riders.find(r => {
-      if (r.pin_hash.startsWith('$2')) {
-        return bcrypt.compareSync(pinInput, r.pin_hash);
+    try {
+      const res = await fetch(
+        'https://zddytyncmnivfbvehrth.supabase.co/functions/v1/rider-login',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, pin: pinInput }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.locked) {
+          setPinError('Demasiados intentos. Espera 15 minutos.');
+        } else if (typeof data.attemptsRemaining === 'number' && data.attemptsRemaining > 0) {
+          setPinError(`PIN incorrecto. ${data.attemptsRemaining} intento${data.attemptsRemaining !== 1 ? 's' : ''} restante${data.attemptsRemaining !== 1 ? 's' : ''}.`);
+        } else if (data.attemptsRemaining === 0) {
+          setPinError('Cuenta bloqueada temporalmente. Espera 15 minutos.');
+        } else {
+          setPinError(data.error || 'PIN incorrecto');
+        }
+        return;
       }
-      return r.pin_hash === pinInput; // legacy
-    });
-    if (!match) {
-      setPinError('PIN incorrecto');
+      // Login exitoso — guardar rider en estado (sin pin_hash)
+      const riderData: RiderProfile = {
+        id: data.rider.id,
+        name: data.rider.name,
+        vehicle_type: data.rider.vehicle_type || 'moto',
+        is_active: true,
+        tenant_id: data.rider.tenant_id,
+        pin_hash: '',
+        current_lat: null,
+        current_lon: null,
+        last_location_at: null,
+      };
+      setRider(riderData);
+      // Persistir sesión en localStorage (sin pin_hash)
+      localStorage.setItem(`rider_session_${slug}`, JSON.stringify({ ...riderData, loginAt: Date.now() }));
+      toast.success(`¡Bienvenido, ${data.rider.name}! 🛯`);
+      // F6-B: Suscribir al rider a push notifications tras login exitoso
+      setTimeout(() => subscribePush(), 1000);
+    } catch (err) {
+      setPinError('Error de conexión. Verifica tu internet.');
+      console.error('[RiderLogin]', err);
+    } finally {
       setLoginLoading(false);
-      return;
     }
-
-    setRider(match);
-    setLoginLoading(false);
-    toast.success(`¡Bienvenido, ${match.name}! 🛵`);
   };
 
   // ─── Cambiar estado del pedido ───────────────────────────────────────────────
@@ -227,7 +315,14 @@ export default function RiderApp() {
     const assignmentUpdate: Record<string, string> = {};
     if (newStatus === 'accepted') assignmentUpdate.accepted_at = now;
     if (newStatus === 'picked_up') { assignmentUpdate.picked_up_at = now; setActiveOrderId(order.id); }
-    if (newStatus === 'delivered') { assignmentUpdate.delivered_at = now; setActiveOrderId(null); }
+    if (newStatus === 'delivered') {
+      assignmentUpdate.delivered_at = now;
+      setActiveOrderId(null); // P1: Guard GPS — detiene el tracking al entregar
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    }
 
     // Actualizar delivery_status en orders
     await supabase.from('orders').update({ delivery_status: newStatus }).eq('id', order.id);
@@ -235,6 +330,21 @@ export default function RiderApp() {
     // Actualizar rider_assignments
     if (order.assignment && Object.keys(assignmentUpdate).length > 0) {
       await supabase.from('rider_assignments').update(assignmentUpdate).eq('id', order.assignment.id);
+    }
+
+    // F6-B: Push notification al cliente sobre el cambio de estado
+    const pushEventMap: Record<string, string> = {
+      accepted: 'order_confirmed',
+      picked_up: 'rider_on_the_way',
+      delivered: 'order_delivered',
+    };
+    const pushEvent = pushEventMap[newStatus];
+    if (tenantId && pushEvent) {
+      sendPush(pushEvent, 'client', order.id, {
+        orderNumber: String(order.order_number),
+        riderName: rider?.name || '',
+        eta: String(order.delivery_eta_minutes || ''),
+      });
     }
 
     toast.success(DELIVERY_STATUS_LABELS[newStatus]?.label + ' ✅');
@@ -365,6 +475,19 @@ export default function RiderApp() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* P1: Indicador de conexión */}
+          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}
+            title={isOnline ? 'Conectado' : 'Sin conexión'} />
+          {/* F6-A: Botón de instalación PWA */}
+          {installPrompt && (
+            <button
+              onClick={handleInstallPWA}
+              className="px-2 py-1 rounded-lg text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
+              title="Instalar app en pantalla de inicio"
+            >
+              Instalar
+            </button>
+          )}
           <button
             onClick={() => rider && fetchOrders(rider.id)}
             className="p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
@@ -372,7 +495,12 @@ export default function RiderApp() {
             <RefreshCw size={16} />
           </button>
           <button
-            onClick={() => { setRider(null); setPinInput(''); setActiveOrderId(null); }}
+            onClick={() => {
+              setRider(null);
+              setPinInput('');
+              setActiveOrderId(null);
+              if (slug) localStorage.removeItem(`rider_session_${slug}`);
+            }}
             className="p-2 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
           >
             <LogOut size={16} />

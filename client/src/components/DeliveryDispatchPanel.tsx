@@ -17,6 +17,7 @@ import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { formatPrice } from '@/lib/types';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import * as bcrypt from 'bcryptjs';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import {
   Bike, MapPin, Phone, Plus, User, CheckCircle2, Clock,
   Navigation, AlertCircle, ExternalLink, Trash2, Eye,
@@ -80,6 +81,14 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
   const [savingRider, setSavingRider] = useState(false);
   const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number } | null>(null);
+
+  // F6-B: Push Notifications — admin usa sendPush para notificar riders y clientes
+  const { sendPush } = usePushNotifications({
+    tenantId: tenant.id,
+    subscriberType: 'admin',
+    subscriberId: tenant.id,
+    autoSubscribe: false,
+  });
 
   // ─── Fetch data ─────────────────────────────────────────────────────────────
   const fetchRiders = useCallback(async () => {
@@ -149,6 +158,16 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
           `\n🔗 Entra a la app: ${riderAppUrl}`;
         const waUrl = buildWhatsAppUrl(rider.phone, msg);
         if (waUrl) window.open(waUrl, '_blank');
+      }
+      // F6-B: Push notification al rider
+      const riderForPush = riders.find(r => r.id === riderId);
+      const orderForPush = orders.find(o => o.id === orderId);
+      if (riderForPush && orderForPush) {
+        sendPush('rider_assigned', 'rider', riderId, {
+          orderNumber: String(orderForPush.order_number),
+          address: orderForPush.delivery_formatted_address || orderForPush.delivery_address,
+          distance: orderForPush.delivery_distance_km ? `${orderForPush.delivery_distance_km.toFixed(1)} km` : '',
+        });
       }
       toast.success('Rider asignado ✅');
       await fetchOrders();
