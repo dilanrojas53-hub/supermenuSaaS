@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useActiveOrder } from '@/hooks/useActiveOrder';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check, ShieldCheck } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import { buildMapsLink } from '@/lib/maps';
 import { supabase } from '@/lib/supabase';
@@ -406,6 +406,10 @@ export default function OrderStatusPage() {
   const isCompleted = order?.status === 'entregado';
   const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
   const isDelivery = (order as any)?.delivery_type === 'delivery';
+  // SINPE payment verification state
+  const isSinpe = order?.payment_method === 'sinpe';
+  const isPaymentVerified = (order as any)?.payment_verified === true;
+  const isPaymentPending = isSinpe && !isPaymentVerified && order?.status === 'pendiente';
   const isTakeout = (order as any)?.delivery_type === 'takeout';
   const scheduledDate = (order as any)?.scheduled_date;
   const scheduledTime = (order as any)?.scheduled_time;
@@ -483,6 +487,7 @@ export default function OrderStatusPage() {
   const [sinpeUploading, setSinpeUploading] = useState(false);
   const [sinpeUploaded, setSinpeUploaded] = useState(false);
   const sinpeInputRef = useRef<HTMLInputElement>(null);
+  const sinpeCameraInputRef = useRef<HTMLInputElement>(null);
 
   // Detectar si ya tenía comprobante subido al cargar
   useEffect(() => {
@@ -672,6 +677,44 @@ export default function OrderStatusPage() {
             <div className="relative">
               {/* Vertical line */}
               <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-slate-800" />
+
+              {/* ── Paso especial: Verificación de pago SINPE ── */}
+              {isSinpe && (
+                <div className="relative flex items-start gap-4 mb-6">
+                  <motion.div
+                    animate={isPaymentPending ? { scale: [1, 1.15, 1] } : {}}
+                    transition={isPaymentPending ? { duration: 1.5, repeat: Infinity } : {}}
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all"
+                    style={{
+                      backgroundColor: isPaymentVerified ? '#10B98120' : isPaymentPending ? '#8B5CF620' : '#1e293b',
+                      color: isPaymentVerified ? '#10B981' : isPaymentPending ? '#A78BFA' : '#475569',
+                    }}
+                  >
+                    {isPaymentVerified
+                      ? <CheckCircle2 size={20} className="text-emerald-500" />
+                      : <ShieldCheck size={20} className={isPaymentPending ? 'animate-pulse' : ''} />
+                    }
+                  </motion.div>
+                  <div className="pt-2">
+                    <p className={`text-sm font-bold ${
+                      isPaymentVerified ? 'text-emerald-400' :
+                      isPaymentPending ? 'text-purple-300' : 'text-slate-600'
+                    }`}>
+                      {isPaymentVerified ? 'Pago SINPE confirmado ✅' : 'Verificando pago SINPE...'}
+                    </p>
+                    {isPaymentPending && (
+                      <p className="text-xs text-purple-400/70 mt-0.5 animate-pulse">
+                        ⏳ El restaurante está revisando tu comprobante
+                      </p>
+                    )}
+                    {isPaymentVerified && (
+                      <p className="text-xs text-emerald-400/60 mt-0.5">
+                        Tu pago fue verificado por el restaurante
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {STATUS_STEPS.map((step, idx) => {
                 const isActive = idx === currentStepIdx;
@@ -935,16 +978,36 @@ export default function OrderStatusPage() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => sinpeInputRef.current?.click()}
-                className="w-full py-6 rounded-xl border-2 border-dashed border-purple-500/40 flex flex-col items-center gap-2 text-purple-300 hover:bg-purple-500/10 transition-all"
-              >
-                <Camera size={24} />
-                <span className="text-sm font-medium">Tomar foto o subir comprobante</span>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Botón cámara */}
+                <button
+                  onClick={() => sinpeCameraInputRef.current?.click()}
+                  className="py-5 rounded-xl border-2 border-dashed border-purple-500/40 flex flex-col items-center gap-2 text-purple-300 hover:bg-purple-500/10 transition-all"
+                >
+                  <Camera size={22} />
+                  <span className="text-xs font-semibold">Tomar foto</span>
+                </button>
+                {/* Botón galería */}
+                <button
+                  onClick={() => sinpeInputRef.current?.click()}
+                  className="py-5 rounded-xl border-2 border-dashed border-purple-500/40 flex flex-col items-center gap-2 text-purple-300 hover:bg-purple-500/10 transition-all"
+                >
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-xs font-semibold">Desde galería</span>
+                </button>
+              </div>
             )}
+            {/* Input galería (sin capture) */}
             <input
               ref={sinpeInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleSinpeFileSelect}
+              className="hidden"
+            />
+            {/* Input cámara (con capture) */}
+            <input
+              ref={sinpeCameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"

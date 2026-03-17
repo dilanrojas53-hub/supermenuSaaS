@@ -123,6 +123,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [orderId, setOrderId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
+  const receiptCameraInputRef = useRef<HTMLInputElement>(null);
 
   // ─── DELIVERY / LOGISTICA ───
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('dine_in');
@@ -619,6 +620,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           delivery_distance_km: deliveryType === 'delivery' ? (deliveryCheckoutData?.distanceKm ?? null) : null,
           delivery_eta_minutes: deliveryType === 'delivery' ? (deliveryCheckoutData?.etaMinutes ?? null) : null,
           delivery_destination_id: deliveryType === 'delivery' ? (deliveryCheckoutData?.destinationId ?? null) : null,
+          // SINPE: pago no verificado hasta que el admin revise el comprobante
+          payment_verified: method !== 'sinpe',
         })
         .select('id, order_number')
         .single();
@@ -1402,6 +1405,21 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     })}
                   </div>
 
+                  {/* Nota informativa SINPE: el pedido queda en espera hasta verificación */}
+                  {paymentMethod === 'sinpe' && (
+                    <div
+                      className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs"
+                      style={{ backgroundColor: '#8B5CF615', border: '1px solid #8B5CF640', color: theme.text_color }}
+                    >
+                      <span className="text-base flex-shrink-0">⏳</span>
+                      <span style={{ opacity: 0.85 }}>
+                        {lang === 'es'
+                          ? 'Tu pedido quedará en espera hasta que el restaurante verifique tu pago SINPE. Podrás subir el comprobante desde el estado del pedido.'
+                          : 'Your order will be on hold until the restaurant verifies your SINPE payment. You can upload the receipt from the order status page.'}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Error message */}
                   {errorMsg && (
                     <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
@@ -1512,19 +1530,41 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => receiptInputRef.current?.click()}
-                        className="w-full py-6 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
-                        style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
-                      >
-                        <Camera size={24} />
-                        <span className="text-sm font-medium">{t('payment.take_photo')}</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Botón cámara */}
+                        <button
+                          onClick={() => receiptCameraInputRef.current?.click()}
+                          className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
+                          style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
+                        >
+                          <Camera size={22} />
+                          <span className="text-xs font-semibold">{lang === 'es' ? 'Tomar foto' : 'Take photo'}</span>
+                        </button>
+                        {/* Botón galería */}
+                        <button
+                          onClick={() => receiptInputRef.current?.click()}
+                          className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
+                          style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
+                        >
+                          <span className="text-2xl">🖼️</span>
+                          <span className="text-xs font-semibold">{lang === 'es' ? 'Desde galería' : 'From gallery'}</span>
+                        </button>
+                      </div>
                     )}
+                    {/* Input galería (sin capture) */}
                     <input
                       ref={receiptInputRef}
                       type="file"
                       accept="image/*"
+                      onChange={handleReceiptSelect}
+                      className="hidden"
+                    />
+                    {/* Input cámara (con capture) */}
+                    <input
+                      ref={receiptCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
                       onChange={handleReceiptSelect}
                       className="hidden"
                     />

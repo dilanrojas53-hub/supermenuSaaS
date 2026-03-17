@@ -126,7 +126,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items')
+      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items, payment_verified, payment_method, status')
       .eq('tenant_id', tenant.id)
       .eq('delivery_type', 'delivery')
       .or('delivery_status.is.null,delivery_status.not.in.(delivered,cancelled)')
@@ -266,11 +266,13 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   // Soft-reserve: disponibilidad confirmada, pendiente de commit manual
   const softReserveOrders = orders.filter(o => o.logistic_status === 'soft_reserve');
   // Comprometidos con cocina pero sin rider asignado
+  // REGLA: pedidos SINPE solo aparecen si payment_verified=true (pago validado por admin)
   const committedUnassigned = orders.filter(o =>
     o.kitchen_committed_at != null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment') &&
     o.logistic_status !== 'waitlist' &&
-    o.logistic_status !== 'soft_reserve'
+    o.logistic_status !== 'soft_reserve' &&
+    ((o as any).payment_method !== 'sinpe' || (o as any).payment_verified === true)
   );
   // Fallback: pedidos sin logistic_status (legacy) sin asignar
   const legacyUnassigned = orders.filter(o =>

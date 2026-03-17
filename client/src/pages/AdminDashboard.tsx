@@ -1748,9 +1748,40 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     fetchOrders();
   };
 
+  // ── Validar pago SINPE delivery y enviar a cocina en un solo paso ──
+  const handleValidateSinpeDelivery = async (orderId: string) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        payment_verified: true,
+        payment_status: 'paid',
+        status: 'en_cocina',
+        accepted_at: now,
+        updated_at: now,
+        has_new_items: false,
+      })
+      .eq('id', orderId);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('✅ Pago SINPE validado — pedido enviado a cocina');
+    stopAlarm();
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      const customerPhone = (order as any).delivery_phone || order.customer_phone;
+      if (customerPhone) {
+        const name = order.customer_name || 'Cliente';
+        const shortId = String(order.order_number);
+        const waMsg = `¡Hola ${name}! Tu pago SINPE fue verificado ✅.\nTu pedido #${shortId} ya está siendo preparado en cocina. 🍳`;
+        const waUrl = buildWhatsAppUrl(customerPhone, waMsg);
+        if (waUrl) setTimeout(() => window.open(waUrl, '_blank'), 500);
+      }
+    }
+    fetchOrders();
+  };
+
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
   useEffect(() => {
-    const interval = setInterval(fetchOrders, 12000);
+    const interval = setInterval(fetchOrders, 12000);;
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
@@ -2068,6 +2099,15 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             🧻 Ver Comprobante
           </button>
         )}
+        {/* ── Botón Validar Pago SINPE (para CUALQUIER tipo de pedido con SINPE sin verificar) ── */}
+        {isSinpe && order.status === 'pendiente' && !(order as any).payment_verified && (
+          <button
+            onClick={() => handleValidateSinpeDelivery(order.id)}
+            className="w-full flex items-center justify-center gap-2 py-3 mb-2 rounded-xl text-sm font-black transition-all active:scale-[0.97] touch-manipulation animate-pulse"
+            style={{ backgroundColor: '#10B98125', color: '#10B981', border: '2px solid #10B98150' }}>
+            <CheckCircle2 size={16} /> ✅ Validar Pago SINPE → Cocina
+          </button>
+        )}
 
         {/* ── Waze + Google Maps + WhatsApp for delivery ── */}
         {/* Waze y Google Maps SOLO si la dirección contiene un link GPS */}
@@ -2151,7 +2191,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             </button>
           )}
           <div className="flex gap-2">
-            {actions.map((action: any) => (
+            {actions
+              // SINPE sin verificar: ocultar botón "A Cocina" — el admin debe usar "Validar Pago SINPE"
+              .filter((action: any) => {
+                if (isSinpe && !(order as any).payment_verified && action.nextStatus === 'en_cocina') return false;
+                return true;
+              })
+              .map((action: any) => (
               <button key={action.nextStatus}
                 onClick={() => handleStatusChange(order.id, action.nextStatus)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
