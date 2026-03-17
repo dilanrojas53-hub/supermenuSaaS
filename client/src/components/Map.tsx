@@ -69,14 +69,12 @@
  *
  * -------------------------------
  * ✅ SUMMARY
- * - “map-attached” → AdvancedMarkerElement, DirectionsRenderer, Layers.
- * - “standalone” → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
- * - “data-only” → Place, Geometry utilities.
+ * - "map-attached" → AdvancedMarkerElement, DirectionsRenderer, Layers.
+ * - "standalone" → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
+ * - "data-only" → Place, Geometry utilities.
  */
-
 /// <reference types="@types/google.maps" />
-
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { cn } from "@/lib/utils";
 
@@ -92,25 +90,39 @@ const FORGE_BASE_URL =
   "https://forge.butterfly-effect.dev";
 const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
 
-function loadMapScript() {
-  return new Promise(resolve => {
+// Singleton: guarda la promesa de carga para no cargar el script dos veces
+let _loadPromise: Promise<void> | null = null;
+
+function loadMapScript(): Promise<void> {
+  // Si ya está cargado, resuelve inmediatamente
+  if (window.google?.maps) {
+    return Promise.resolve();
+  }
+  // Si ya hay una carga en progreso, reutiliza la misma promesa
+  if (_loadPromise) {
+    return _loadPromise;
+  }
+  _loadPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
+    script.id = "manus-gmaps-script";
     script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry,drawing`;
     script.async = true;
     script.crossOrigin = "anonymous";
-    script.onload = () => {
-      resolve(null);
-      script.remove(); // Clean up immediately
-    };
+    script.onload = () => resolve();
     script.onerror = () => {
-      console.error("Failed to load Google Maps script");
+      _loadPromise = null; // Permite reintentar en caso de error
+      reject(new Error("Failed to load Google Maps script"));
     };
     document.head.appendChild(script);
+    // NOTA: NO llamar script.remove() — el script debe permanecer en el DOM
+    // para que Google Maps pueda cargar sub-recursos (tiles, etc.)
   });
+  return _loadPromise;
 }
 
 interface MapViewProps {
   className?: string;
+  style?: React.CSSProperties;
   initialCenter?: google.maps.LatLngLiteral;
   initialZoom?: number;
   onMapReady?: (map: google.maps.Map) => void;
@@ -118,6 +130,7 @@ interface MapViewProps {
 
 export function MapView({
   className,
+  style,
   initialCenter = { lat: 37.7749, lng: -122.4194 },
   initialZoom = 12,
   onMapReady,
@@ -126,12 +139,20 @@ export function MapView({
   const map = useRef<google.maps.Map | null>(null);
 
   const init = usePersistFn(async () => {
-    await loadMapScript();
-    if (!mapContainer.current) {
-      console.error("Map container not found");
+    try {
+      await loadMapScript();
+    } catch (err) {
+      console.error("MapView: error cargando Google Maps script", err);
       return;
     }
-    map.current = new window.google.maps.Map(mapContainer.current, {
+    if (!mapContainer.current) {
+      console.error("MapView: contenedor no encontrado");
+      return;
+    }
+    // Evitar doble inicialización si el componente se re-monta
+    if (map.current) return;
+
+    map.current = new window.google!.maps.Map(mapContainer.current, {
       zoom: initialZoom,
       center: initialCenter,
       mapTypeControl: true,
@@ -150,6 +171,6 @@ export function MapView({
   }, [init]);
 
   return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
+    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} style={style} />
   );
 }

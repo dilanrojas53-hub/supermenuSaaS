@@ -225,11 +225,17 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
 
       {/* ─── Mapa via proxy Manus (no requiere VITE_GOOGLE_MAPS_API_KEY) ──── */}
       <div
-        className="w-full rounded-2xl overflow-hidden"
-        style={{ height: '240px', border: '1px solid rgba(255,255,255,0.07)' }}
+        style={{
+          height: '280px',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
       >
         <MapView
-          className="w-full h-full"
+          className="w-full"
+          style={{ height: '280px' }}
           initialCenter={{ lat: 9.9281, lng: -84.0907 }}
           initialZoom={12}
           onMapReady={handleMapReady}
