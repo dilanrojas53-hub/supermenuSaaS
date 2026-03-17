@@ -9,13 +9,17 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
+  Truck,
 } from 'lucide-react';
+import type { PlanTier } from '@/lib/plans';
+import { hasCapability } from '@/lib/plans';
 
 export type TabKey =
   | 'orders' | 'history' | 'staff'
   | 'menu' | 'categories' | 'modifiers'
   | 'analytics' | 'performance' | 'qr' | 'closing'
-  | 'settings' | 'theme';
+  | 'settings' | 'theme'
+  | 'delivery';  // Delivery OS add-on
 
 interface NavItem {
   key: TabKey;
@@ -61,6 +65,12 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'theme',    label: 'Tema',          icon: <Palette size={16} /> },
     ],
   },
+  {
+    label: 'DELIVERY OS',
+    items: [
+      { key: 'delivery', label: 'Delivery', icon: <Truck size={16} /> },
+    ],
+  },
 ];
 
 interface AdminSidebarProps {
@@ -72,7 +82,12 @@ interface AdminSidebarProps {
   isOpen_mobile: boolean;
   onToggleMobile: () => void;
   onLogout: () => void;
+  /** @deprecated Usar planTier + hasDeliveryOs en código nuevo */
   planFeatures: { kds: boolean; analytics: boolean };
+  /** Nuevo: tier del plan para usar hasCapability() */
+  planTier?: PlanTier;
+  /** Nuevo: si el tenant tiene el add-on Delivery OS activo */
+  hasDeliveryOs?: boolean;
 }
 
 export function AdminSidebar({
@@ -84,6 +99,8 @@ export function AdminSidebar({
   onToggleMobile,
   onLogout,
   planFeatures,
+  planTier,
+  hasDeliveryOs,
 }: AdminSidebarProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -96,8 +113,16 @@ export function AdminSidebar({
   };
 
   const isTabVisible = (key: TabKey): boolean => {
-    if (key === 'orders' && !planFeatures.kds) return false;
-    if (key === 'analytics' && !planFeatures.analytics) return false;
+    const tier = planTier ?? 'premium'; // fallback seguro
+    const deliveryOs = hasDeliveryOs ?? false;
+    // Usar nuevo sistema de capabilities si planTier está disponible
+    if (key === 'orders')     return hasCapability(tier, 'orders_panel', deliveryOs);
+    if (key === 'staff')      return hasCapability(tier, 'staff_panel', deliveryOs);
+    if (key === 'modifiers')  return hasCapability(tier, 'modifiers', deliveryOs);
+    if (key === 'analytics')  return hasCapability(tier, 'analytics_basic', deliveryOs);
+    if (key === 'performance')return hasCapability(tier, 'team_performance', deliveryOs);
+    if (key === 'closing')    return hasCapability(tier, 'smart_closing', deliveryOs);
+    if (key === 'delivery')   return hasCapability(tier, 'delivery_dispatch', deliveryOs);
     return true;
   };
 

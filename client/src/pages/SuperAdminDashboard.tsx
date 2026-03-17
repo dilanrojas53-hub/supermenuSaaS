@@ -456,9 +456,9 @@ export default function SuperAdminDashboard() {
                     <label className="block text-xs text-slate-400 mb-1">Plan</label>
                     <select value={form.plan_tier} onChange={e => setForm({ ...form, plan_tier: e.target.value as 'basic' | 'pro' | 'premium' })}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none">
-                      <option value="basic">Basic — Solo WhatsApp</option>
-                      <option value="pro">Pro — KDS + Neuro-Ventas + i18n</option>
-                      <option value="premium">Premium — Todo incluido</option>
+                      <option value="basic">Esencial — Menú digital + pedidos básicos</option>
+                      <option value="pro">Operación — KDS + staff + modificadores + analítica</option>
+                      <option value="premium">Growth — IA + analítica avanzada + corte inteligente</option>
                     </select>
                   </div>
                   <div>
@@ -534,9 +534,9 @@ export default function SuperAdminDashboard() {
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                             tenant.plan_tier === 'premium' ? 'bg-purple-500/20 text-purple-300' :
                             tenant.plan_tier === 'pro' ? 'bg-blue-500/20 text-blue-300' :
-                            'bg-slate-500/20 text-slate-400'
+                            'bg-amber-500/20 text-amber-300'
                           }`}>
-                            {(tenant.plan_tier || 'basic').toUpperCase()}
+                            {tenant.plan_tier === 'premium' ? 'GROWTH' : tenant.plan_tier === 'pro' ? 'OPERACIÓN' : 'ESENCIAL'}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -570,9 +570,9 @@ export default function SuperAdminDashboard() {
                           }}
                           className="px-2 py-1 bg-slate-700 border border-slate-600 rounded-lg text-white text-[10px] focus:ring-2 focus:ring-purple-500/50 focus:outline-none cursor-pointer"
                           title="Cambiar plan">
-                          <option value="basic">Basic</option>
-                          <option value="pro">Pro</option>
-                          <option value="premium">Premium</option>
+                          <option value="basic">Esencial</option>
+                          <option value="pro">Operación</option>
+                          <option value="premium">Growth</option>
                         </select>
                         {/* Subscription date editor */}
                         <input

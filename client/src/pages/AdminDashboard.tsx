@@ -3800,7 +3800,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -3865,7 +3865,10 @@ export default function AdminDashboard() {
     );
   }
 
-  const planFeatures = getPlanFeatures(tenant.plan_tier || 'premium');
+  const planTier = (tenant.plan_tier || 'premium') as import('@/lib/plans').PlanTier;
+  const planFeatures = getPlanFeatures(planTier);
+  // Delivery OS: activo si el plan es premium o si el tenant tiene delivery configurado
+  const hasDeliveryOs = planFeatures.deliveryOs;
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
@@ -3880,6 +3883,8 @@ export default function AdminDashboard() {
         onToggleMobile={() => setMobileSidebarOpen(p => !p)}
         onLogout={() => { logout(); navigate('/'); }}
         planFeatures={planFeatures}
+        planTier={planTier}
+        hasDeliveryOs={hasDeliveryOs}
       />
 
       {/* ── Main content (offset by sidebar width on desktop) ── */}

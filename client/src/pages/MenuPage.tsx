@@ -15,7 +15,8 @@ import { CartProvider } from '@/contexts/CartContext';
 import { I18nProvider, useI18n } from '@/contexts/I18nContext';
 import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
 import { getContrastColor } from '@/lib/utils';
-import type { MenuItem, PlanFeatures } from '@/lib/types';
+import type { MenuItem } from '@/lib/types';
+import type { PlanTier } from '@/lib/plans';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
 import FloatingCart from '@/components/FloatingCart';
@@ -49,9 +50,10 @@ function MenuContent() {
     lang
   );
 
-  // Feature flags based on plan tier
-  const features: PlanFeatures = useMemo(() => {
-    return data ? getPlanFeatures(data.tenant.plan_tier || 'premium') : getPlanFeatures('premium');
+  // Feature flags based on plan tier (usando nuevo sistema de capabilities)
+  const features = useMemo(() => {
+    const tier = (data?.tenant.plan_tier || 'premium') as PlanTier;
+    return getPlanFeatures(tier);
   }, [data]);
 
   // Save tenant slug for OrderStatus navigation
