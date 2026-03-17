@@ -702,6 +702,9 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
 
       {/* Fase 1: Configuración de Delivery */}
       <DeliverySettingsCard tenant={tenant} />
+
+      {/* Herramienta de limpieza de pedidos */}
+      <OrderCleanupCard tenantId={tenant.id} />
     </div>
   );
 }
@@ -1122,6 +1125,191 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
     </div>
   );
 }
+// ─── Order Cleanup Card ─────────────────────────────────────────────────────
+/**
+ * Herramienta para limpiar pedidos fantasma, de prueba o atascados.
+ * Muestra pedidos candidatos y permite eliminarlos o marcarlos como cancelados.
+ */
+function OrderCleanupCard({ tenantId }: { tenantId: string }) {
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchCandidates = async () => {
+    setLoading(true);
+    // Pedidos candidatos: status pendiente/en_cocina/listo con más de 24h de antigüedad,
+    // o delivery_status=delivered pero status != entregado (pedidos atascados)
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: stale } = await supabase
+      .from('orders')
+      .select('id, order_number, status, logistic_status, delivery_status, created_at, customer_name, total')
+      .eq('tenant_id', tenantId)
+      .in('status', ['pendiente', 'en_cocina', 'listo', 'pago_en_revision'])
+      .lt('created_at', cutoff)
+      .order('created_at', { ascending: true })
+      .limit(50);
+    const { data: stuck } = await supabase
+      .from('orders')
+      .select('id, order_number, status, logistic_status, delivery_status, created_at, customer_name, total')
+      .eq('tenant_id', tenantId)
+      .eq('delivery_status', 'delivered')
+      .neq('status', 'entregado')
+      .order('created_at', { ascending: true })
+      .limit(50);
+    const all = [...(stale || []), ...(stuck || [])];
+    // Deduplicar por id
+    const seen = new Set<string>();
+    const deduped = all.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+    setCandidates(deduped);
+    setLoading(false);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelected(new Set(candidates.map(o => o.id)));
+  const clearAll = () => setSelected(new Set());
+
+  const handleMarkCancelled = async () => {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    const ids = Array.from(selected);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+      .in('id', ids);
+    if (error) { toast.error('Error: ' + error.message); setDeleting(false); return; }
+    toast.success(`${ids.length} pedido(s) marcados como cancelados`);
+    setSelected(new Set());
+    fetchCandidates();
+    setDeleting(false);
+  };
+
+  const handleFixStuck = async () => {
+    // Corregir pedidos atascados: delivery_status=delivered pero status!=entregado
+    const stuckOrders = candidates.filter(o => o.delivery_status === 'delivered' && o.status !== 'entregado');
+    if (stuckOrders.length === 0) { toast.info('No hay pedidos atascados para corregir'); return; }
+    setDeleting(true);
+    const ids = stuckOrders.map(o => o.id);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'entregado', logistic_status: 'delivered', updated_at: new Date().toISOString() })
+      .in('id', ids);
+    if (error) { toast.error('Error: ' + error.message); setDeleting(false); return; }
+    toast.success(`✅ ${ids.length} pedido(s) atascado(s) sincronizados a "entregado"`);
+    fetchCandidates();
+    setDeleting(false);
+  };
+
+  return (
+    <div className="mt-6 bg-red-950/20 border border-red-500/20 rounded-2xl p-5">
+      <button
+        onClick={() => { setExpanded(e => !e); if (!expanded) fetchCandidates(); }}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+            <Trash2 size={15} className="text-red-400" />
+          </div>
+          <div className="text-left">
+            <h3 className="text-sm font-black text-white">Limpieza de Pedidos</h3>
+            <p className="text-xs text-slate-400">Eliminar pedidos de prueba, fantasma o atascados</p>
+          </div>
+        </div>
+        {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={fetchCandidates}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              {loading ? 'Buscando...' : 'Buscar candidatos'}
+            </button>
+            {candidates.length > 0 && (
+              <>
+                <button onClick={selectAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Seleccionar todos</button>
+                <button onClick={clearAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Limpiar selección</button>
+              </>
+            )}
+          </div>
+
+          {/* Botón de corrección rápida para pedidos atascados */}
+          {candidates.some(o => o.delivery_status === 'delivered' && o.status !== 'entregado') && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+              <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-bold text-amber-300">Pedidos atascados detectados</p>
+                <p className="text-xs text-slate-400">Tienen delivery_status=delivered pero status≠entregado</p>
+              </div>
+              <button
+                onClick={handleFixStuck}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-500 text-black hover:bg-amber-400 transition-colors disabled:opacity-50"
+              >
+                Corregir ahora
+              </button>
+            </div>
+          )}
+
+          {candidates.length === 0 && !loading && (
+            <p className="text-xs text-slate-500 text-center py-4">No se encontraron pedidos candidatos. ¡Todo limpio! ✅</p>
+          )}
+
+          {candidates.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {candidates.map(o => {
+                const isStuck = o.delivery_status === 'delivered' && o.status !== 'entregado';
+                const age = Math.floor((Date.now() - new Date(o.created_at).getTime()) / 3600000);
+                return (
+                  <label key={o.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors" style={{ background: selected.has(o.id) ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selected.has(o.id) ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)'}` }}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(o.id)}
+                      onChange={() => toggleSelect(o.id)}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-white">#{o.order_number} — {o.customer_name || 'Sin nombre'}</p>
+                      <p className="text-[10px] text-slate-400">
+                        status: <span className="text-amber-300">{o.status}</span>
+                        {o.delivery_status && <> · delivery: <span className={isStuck ? 'text-red-400' : 'text-slate-300'}>{o.delivery_status}</span></>}
+                        {' · '}{age}h atrás
+                      </p>
+                    </div>
+                    {isStuck && <span className="text-[10px] font-black text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">ATASCADO</span>}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {selected.size > 0 && (
+            <button
+              onClick={handleMarkCancelled}
+              disabled={deleting}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={14} /> {deleting ? 'Procesando...' : `Cancelar ${selected.size} pedido(s) seleccionado(s)`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Theme Tab ────
 function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSettings; onRefresh: () => void }) {
   const { uiTheme, setUiTheme } = useUITheme();

@@ -297,8 +297,11 @@ export default function RiderApp() {
       }
     }
 
-    // Actualizar delivery_status en orders
-    await supabase.from('orders').update({ delivery_status: newStatus }).eq('id', order.id);
+    // Actualizar delivery_status en orders + sincronizar status general
+    const orderUpdate: Record<string, string> = { delivery_status: newStatus };
+    if (newStatus === 'delivered') orderUpdate.status = 'entregado';
+    if (newStatus === 'cancelled') orderUpdate.status = 'cancelado';
+    await supabase.from('orders').update(orderUpdate).eq('id', order.id);
 
     // F7: Sincronizar logistic_status con delivery_status (assigned → assigned, picked_up → picked_up, etc.)
     // Si es 'delivered', también promueve el siguiente pedido en waitlist automáticamente
