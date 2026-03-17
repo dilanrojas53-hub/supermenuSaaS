@@ -9,13 +9,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663393611233/JKsT2Funj6aJxKuEayGnpr/android-chrome-192x192_ba4e5735.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663393611233/JKsT2Funj6aJxKuEayGnpr/android-chrome-192x192_78344f11.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663393611233/JKsT2Funj6aJxKuEayGnpr/android-chrome-512x512_9534a2dc.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663393611233/JKsT2Funj6aJxKuEayGnpr/android-chrome-512x512_5454766d.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
