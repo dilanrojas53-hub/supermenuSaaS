@@ -864,6 +864,9 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
     base_eta_minutes: number;
     delivery_fee: number;
     min_order_amount: number;
+    // F9: Políticas de commit
+    commit_buffer_pct: number;
+    max_wait_minutes: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -885,6 +888,8 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             base_eta_minutes: data.base_eta_minutes ?? 30,
             delivery_fee: data.delivery_fee ?? 0,
             min_order_amount: data.min_order_amount ?? 0,
+            commit_buffer_pct: data.commit_buffer_pct ?? 80,
+            max_wait_minutes: data.max_wait_minutes ?? 20,
           });
         } else {
           setSettings({
@@ -895,6 +900,8 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             base_eta_minutes: 30,
             delivery_fee: 0,
             min_order_amount: 0,
+            commit_buffer_pct: 80,
+            max_wait_minutes: 20,
           });
         }
         setLoading(false);
@@ -913,6 +920,9 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
       base_eta_minutes: settings.base_eta_minutes,
       delivery_fee: settings.delivery_fee,
       min_order_amount: settings.min_order_amount,
+      // F9: Políticas de commit
+      commit_buffer_pct: settings.commit_buffer_pct,
+      max_wait_minutes: settings.max_wait_minutes,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase
@@ -1039,6 +1049,57 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
               />
             </div>
           </div>
+
+          {/* F9: Políticas de commit — buffer y auto-promoción */}
+          <div
+            className="mt-4 pt-4 border-t space-y-4"
+            style={{ borderColor: 'rgba(255,255,255,0.07)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Sliders size={13} className="text-purple-400" />
+              <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wide">Políticas de Orquestación (F9)</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  🛡️ Buffer de capacidad (%)
+                </label>
+                <input
+                  type="number" min={50} max={100} step={5}
+                  value={settings.commit_buffer_pct}
+                  onChange={e => setSettings({ ...settings, commit_buffer_pct: parseInt(e.target.value) || 80 })}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  No commitear si la capacidad supera este %. Default: 80%
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  ⏱️ Espera máxima (min)
+                </label>
+                <input
+                  type="number" min={5} max={120} step={5}
+                  value={settings.max_wait_minutes}
+                  onChange={e => setSettings({ ...settings, max_wait_minutes: parseInt(e.target.value) || 20 })}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Pedidos en waitlist se auto-promueven después de este tiempo. Default: 20 min
+                </p>
+              </div>
+            </div>
+            <div
+              className="flex items-start gap-2 px-3 py-2 rounded-lg text-[10px]"
+              style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}
+            >
+              <Zap size={11} className="text-purple-400 shrink-0 mt-0.5" />
+              <span className="text-slate-400 leading-relaxed">
+                <strong className="text-purple-300">Buffer P1:</strong> Si la capacidad está al {settings.commit_buffer_pct}% o más, los nuevos pedidos van a waitlist aunque haya un slot libre. &nbsp;
+                <strong className="text-purple-300">Auto-promoción P4:</strong> Pedidos en espera más de {settings.max_wait_minutes} minutos se promueven automáticamente.
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1052,7 +1113,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
       </button>
 
       {/* ── Zonas de cobertura ── */}
-      {settings.enabled && (
+      {settings.delivery_enabled && (
         <div className="mt-6 pt-6 border-t border-slate-700/50">
           <DeliveryZonesPanel tenant={tenant} />
         </div>

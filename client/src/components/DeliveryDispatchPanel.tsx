@@ -29,6 +29,8 @@ import {
   addToWaitlist,
   promoteFromWaitlist,
   evaluateAvailability,
+  checkAndAutoPromote,
+  getWaitlistWithPriority,
   LOGISTIC_STATUS_LABELS,
   type AvailabilityResult,
 } from '@/lib/DeliveryCommitEngine';
@@ -91,6 +93,12 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const [availability, setAvailability] = useState<AvailabilityResult | null>(null);
   const [committingOrderId, setCommittingOrderId] = useState<string | null>(null);
   const [promotingWaitlist, setPromotingWaitlist] = useState(false);
+  // F9: Cola priorizada de waitlist
+  const [waitlistPriority, setWaitlistPriority] = useState<Array<{
+    id: string; order_number: number; waitMinutes: number;
+    delivery_distance_km: number | null; priorityReason: string;
+  }>>([]);
+  const [autoPromoting, setAutoPromoting] = useState(false);
 
   // Form de nuevo rider
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
@@ -131,8 +139,22 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
     supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon').eq('tenant_id', tenant.id).single()
       .then(({ data }) => { if (data) setDeliverySettings(data as any); });
     Promise.all([fetchRiders(), fetchOrders()]).finally(() => setLoading(false));
-    // Cargar disponibilidad inicial
+    // Cargar disponibilidad inicial + cola priorizada F9
     evaluateAvailability(tenant.id).then(setAvailability);
+    getWaitlistWithPriority(tenant.id).then(setWaitlistPriority);
+
+    // P4: Auto-promoción periódica — verificar cada 5 minutos si hay pedidos que superaron max_wait_minutes
+    const autoPromoteInterval = setInterval(async () => {
+      const result = await checkAndAutoPromote(tenant.id);
+      if (result.promoted > 0) {
+        result.details.forEach(d => {
+          toast.success(`Pedido #${d.orderNumber} promovido automáticamente (${d.waitMinutes}min en espera)`);
+        });
+        evaluateAvailability(tenant.id).then(setAvailability);
+        getWaitlistWithPriority(tenant.id).then(setWaitlistPriority);
+        fetchOrders();
+      }
+    }, 5 * 60 * 1000); // cada 5 minutos
 
     // Realtime
     const channel = supabase
@@ -142,7 +164,10 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_assignments' }, fetchOrders)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(autoPromoteInterval);
+    };
   }, [tenant.id, fetchRiders, fetchOrders]);
 
   // ─── Asignar rider a pedido ──────────────────────────────────────────────────
@@ -278,14 +303,33 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
     try {
       const result = await promoteFromWaitlist(tenant.id);
       if (result.promoted) {
-        toast.success('Pedido promovido de la lista de espera ✅');
+        toast.success(`Pedido #${result.orderNumber} promovido de la lista de espera ✅`);
         await fetchOrders();
         evaluateAvailability(tenant.id).then(setAvailability);
+        getWaitlistWithPriority(tenant.id).then(setWaitlistPriority);
       } else {
         toast.info(result.reason || 'No hay pedidos para promover');
       }
     } finally {
       setPromotingWaitlist(false);
+    }
+  };
+
+  // ─── Auto-promoción manual (P4) ─────────────────────────────────────────────
+  const handleAutoPromote = async () => {
+    setAutoPromoting(true);
+    try {
+      const result = await checkAndAutoPromote(tenant.id);
+      if (result.promoted > 0) {
+        toast.success(`${result.promoted} pedido(s) promovido(s) automáticamente`);
+        await fetchOrders();
+        evaluateAvailability(tenant.id).then(setAvailability);
+        getWaitlistWithPriority(tenant.id).then(setWaitlistPriority);
+      } else {
+        toast.info('Ningún pedido supera el umbral de espera todavía');
+      }
+    } finally {
+      setAutoPromoting(false);
     }
   };
 
@@ -352,7 +396,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
               <p className="text-slate-500 text-[10px]">Riders libres</p>
             </div>
             <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-white font-black text-sm">{availability.totalActiveDeliveries}/{availability.maxConcurrentDeliveries}</p>
+              <p className="text-white font-black text-sm">{availability.totalActiveDeliveries}/{availability.maxConcurrent}</p>
               <p className="text-slate-500 text-[10px]">Entregas activas</p>
             </div>
             <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -360,7 +404,48 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
               <p className="text-slate-500 text-[10px]">Capacidad</p>
             </div>
           </div>
-          <p className="text-slate-500 text-[10px]">{availability.reason}</p>
+          {/* F9: Razón de bloqueo explicable */}
+          <div className="flex items-start gap-1.5">
+            {availability.blockedBy && (
+              <span
+                className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
+                style={{
+                  background: availability.blockedBy === 'buffer' ? 'rgba(59,130,246,0.15)' :
+                              availability.blockedBy === 'no_real_riders' ? 'rgba(239,68,68,0.15)' :
+                              'rgba(245,158,11,0.15)',
+                  color: availability.blockedBy === 'buffer' ? '#60A5FA' :
+                         availability.blockedBy === 'no_real_riders' ? '#F87171' :
+                         '#FCD34D',
+                }}
+              >
+                {availability.blockedBy === 'buffer' ? 'Buffer P1' :
+                 availability.blockedBy === 'no_real_riders' ? 'Riders P3' :
+                 'Capacidad'}
+              </span>
+            )}
+            <p className="text-slate-500 text-[10px] leading-tight">{availability.reason}</p>
+          </div>
+          {/* F9: Indicador de buffer */}
+          {availability.commitBufferPct && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1 rounded-full bg-slate-700 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(availability.capacityUsedPct, 100)}%`,
+                    background: availability.capacityUsedPct >= availability.commitBufferPct
+                      ? '#EF4444'
+                      : availability.capacityUsedPct >= availability.commitBufferPct * 0.7
+                      ? '#F59E0B'
+                      : '#22C55E',
+                  }}
+                />
+              </div>
+              <span className="text-slate-600 text-[9px] shrink-0">
+                {availability.capacityUsedPct}% / límite {availability.commitBufferPct}%
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -408,7 +493,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
         </div>
       )}
 
-      {/* ─── Cola de espera (waitlist) ───────────────────────────────────────── */}
+      {/* ─── Cola de espera (waitlist) con priorización F9 ─────────────────── */}
       {waitlistOrders.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -416,67 +501,117 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
               <ListOrdered size={12} />
               Lista de espera ({waitlistOrders.length})
             </h4>
-            <button
-              onClick={handlePromoteFromWaitlist}
-              disabled={promotingWaitlist || !availability?.canCommit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
-              style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#FCD34D' }}
-              title={!availability?.canCommit ? 'Sin disponibilidad para promover' : 'Promover el siguiente pedido'}
-            >
-              {promotingWaitlist
-                ? <Loader2 size={10} className="animate-spin" />
-                : <ArrowUpCircle size={10} />
-              }
-              Promover siguiente
-            </button>
+            <div className="flex items-center gap-2">
+              {/* P4: Auto-promover pedidos que superaron el umbral */}
+              <button
+                onClick={handleAutoPromote}
+                disabled={autoPromoting}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all active:scale-95 disabled:opacity-40"
+                style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#A78BFA' }}
+                title="Promover pedidos que superaron el tiempo máximo de espera"
+              >
+                {autoPromoting ? <Loader2 size={9} className="animate-spin" /> : <Zap size={9} />}
+                Auto P4
+              </button>
+              <button
+                onClick={handlePromoteFromWaitlist}
+                disabled={promotingWaitlist || !availability?.canCommit}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+                style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#FCD34D' }}
+                title={!availability?.canCommit ? `Bloqueado: ${availability?.reason}` : 'Promover el siguiente pedido por prioridad'}
+              >
+                {promotingWaitlist
+                  ? <Loader2 size={10} className="animate-spin" />
+                  : <ArrowUpCircle size={10} />
+                }
+                Promover siguiente
+              </button>
+            </div>
           </div>
+          {/* Razón de bloqueo cuando no se puede promover */}
+          {!availability?.canCommit && availability?.blockedBy && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg mb-3 text-[10px]"
+              style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}
+            >
+              <AlertCircle size={11} className="text-red-400 shrink-0" />
+              <span className="text-red-300">
+                {availability.blockedBy === 'buffer'
+                  ? `Buffer de seguridad activo — capacidad al ${availability.capacityUsedPct}% (límite: ${availability.commitBufferPct}%)`
+                  : availability.blockedBy === 'no_real_riders'
+                  ? 'Sin riders con ubicación reciente — verifica que los riders estén activos'
+                  : availability.reason}
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
-            {waitlistOrders
-              .sort((a, b) => new Date(a.waitlisted_at || a.created_at).getTime() - new Date(b.waitlisted_at || b.created_at).getTime())
-              .map((order, idx) => (
+            {/* Usar cola priorizada F9 si está disponible, sino fallback a waitlistOrders */}
+            {(waitlistPriority.length > 0 ? waitlistPriority : waitlistOrders).map((item, idx) => {
+              // Normalizar: puede venir del hook priorizado o del array de orders
+              const orderId = item.id;
+              const orderNum = (item as any).order_number ?? (item as any).order_number;
+              const waitMin = (item as any).waitMinutes;
+              const priorityReason = (item as any).priorityReason;
+              const order = orders.find(o => o.id === orderId);
+              const isOverThreshold = waitMin !== undefined && availability?.maxWaitMinutes
+                ? waitMin >= availability.maxWaitMinutes
+                : false;
+
+              return (
                 <div
-                  key={order.id}
+                  key={orderId}
                   className="rounded-xl px-4 py-3 flex items-center justify-between"
-                  style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}
+                  style={{
+                    background: isOverThreshold ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
+                    border: `1px solid ${isOverThreshold ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.15)'}`,
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <span
                       className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
-                      style={{ background: 'rgba(245,158,11,0.2)', color: '#FCD34D' }}
+                      style={{
+                        background: isOverThreshold ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                        color: isOverThreshold ? '#F87171' : '#FCD34D',
+                      }}
                     >
                       {idx + 1}
                     </span>
                     <div>
-                      <p className="text-white font-bold text-sm">#{order.order_number}</p>
-                      <p className="text-slate-400 text-xs leading-tight">
-                        {order.delivery_formatted_address || order.delivery_address}
-                      </p>
-                      <p className="text-slate-500 text-[10px]">
-                        {formatPrice(order.total)}
-                        {order.waitlisted_at && (
-                          <span className="ml-1">
-                            · En espera desde {new Date(order.waitlisted_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-bold text-sm">#{orderNum}</p>
+                        {isOverThreshold && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/15 text-red-400">
+                            Urgente
                           </span>
                         )}
+                      </div>
+                      <p className="text-slate-400 text-xs leading-tight">
+                        {order?.delivery_formatted_address || order?.delivery_address || '—'}
+                      </p>
+                      {/* F9: Razón de prioridad */}
+                      <p className="text-slate-500 text-[10px]">
+                        {priorityReason || (order?.waitlisted_at
+                          ? `En espera desde ${new Date(order.waitlisted_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+                          : '')}
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => handleCommitToKitchen(order.id)}
-                    disabled={committingOrderId === order.id || !availability?.canCommit}
+                    onClick={() => handleCommitToKitchen(orderId)}
+                    disabled={committingOrderId === orderId || !availability?.canCommit}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
                     style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA' }}
                     title={!availability?.canCommit ? 'Sin disponibilidad' : 'Hacer commit a cocina'}
                   >
-                    {committingOrderId === order.id
+                    {committingOrderId === orderId
                       ? <Loader2 size={10} className="animate-spin" />
                       : <Zap size={10} />
                     }
                     Commit
                   </button>
                 </div>
-              ))
-            }
+              );
+            })}
           </div>
         </div>
       )}
