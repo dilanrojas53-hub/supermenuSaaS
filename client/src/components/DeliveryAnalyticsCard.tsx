@@ -1,16 +1,15 @@
 /**
- * DeliveryAnalyticsCard.tsx — Fase 3 Delivery
+ * DeliveryAnalyticsCard.tsx — F10 Delivery Analytics
  * Panel de métricas de delivery para el AnalyticsTab del AdminDashboard.
  *
- * Muestra:
- * - Total de pedidos delivery en el período
- * - Ingreso generado por delivery
- * - Distancia promedio y ETA promedio
- * - Top riders por pedidos entregados
- * - Tasa de entrega exitosa
+ * F10 agrega:
+ * - waitlistCount: pedidos que pasaron por waitlist
+ * - avgWaitlistTime: tiempo promedio en waitlist (min)
+ * - promotedCount: pedidos promovidos de waitlist a kitchen_commit
+ * - avgCycleTime: tiempo promedio creación → dispatch (min)
  */
 import { useMemo } from 'react';
-import { Bike, MapPin, Clock, TrendingUp, CheckCircle2, Package } from 'lucide-react';
+import { Bike, MapPin, Clock, TrendingUp, CheckCircle2, Package, Timer, AlertCircle, Zap } from 'lucide-react';
 import { formatPrice } from '@/lib/types';
 
 interface Order {
@@ -23,6 +22,10 @@ interface Order {
   delivery_distance_km?: number | null;
   delivery_eta_minutes?: number | null;
   rider_id?: string | null;
+  // F10: timestamps de ciclo
+  waitlisted_at?: string | null;
+  kitchen_committed_at?: string | null;
+  dispatched_at?: string | null;
   [key: string]: any;
 }
 
@@ -35,22 +38,27 @@ function filterByPeriod(orders: Order[], filter: string): Order[] {
   const now = new Date();
   return orders.filter(o => {
     const d = new Date(o.created_at);
-    if (filter === 'today') {
-      return d.toDateString() === now.toDateString();
-    }
+    if (filter === 'today') return d.toDateString() === now.toDateString();
     if (filter === 'yesterday') {
       const y = new Date(now); y.setDate(y.getDate() - 1);
       return d.toDateString() === y.toDateString();
     }
-    if (filter === 'week') {
-      const w = new Date(now); w.setDate(w.getDate() - 7);
-      return d >= w;
-    }
-    if (filter === 'month') {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }
+    if (filter === 'week') { const w = new Date(now); w.setDate(w.getDate() - 7); return d >= w; }
+    if (filter === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     return true;
   });
+}
+
+function diffMinutes(from: string | null | undefined, to: string | null | undefined): number | null {
+  if (!from || !to) return null;
+  const diff = (new Date(to).getTime() - new Date(from).getTime()) / 60000;
+  return diff > 0 ? Math.round(diff) : null;
+}
+
+function fmtMin(min: number | null): string {
+  if (min === null) return '—';
+  if (min < 60) return `${min} min`;
+  return `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
 export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardProps) {
@@ -68,7 +76,6 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
     const avgEta = delivered.filter(o => o.delivery_eta_minutes).length > 0
       ? delivered.reduce((s, o) => s + (o.delivery_eta_minutes || 0), 0) / delivered.filter(o => o.delivery_eta_minutes).length
       : null;
-
     const successRate = deliveryOrders.length > 0
       ? Math.round((delivered.length / deliveryOrders.length) * 100)
       : null;
@@ -78,9 +85,37 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
     delivered.forEach(o => {
       if (o.rider_id) riderCounts[o.rider_id] = (riderCounts[o.rider_id] || 0) + 1;
     });
-    const topRiders = Object.entries(riderCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
+    const topRiders = Object.entries(riderCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    // ─── F10: Métricas de waitlist y ciclo ──────────────────────────────────
+    const waitlistOrders = deliveryOrders.filter(o => o.waitlisted_at != null);
+    const waitlistCount = waitlistOrders.length;
+    const promotedFromWaitlist = waitlistOrders.filter(o => o.kitchen_committed_at != null);
+    const promotedCount = promotedFromWaitlist.length;
+
+    const waitlistTimes = promotedFromWaitlist
+      .map(o => diffMinutes(o.waitlisted_at, o.kitchen_committed_at))
+      .filter((v): v is number => v !== null);
+    const avgWaitlistTime = waitlistTimes.length > 0
+      ? Math.round(waitlistTimes.reduce((a, b) => a + b, 0) / waitlistTimes.length)
+      : null;
+
+    // Ciclo total: created_at → dispatched_at (proxy de tiempo operativo completo)
+    const cycleTimes = delivered
+      .map(o => diffMinutes(o.created_at, o.dispatched_at))
+      .filter((v): v is number => v !== null);
+    const avgCycleTime = cycleTimes.length > 0
+      ? Math.round(cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length)
+      : null;
+
+    // Tiempo promedio hasta commit (desde creación)
+    const commitTimes = deliveryOrders
+      .filter(o => o.kitchen_committed_at)
+      .map(o => diffMinutes(o.created_at, o.kitchen_committed_at))
+      .filter((v): v is number => v !== null);
+    const avgCommitTime = commitTimes.length > 0
+      ? Math.round(commitTimes.reduce((a, b) => a + b, 0) / commitTimes.length)
+      : null;
 
     return {
       total: deliveryOrders.length,
@@ -92,6 +127,12 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
       avgEta,
       successRate,
       topRiders,
+      // F10
+      waitlistCount,
+      promotedCount,
+      avgWaitlistTime,
+      avgCycleTime,
+      avgCommitTime,
     };
   }, [orders, filter]);
 
@@ -165,7 +206,7 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
         )}
       </div>
 
-      {/* Barra de estado */}
+      {/* Barra de tasa de entrega */}
       {stats.total > 0 && (
         <div>
           <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
@@ -180,6 +221,60 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
           </div>
         </div>
       )}
+
+      {/* ─── F10: Métricas de orquestación ─────────────────────────────────── */}
+      <div
+        className="rounded-xl p-3 space-y-3"
+        style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}
+      >
+        <p className="text-[10px] text-purple-300 uppercase tracking-wide font-semibold flex items-center gap-1.5">
+          <Zap size={10} /> Orquestación (F7/F9)
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-slate-800/50 p-2.5">
+            <div className="flex items-center gap-1 mb-1">
+              <AlertCircle size={10} className="text-amber-400" />
+              <span className="text-[9px] text-slate-400 uppercase tracking-wide">En waitlist</span>
+            </div>
+            <p className="text-lg font-black text-amber-400 tabular-nums">{stats.waitlistCount}</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">{stats.promotedCount} promovidos</p>
+          </div>
+
+          <div className="rounded-lg bg-slate-800/50 p-2.5">
+            <div className="flex items-center gap-1 mb-1">
+              <Timer size={10} className="text-amber-400" />
+              <span className="text-[9px] text-slate-400 uppercase tracking-wide">T. espera prom.</span>
+            </div>
+            <p className="text-lg font-black text-amber-400 tabular-nums">{fmtMin(stats.avgWaitlistTime)}</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">en waitlist</p>
+          </div>
+
+          <div className="rounded-lg bg-slate-800/50 p-2.5">
+            <div className="flex items-center gap-1 mb-1">
+              <Clock size={10} className="text-cyan-400" />
+              <span className="text-[9px] text-slate-400 uppercase tracking-wide">Ciclo prom.</span>
+            </div>
+            <p className="text-lg font-black text-cyan-400 tabular-nums">{fmtMin(stats.avgCycleTime)}</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">creación → dispatch</p>
+          </div>
+
+          <div className="rounded-lg bg-slate-800/50 p-2.5">
+            <div className="flex items-center gap-1 mb-1">
+              <Zap size={10} className="text-green-400" />
+              <span className="text-[9px] text-slate-400 uppercase tracking-wide">T. commit prom.</span>
+            </div>
+            <p className="text-lg font-black text-green-400 tabular-nums">{fmtMin(stats.avgCommitTime)}</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">creación → cocina</p>
+          </div>
+        </div>
+
+        {/* Nota si no hay datos de ciclo */}
+        {stats.avgCycleTime === null && stats.avgCommitTime === null && (
+          <p className="text-[9px] text-slate-600 italic">
+            Los tiempos de ciclo estarán disponibles en pedidos creados después de F7.
+          </p>
+        )}
+      </div>
 
       {/* Top riders */}
       {stats.topRiders.length > 0 && (

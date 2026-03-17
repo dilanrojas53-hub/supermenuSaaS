@@ -174,10 +174,11 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const assignRider = async (orderId: string, riderId: string) => {
     setAssigningOrderId(orderId);
     try {
-      // Actualizar order
+      // Actualizar order — F10: escribir dispatched_at para cerrar el ciclo de métricas
       await supabase.from('orders').update({
         rider_id: riderId,
         delivery_status: 'assigned',
+        dispatched_at: new Date().toISOString(),
       }).eq('id', orderId);
 
       // Crear o actualizar rider_assignment
