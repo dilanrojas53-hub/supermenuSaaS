@@ -33,6 +33,7 @@ import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/lib/supabase';
+import { initOrderLogistics } from '@/lib/DeliveryCommitEngine';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -633,6 +634,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       if (orderData) {
         setOrderNumber(orderData.order_number);
         setOrderId(orderData.id);
+
+        // F7: Motor de orquestación — inicializar logistic_status para pedidos delivery
+        if (deliveryType === 'delivery' && tenant?.id) {
+          initOrderLogistics(orderData.id, tenant.id)
+            .then(({ logisticStatus, availability }) => {
+              console.info(
+                `[DeliveryCommitEngine] Pedido #${orderData.order_number} → logistic_status: ${logisticStatus}`,
+                availability.reason
+              );
+              if (logisticStatus === 'waitlist') {
+                toast.warning(
+                  `Tu pedido está en lista de espera. ${availability.reason}`,
+                  { duration: 6000 }
+                );
+              }
+            })
+            .catch(err => console.error('[DeliveryCommitEngine] initOrderLogistics error:', err));
+        }
+
         setStep('confirmation');
       }
     } catch (err: unknown) {

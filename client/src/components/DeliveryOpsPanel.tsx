@@ -27,6 +27,9 @@ interface OpsOrder {
   delivery_address: string;
   delivery_formatted_address: string | null;
   delivery_status: string | null;
+  logistic_status: string | null;
+  waitlisted_at: string | null;
+  kitchen_committed_at: string | null;
   delivery_distance_km: number | null;
   delivery_eta_minutes: number | null;
   rider_id: string | null;
@@ -70,7 +73,7 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
     const [{ data: ordersData }, { data: ridersData }] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, order_number, delivery_address, delivery_formatted_address, delivery_status, delivery_distance_km, delivery_eta_minutes, rider_id, total, created_at')
+        .select('id, order_number, delivery_address, delivery_formatted_address, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, delivery_distance_km, delivery_eta_minutes, rider_id, total, created_at')
         .eq('tenant_id', tenant.id)
         .eq('delivery_type', 'delivery')
         .gte('created_at', today.toISOString())
@@ -107,7 +110,14 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
   // ─── Métricas ──────────────────────────────────────────────────────────────
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.delivery_status || ''));
   const deliveredToday = orders.filter(o => o.delivery_status === 'delivered');
-  const unassigned = activeOrders.filter(o => o.delivery_status === 'pending_assignment');
+  // F7: Segmentar por logistic_status para métricas de orquestación
+  const waitlistOrders = orders.filter(o => o.logistic_status === 'waitlist');
+  const committedOrders = orders.filter(o => o.kitchen_committed_at != null && !['delivered', 'cancelled'].includes(o.delivery_status || ''));
+  const unassigned = activeOrders.filter(o =>
+    (o.delivery_status === 'pending_assignment' || !o.rider_id) &&
+    o.logistic_status !== 'waitlist' &&
+    o.kitchen_committed_at != null
+  );
   const alerts = unassigned.filter(o => minutesSince(o.created_at) > 10);
   const totalRevenue = deliveredToday.reduce((s, o) => s + (o.total || 0), 0);
   const withDist = deliveredToday.filter(o => o.delivery_distance_km);
@@ -143,7 +153,27 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
         </div>
       </div>
 
-      {/* ─── Alertas ─────────────────────────────────────────────────────────── */}
+       {/* F7: Alerta de waitlist — pedidos en cola de espera */}
+      {waitlistOrders.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 p-3 rounded-xl"
+          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}
+        >
+          <Clock size={16} className="text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-300 text-sm font-bold">
+              {waitlistOrders.length} pedido{waitlistOrders.length > 1 ? 's' : ''} en lista de espera
+            </p>
+            <p className="text-amber-400/70 text-xs mt-0.5">
+              {waitlistOrders.map(a => `#${a.order_number}`).join(', ')} · Ir al panel de Dispatch para procesar
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── Alertas ──────────────────────────────────────────────────────── */}
       {alerts.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -5 }}

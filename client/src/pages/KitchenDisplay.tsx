@@ -392,13 +392,31 @@ function KitchenScreen({
   const prevOrderIds = useRef<Set<string>>(new Set());
 
   // ── Fetch active orders (pendiente + en_cocina) ──
+  // F7 ORQUESTACIÓN: Pedidos delivery solo llegan a KDS cuando kitchen_committed_at IS NOT NULL.
+  // Pedidos dine_in/takeout no tienen esta restricción (logistic_status = NULL para ellos).
   const fetchOrders = useCallback(async () => {
-    const { data, error } = await supabase
+    // Query 1: todos los pedidos NO-delivery (dine_in, takeout) activos
+    const { data: nonDeliveryData, error: err1 } = await supabase
       .from('orders')
-      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at')
       .eq('tenant_id', tenant.id)
       .in('status', ['pendiente', 'en_cocina'])
+      .not('delivery_type', 'eq', 'delivery')
       .order('created_at', { ascending: true });
+
+    // Query 2: pedidos delivery con kitchen_committed_at seteado (comprometidos con cocina)
+    const { data: deliveryData, error: err2 } = await supabase
+      .from('orders')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at')
+      .eq('tenant_id', tenant.id)
+      .in('status', ['pendiente', 'en_cocina'])
+      .eq('delivery_type', 'delivery')
+      .not('kitchen_committed_at', 'is', null)
+      .order('created_at', { ascending: true });
+
+    const error = err1 || err2;
+    const data = [...(nonDeliveryData || []), ...(deliveryData || [])]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     if (error) {
       setConnected(false);

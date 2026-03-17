@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { syncLogisticFromDeliveryStatus } from '@/lib/DeliveryCommitEngine';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface RiderProfile {
@@ -326,6 +327,14 @@ export default function RiderApp() {
 
     // Actualizar delivery_status en orders
     await supabase.from('orders').update({ delivery_status: newStatus }).eq('id', order.id);
+
+    // F7: Sincronizar logistic_status con delivery_status (assigned → assigned, picked_up → picked_up, etc.)
+    // Si es 'delivered', también promueve el siguiente pedido en waitlist automáticamente
+    if (tenantId) {
+      syncLogisticFromDeliveryStatus(order.id, tenantId, newStatus).catch(err =>
+        console.warn('[DeliveryCommitEngine] syncLogistic error:', err)
+      );
+    }
 
     // Actualizar rider_assignments
     if (order.assignment && Object.keys(assignmentUpdate).length > 0) {

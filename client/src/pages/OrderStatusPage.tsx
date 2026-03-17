@@ -112,9 +112,12 @@ function SinpeTenantNumber({ tenantId }: { tenantId: string }) {
 }
 
 // ─── Componente: Delivery Tracking Block ─────────────────────────────────────
+// F7: Muestra logistic_status pre-dispatch (waitlist, soft_reserve, kitchen_commit)
+// y delivery_status post-dispatch (assigned, picked_up, delivered)
 function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any }) {
   const [riderLocation, setRiderLocation] = useState<{ lat: number; lon: number } | null>(null);
   const deliveryStatus = order.delivery_status as string | null;
+  const logisticStatus = order.logistic_status as string | null;
 
   // Escuchar actualizaciones de ubicación del rider en tiempo real
   useEffect(() => {
@@ -144,6 +147,27 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
     return () => { supabase.removeChannel(channel); };
   }, [order.rider_id]);
 
+  // F7: Pasos logísticos completos (pre-dispatch + post-dispatch)
+  // Los pasos pre-dispatch se basan en logistic_status
+  // Los pasos post-dispatch se basan en delivery_status
+  const PRE_DISPATCH_STEPS = [
+    { key: 'waitlist',       label: 'En lista de espera',     icon: '⏳', color: '#F59E0B' },
+    { key: 'soft_reserve',   label: 'Disponibilidad confirmada', icon: '✔️', color: '#3B82F6' },
+    { key: 'kitchen_commit', label: 'Cocina preparando',     icon: '👨‍🍳', color: '#8B5CF6' },
+    { key: 'ready_for_pickup', label: 'Listo para recoger',  icon: '📦', color: '#EAB308' },
+  ];
+
+  const POST_DISPATCH_STEPS = [
+    { status: 'assigned',   label: 'Repartidor asignado',    icon: '🛵', color: '#3B82F6' },
+    { status: 'picked_up',  label: 'Pedido recogido',        icon: '🏃', color: '#F97316' },
+    { status: 'delivered',  label: '¡Entregado!',            icon: '✅', color: '#22C55E' },
+  ];
+
+  // Determinar si estamos en fase pre-dispatch o post-dispatch
+  const isPreDispatch = !deliveryStatus || deliveryStatus === 'pending_assignment';
+  const preIdx = PRE_DISPATCH_STEPS.findIndex(s => s.key === logisticStatus);
+
+  // Fallback: si no hay logistic_status, usar el flujo legacy
   const DELIVERY_STEPS = [
     { status: 'pending_assignment', label: 'Buscando repartidor', icon: '🔍', color: '#F59E0B' },
     { status: 'assigned',          label: 'Repartidor asignado', icon: '🛵', color: '#3B82F6' },
@@ -161,35 +185,103 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
         Seguimiento del Delivery
       </h2>
 
-      {/* Pasos del delivery */}
-      <div className="space-y-3">
-        {DELIVERY_STEPS.map((step, i) => {
-          const isDone = currentIdx > i;
-          const isActive = currentIdx === i;
-          return (
-            <div key={step.status} className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all"
-                style={{
-                  background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
-                  border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
-                }}
-              >
-                {isDone ? '✓' : step.icon}
+      {/* F7: Pasos del delivery — pre-dispatch o post-dispatch según logistic_status */}
+      {logisticStatus && isPreDispatch ? (
+        // Vista pre-dispatch: mostrar progreso logístico
+        <div className="space-y-3">
+          {/* Indicador de estado logístico */}
+          {logisticStatus === 'waitlist' && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              <span className="text-lg">⏳</span>
+              <div>
+                <p className="text-amber-300 text-sm font-bold">Tu pedido está en lista de espera</p>
+                <p className="text-slate-400 text-xs">Te notificaremos cuando haya disponibilidad</p>
               </div>
-              <span
-                className="text-sm font-semibold transition-all"
-                style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}
-              >
-                {step.label}
-              </span>
-              {isActive && (
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: step.color }} />
-              )}
             </div>
-          );
-        })}
-      </div>
+          )}
+          {logisticStatus === 'soft_reserve' && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
+              <span className="text-lg">✔️</span>
+              <div>
+                <p className="text-blue-300 text-sm font-bold">Disponibilidad confirmada</p>
+                <p className="text-slate-400 text-xs">Tu pedido está siendo procesado</p>
+              </div>
+            </div>
+          )}
+          {logisticStatus === 'kitchen_commit' && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)' }}>
+              <span className="text-lg">👨‍🍳</span>
+              <div>
+                <p className="text-purple-300 text-sm font-bold">Cocina preparando tu pedido</p>
+                <p className="text-slate-400 text-xs">Pronto asignaremos un repartidor</p>
+              </div>
+            </div>
+          )}
+          {logisticStatus === 'ready_for_pickup' && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)' }}>
+              <span className="text-lg">📦</span>
+              <div>
+                <p className="text-yellow-300 text-sm font-bold">¡Pedido listo!</p>
+                <p className="text-slate-400 text-xs">Esperando que el repartidor lo recoja</p>
+              </div>
+            </div>
+          )}
+          {/* Pasos pre-dispatch */}
+          <div className="space-y-2">
+            {PRE_DISPATCH_STEPS.map((step, i) => {
+              const isDone = preIdx > i;
+              const isActive = preIdx === i;
+              return (
+                <div key={step.key} className="flex items-center gap-3">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
+                    style={{
+                      background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
+                      border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
+                    }}
+                  >
+                    {isDone ? '✓' : step.icon}
+                  </div>
+                  <span className="text-sm" style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}>
+                    {step.label}
+                  </span>
+                  {isActive && <div className="w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: step.color }} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        // Vista post-dispatch (legacy + nuevo): pasos del rider
+        <div className="space-y-3">
+          {DELIVERY_STEPS.map((step, i) => {
+            const isDone = currentIdx > i;
+            const isActive = currentIdx === i;
+            return (
+              <div key={step.status} className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all"
+                  style={{
+                    background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
+                    border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
+                  }}
+                >
+                  {isDone ? '✓' : step.icon}
+                </div>
+                <span
+                  className="text-sm font-semibold transition-all"
+                  style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}
+                >
+                  {step.label}
+                </span>
+                {isActive && (
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: step.color }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Info de dirección */}
       {order.delivery_formatted_address && (

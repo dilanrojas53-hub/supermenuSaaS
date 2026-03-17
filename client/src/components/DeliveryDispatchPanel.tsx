@@ -21,8 +21,17 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import {
   Bike, MapPin, Phone, Plus, User, CheckCircle2, Clock,
   Navigation, AlertCircle, ExternalLink, Trash2, Eye,
-  EyeOff, Copy, RefreshCw, Loader2, X
+  EyeOff, Copy, RefreshCw, Loader2, X, ListOrdered,
+  Zap, ChevronRight, BarChart2, ArrowUpCircle
 } from 'lucide-react';
+import {
+  commitToKitchen,
+  addToWaitlist,
+  promoteFromWaitlist,
+  evaluateAvailability,
+  LOGISTIC_STATUS_LABELS,
+  type AvailabilityResult,
+} from '@/lib/DeliveryCommitEngine';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -52,6 +61,9 @@ interface DeliveryOrder {
   delivery_eta_minutes: number | null;
   delivery_distance_km: number | null;
   delivery_status: string | null;
+  logistic_status: string | null;
+  waitlisted_at: string | null;
+  kitchen_committed_at: string | null;
   rider_id: string | null;
   total: number;
   created_at: string;
@@ -76,6 +88,9 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const [showPins, setShowPins] = useState<Record<string, boolean>>({});
   const [trackingOrder, setTrackingOrder] = useState<DeliveryOrder | null>(null);
+  const [availability, setAvailability] = useState<AvailabilityResult | null>(null);
+  const [committingOrderId, setCommittingOrderId] = useState<string | null>(null);
+  const [promotingWaitlist, setPromotingWaitlist] = useState(false);
 
   // Form de nuevo rider
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
@@ -103,7 +118,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, rider_id, total, created_at, items')
+      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items')
       .eq('tenant_id', tenant.id)
       .eq('delivery_type', 'delivery')
       .not('delivery_status', 'in', '(delivered,cancelled)')
@@ -116,6 +131,8 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
     supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon').eq('tenant_id', tenant.id).single()
       .then(({ data }) => { if (data) setDeliverySettings(data as any); });
     Promise.all([fetchRiders(), fetchOrders()]).finally(() => setLoading(false));
+    // Cargar disponibilidad inicial
+    evaluateAvailability(tenant.id).then(setAvailability);
 
     // Realtime
     const channel = supabase
@@ -217,9 +234,60 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
     );
   }
 
-  // ─── Pedidos sin asignar ─────────────────────────────────────────────────────
-  const unassigned = orders.filter(o => !o.rider_id || o.delivery_status === 'pending_assignment');
+  // ─── Segmentación de pedidos por logistic_status ──────────────────────────
+  // Waitlist: pedidos en cola de espera (sin commit a cocina)
+  const waitlistOrders = orders.filter(o => o.logistic_status === 'waitlist');
+  // Soft-reserve: disponibilidad confirmada, pendiente de commit manual
+  const softReserveOrders = orders.filter(o => o.logistic_status === 'soft_reserve');
+  // Comprometidos con cocina pero sin rider asignado
+  const committedUnassigned = orders.filter(o =>
+    o.kitchen_committed_at != null &&
+    (!o.rider_id || o.delivery_status === 'pending_assignment') &&
+    o.logistic_status !== 'waitlist' &&
+    o.logistic_status !== 'soft_reserve'
+  );
+  // Fallback: pedidos sin logistic_status (legacy) sin asignar
+  const legacyUnassigned = orders.filter(o =>
+    o.logistic_status == null &&
+    (!o.rider_id || o.delivery_status === 'pending_assignment')
+  );
+  // Todos sin asignar (para la sección de dispatch)
+  const unassigned = [...committedUnassigned, ...legacyUnassigned];
   const assigned   = orders.filter(o => o.rider_id && o.delivery_status !== 'pending_assignment');
+
+  // ─── Commit manual a cocina ──────────────────────────────────────────────
+  const handleCommitToKitchen = async (orderId: string) => {
+    setCommittingOrderId(orderId);
+    try {
+      const result = await commitToKitchen(orderId, tenant.id, 'admin');
+      if (result.success) {
+        toast.success('Pedido comprometido con cocina ✅');
+        await fetchOrders();
+        evaluateAvailability(tenant.id).then(setAvailability);
+      } else {
+        toast.error(result.error || 'Error al hacer commit a cocina');
+      }
+    } finally {
+      setCommittingOrderId(null);
+    }
+  };
+
+  // ─── Promover desde waitlist ─────────────────────────────────────────────
+  const handlePromoteFromWaitlist = async () => {
+    setPromotingWaitlist(true);
+    try {
+      const result = await promoteFromWaitlist(tenant.id);
+      if (result.promoted) {
+        toast.success('Pedido promovido de la lista de espera ✅');
+        await fetchOrders();
+        evaluateAvailability(tenant.id).then(setAvailability);
+      } else {
+        toast.info(result.reason || 'No hay pedidos para promover');
+      }
+    } finally {
+      setPromotingWaitlist(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -232,6 +300,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
           </h3>
           <p className="text-slate-400 text-xs mt-0.5">
             {unassigned.length} sin asignar · {assigned.length} en curso · {riders.filter(r => r.is_active).length} riders activos
+            {waitlistOrders.length > 0 && <span className="text-amber-400 ml-1">· {waitlistOrders.length} en espera</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -251,6 +320,166 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
           </button>
         </div>
       </div>
+
+      {/* ─── Panel de disponibilidad logística ─────────────────────────── */}
+      {availability && (
+        <div
+          className="rounded-xl px-4 py-3 space-y-2"
+          style={{
+            background: availability.canCommit
+              ? 'rgba(34,197,94,0.06)'
+              : 'rgba(245,158,11,0.06)',
+            border: `1px solid ${availability.canCommit ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`,
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart2 size={13} style={{ color: availability.canCommit ? '#22C55E' : '#F59E0B' }} />
+              <span className="text-xs font-bold" style={{ color: availability.canCommit ? '#22C55E' : '#F59E0B' }}>
+                {availability.canCommit ? 'Capacidad disponible' : 'Capacidad limitada'}
+              </span>
+            </div>
+            <button
+              onClick={() => evaluateAvailability(tenant.id).then(setAvailability)}
+              className="text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <RefreshCw size={11} />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-white font-black text-sm">{availability.availableRiders}</p>
+              <p className="text-slate-500 text-[10px]">Riders libres</p>
+            </div>
+            <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-white font-black text-sm">{availability.totalActiveDeliveries}/{availability.maxConcurrentDeliveries}</p>
+              <p className="text-slate-500 text-[10px]">Entregas activas</p>
+            </div>
+            <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-white font-black text-sm">{availability.capacityUsedPct}%</p>
+              <p className="text-slate-500 text-[10px]">Capacidad</p>
+            </div>
+          </div>
+          <p className="text-slate-500 text-[10px]">{availability.reason}</p>
+        </div>
+      )}
+
+      {/* ─── Pedidos en soft_reserve (pendientes de commit manual) ─────────── */}
+      {softReserveOrders.length > 0 && (
+        <div>
+          <h4 className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3 flex items-center gap-2">
+            <Zap size={12} />
+            Pre-reservados — pendientes de commit ({softReserveOrders.length})
+          </h4>
+          <div className="space-y-2">
+            {softReserveOrders.map(order => (
+              <div
+                key={order.id}
+                className="rounded-xl px-4 py-3 flex items-center justify-between"
+                style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-black">#{order.order_number}</span>
+                  <div>
+                    <p className="text-slate-300 text-xs leading-tight">
+                      {order.delivery_formatted_address || order.delivery_address}
+                    </p>
+                    <p className="text-slate-500 text-[10px]">
+                      {formatPrice(order.total)}
+                      {order.delivery_distance_km && ` · ${order.delivery_distance_km.toFixed(1)} km`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleCommitToKitchen(order.id)}
+                  disabled={committingOrderId === order.id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#A78BFA' }}
+                >
+                  {committingOrderId === order.id
+                    ? <Loader2 size={11} className="animate-spin" />
+                    : <ChevronRight size={11} />
+                  }
+                  Commit cocina
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Cola de espera (waitlist) ───────────────────────────────────────── */}
+      {waitlistOrders.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-amber-400 text-xs font-bold uppercase tracking-wide flex items-center gap-2">
+              <ListOrdered size={12} />
+              Lista de espera ({waitlistOrders.length})
+            </h4>
+            <button
+              onClick={handlePromoteFromWaitlist}
+              disabled={promotingWaitlist || !availability?.canCommit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+              style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#FCD34D' }}
+              title={!availability?.canCommit ? 'Sin disponibilidad para promover' : 'Promover el siguiente pedido'}
+            >
+              {promotingWaitlist
+                ? <Loader2 size={10} className="animate-spin" />
+                : <ArrowUpCircle size={10} />
+              }
+              Promover siguiente
+            </button>
+          </div>
+          <div className="space-y-2">
+            {waitlistOrders
+              .sort((a, b) => new Date(a.waitlisted_at || a.created_at).getTime() - new Date(b.waitlisted_at || b.created_at).getTime())
+              .map((order, idx) => (
+                <div
+                  key={order.id}
+                  className="rounded-xl px-4 py-3 flex items-center justify-between"
+                  style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                      style={{ background: 'rgba(245,158,11,0.2)', color: '#FCD34D' }}
+                    >
+                      {idx + 1}
+                    </span>
+                    <div>
+                      <p className="text-white font-bold text-sm">#{order.order_number}</p>
+                      <p className="text-slate-400 text-xs leading-tight">
+                        {order.delivery_formatted_address || order.delivery_address}
+                      </p>
+                      <p className="text-slate-500 text-[10px]">
+                        {formatPrice(order.total)}
+                        {order.waitlisted_at && (
+                          <span className="ml-1">
+                            · En espera desde {new Date(order.waitlisted_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleCommitToKitchen(order.id)}
+                    disabled={committingOrderId === order.id || !availability?.canCommit}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#A78BFA' }}
+                    title={!availability?.canCommit ? 'Sin disponibilidad' : 'Hacer commit a cocina'}
+                  >
+                    {committingOrderId === order.id
+                      ? <Loader2 size={10} className="animate-spin" />
+                      : <Zap size={10} />
+                    }
+                    Commit
+                  </button>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
 
       {/* Link a la RiderApp */}
       <div
