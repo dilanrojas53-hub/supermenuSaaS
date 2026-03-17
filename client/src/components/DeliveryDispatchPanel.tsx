@@ -129,7 +129,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items')
       .eq('tenant_id', tenant.id)
       .eq('delivery_type', 'delivery')
-      .not('delivery_status', 'in', '(delivered,cancelled)')
+      .or('delivery_status.is.null,delivery_status.not.in.(delivered,cancelled)')
       .order('created_at', { ascending: false });
     if (data) setOrders(data);
   }, [tenant.id]);

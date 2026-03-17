@@ -411,6 +411,8 @@ export default function OrderStatusPage() {
   const scheduledTime = (order as any)?.scheduled_time;
   const deliveryAddress = (order as any)?.delivery_address;
   const deliveryPhone = (order as any)?.delivery_phone;
+  const deliveryLat = (order as any)?.delivery_lat;
+  const deliveryLon = (order as any)?.delivery_lon;
 
   // ── V21.0: Smart Bill ──
   const [billRequested, setBillRequested] = useState(false);
@@ -816,6 +818,28 @@ export default function OrderStatusPage() {
               <div className="flex items-start gap-2 text-sm">
                 <MapPin size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
                 <span className="text-slate-300">{deliveryAddress}</span>
+              </div>
+            )}
+            {/* Mapa de la ubicación de entrega */}
+            {isDelivery && deliveryLat && deliveryLon && (
+              <div className="rounded-xl overflow-hidden border border-slate-700/60">
+                <iframe
+                  title="Mapa de entrega"
+                  width="100%"
+                  height="160"
+                  style={{ border: 0, display: 'block' }}
+                  loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(deliveryLon)-0.005},${Number(deliveryLat)-0.005},${Number(deliveryLon)+0.005},${Number(deliveryLat)+0.005}&layer=mapnik&marker=${deliveryLat},${deliveryLon}`}
+                />
+                <a
+                  href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 transition-colors"
+                >
+                  <MapPin size={12} className="text-blue-400" />
+                  <span className="text-xs text-blue-400 font-semibold">Ver en Google Maps</span>
+                </a>
               </div>
             )}
             {isDelivery && deliveryPhone && (

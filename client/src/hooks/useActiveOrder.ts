@@ -270,7 +270,7 @@ export function useActiveTenantOrders(tenantId: string | null | undefined) {
       .select(ORDER_SELECT)
       .eq('tenant_id', tenantId)
       .eq('delivery_type', 'delivery')
-      .not('logistic_status', 'in', '(delivered,cancelled)')
+      .or('logistic_status.is.null,logistic_status.not.in.(delivered,cancelled)')
       .order('created_at', { ascending: false });
     if (err || !data) { setLoading(false); return; }
     setOrders(data.map(normalizeOrder));
@@ -336,7 +336,7 @@ export function useRiderActiveOrders(riderId: string | null | undefined) {
       .select(ORDER_SELECT)
       .eq('rider_id', riderId)
       .eq('delivery_type', 'delivery')
-      .not('delivery_status', 'in', '(delivered,cancelled)')
+      .or('delivery_status.is.null,delivery_status.not.in.(delivered,cancelled)')
       .order('created_at', { ascending: false });
     if (err || !data) { setLoading(false); return; }
     setOrders(data.map(normalizeOrder));
