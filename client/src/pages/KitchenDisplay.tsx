@@ -388,7 +388,7 @@ function KitchenScreen({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [connected, setConnected] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  const { playBell } = useKitchenBell();
+  const { playBell, stopAlarm, isAlarming } = useKitchenBell();
   const prevOrderIds = useRef<Set<string>>(new Set());
 
   // ── Fetch active orders (pendiente + en_cocina) ──
@@ -427,10 +427,11 @@ function KitchenScreen({
 
     const newOrders = (data || []) as KitchenOrder[];
 
-    // Play bell when un pedido nuevo entra a cocina
+    // Activar alarma cuando llega un pedido nuevo (detección por ID)
     const newIds = new Set(newOrders.map(o => o.id));
-    const hasNewOrder = newOrders.some(o => !prevOrderIds.current.has(o.id));
-    if (hasNewOrder && prevOrderIds.current.size > 0) {
+    const hasNewOrder = prevOrderIds.current.size > 0 &&
+      newOrders.some(o => !prevOrderIds.current.has(o.id));
+    if (hasNewOrder) {
       playBell();
     }
     prevOrderIds.current = newIds;
@@ -492,10 +493,12 @@ function KitchenScreen({
       toast.error('Error al marcar como listo');
     } else {
       toast.success('🔔 ¡Pedido listo! El mesero fue notificado');
+      // Silenciar alarma al atender el pedido
+      stopAlarm();
       fetchOrders();
     }
     setActionLoading(null);
-  }, [fetchOrders]);
+  }, [fetchOrders, stopAlarm]);
 
   // ── Fullscreen toggle ──
   const toggleFullscreen = () => {
@@ -530,6 +533,17 @@ function KitchenScreen({
             {connected ? <Wifi size={11} /> : <WifiOff size={11} />}
             {connected ? 'En vivo' : 'Sin conexión'}
           </div>
+          {/* Botón silenciar alarma — solo visible cuando está sonando */}
+          {isAlarming && (
+            <button
+              onClick={stopAlarm}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black animate-pulse"
+              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}
+              title="Silenciar alarma"
+            >
+              <Bell size={13} /> Silenciar
+            </button>
+          )}
           <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-gray-800/80 hover:bg-gray-700 flex items-center justify-center text-slate-400 hover:text-white transition-all" title="Actualizar">
             <RefreshCw size={14} />
           </button>

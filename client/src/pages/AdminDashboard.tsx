@@ -1679,8 +1679,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
-  const prevOrderCountRef = useRef(0);
-  const { playBell } = useKitchenBell();
+  const prevActiveIdsRef = useRef<Set<string>>(new Set());
+  const { playBell, stopAlarm, isAlarming } = useKitchenBell();
 
   const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
     water_ice: '💧 Agua / Hielo',
@@ -1698,13 +1698,16 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       .order('created_at', { ascending: false })
       .limit(100);
     const newOrders = (data as Order[]) || [];
-    // Campana solo para pedidos activos nuevos
-    const activeCount = newOrders.filter(o => o.status !== 'entregado').length;
-    if (prevOrderCountRef.current > 0 && activeCount > prevOrderCountRef.current) {
+    // Detección de nuevos pedidos por ID (más fiable que por conteo)
+    const activeOrders = newOrders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado');
+    const activeIds = new Set(activeOrders.map(o => o.id));
+    const hasNewOrder = prevActiveIdsRef.current.size > 0 &&
+      activeOrders.some(o => !prevActiveIdsRef.current.has(o.id));
+    if (hasNewOrder) {
       playBell();
       toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
     }
-    prevOrderCountRef.current = activeCount;
+    prevActiveIdsRef.current = activeIds;
     setOrders(newOrders);
     setLoading(false);
   }, [tenant.id, playBell]);
@@ -1753,7 +1756,19 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   useEffect(() => {
     const channel = supabase
-      .channel(`admin-quick-requests-${tenant.id}`)
+      .channel(`admin-orders-realtime-${tenant.id}`)
+      // INSERT: pedido nuevo → refresco inmediato (la campanita se activa en fetchOrders)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `tenant_id=eq.${tenant.id}`,
+        },
+        () => { fetchOrders(); }
+      )
+      // UPDATE: cambios de estado → refresco visual silencioso
       .on(
         'postgres_changes',
         {
@@ -1762,10 +1777,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           table: 'orders',
           filter: `tenant_id=eq.${tenant.id}`,
         },
-        () => {
-          // Silent visual refresh only (no bell for admin)
-          fetchOrders();
-        }
+        () => { fetchOrders(); }
       )
       .subscribe();
 
@@ -1792,6 +1804,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     if (error) { toast.error('Error: ' + error.message); return; }
     const label = ORDER_STATUS_CONFIG[newStatus]?.label || newStatus;
     toast.success(`✅ ${label}`);
+    // Silenciar alarma al atender el pedido (aceptar, marcar listo, etc.)
+    stopAlarm();
     fetchOrders();
 
     // ── Automatización WhatsApp ──
@@ -2186,10 +2200,22 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
           <p className="text-xs text-slate-500">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · {porCobrar.length} por cobrar</p>
         </div>
-        <button onClick={fetchOrders}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
-          <RefreshCw size={12} /> Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Botón silenciar alarma — solo visible cuando está sonando */}
+          {isAlarming && (
+            <button
+              onClick={stopAlarm}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black animate-pulse"
+              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}
+            >
+              <span className="text-sm">🔔</span> Silenciar
+            </button>
+          )}
+          <button onClick={fetchOrders}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+            <RefreshCw size={12} /> Actualizar
+          </button>
+        </div>
       </div>
 
       {/* V17.2: Tabs principales Por Cobrar / Cobrados */}
