@@ -26,6 +26,7 @@ const getCartPlaceholderIcon = (itemName: string): React.ReactNode => {
 
 import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
 import OrderTypeSelector from './OrderTypeSelector';
+import DeliveryCheckout, { type DeliveryCheckoutData } from './DeliveryCheckout';
 import UpsellModal from './UpsellModal';
 import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -45,7 +46,7 @@ interface CartDrawerProps {
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
-type Step = 'cart' | 'order_type' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
+type Step = 'cart' | 'order_type' | 'delivery_address' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
 // ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
@@ -136,6 +137,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [gpsError, setGpsError] = useState<string>('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
+  // ─── FASE 1: DELIVERY CHECKOUT DATA ───
+  const [deliveryCheckoutData, setDeliveryCheckoutData] = useState<DeliveryCheckoutData | null>(null);
 
   const handleRequestGPS = () => {
     if (!navigator.geolocation) {
@@ -598,8 +601,23 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           scheduled_time: (deliveryType === 'takeout' || deliveryType === 'delivery')
             ? (scheduledDate === 'today' ? 'ASAP' : (scheduledTime || 'ASAP'))
             : '',
-          delivery_address: deliveryType === 'delivery' ? (buildDeliveryAddress() || '') : '',
-          delivery_phone: deliveryType === 'delivery' ? (deliveryPhone.trim() || '') : '',
+          delivery_address: deliveryType === 'delivery'
+            ? (deliveryCheckoutData?.addressLine
+                ? (deliveryCheckoutData.referenceNotes
+                    ? `${deliveryCheckoutData.addressLine} | Señas: ${deliveryCheckoutData.referenceNotes}`
+                    : deliveryCheckoutData.addressLine)
+                : (buildDeliveryAddress() || ''))
+            : '',
+          delivery_phone: deliveryType === 'delivery'
+            ? (deliveryCheckoutData?.customerPhone || deliveryPhone.trim() || '')
+            : '',
+          // Fase 1: Coordenadas reales y datos de cobertura
+          delivery_lat: deliveryType === 'delivery' ? (deliveryCheckoutData?.lat ?? null) : null,
+          delivery_lon: deliveryType === 'delivery' ? (deliveryCheckoutData?.lon ?? null) : null,
+          delivery_formatted_address: deliveryType === 'delivery' ? (deliveryCheckoutData?.formattedAddress ?? null) : null,
+          delivery_distance_km: deliveryType === 'delivery' ? (deliveryCheckoutData?.distanceKm ?? null) : null,
+          delivery_eta_minutes: deliveryType === 'delivery' ? (deliveryCheckoutData?.etaMinutes ?? null) : null,
+          delivery_destination_id: deliveryType === 'delivery' ? (deliveryCheckoutData?.destinationId ?? null) : null,
         })
         .select('id, order_number')
         .single();
@@ -705,7 +723,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const handleBack = () => {
     setErrorMsg('');
     if (step === 'order_type') setStep('cart');
-    else if (step === 'customer_info') setStep('order_type');
+    else if (step === 'delivery_address') setStep('order_type');
+    else if (step === 'customer_info') setStep(deliveryType === 'delivery' ? 'delivery_address' : 'order_type');
     else if (step === 'select_payment') { setStep('customer_info'); setPaymentMethod(null); }
     else if (step === 'payment') setStep('select_payment');
   };
@@ -714,13 +733,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const stepTitles: Record<Step, string> = {
     cart: t('cart.title'),
     order_type: lang === 'es' ? '¿Cómo querés tu pedido?' : 'How would you like your order?',
+    delivery_address: lang === 'es' ? 'Dirección de entrega' : 'Delivery address',
     customer_info: t('checkout.customer_info'),
     select_payment: lang === 'es' ? '¿Cómo deseas pagar?' : 'How would you like to pay?',
     payment: t('payment.title'),
     confirmation: t('confirm.title'),
   };
 
-  const stepOrder: Step[] = ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation'];
+  const stepOrder: Step[] = deliveryType === 'delivery'
+    ? ['order_type', 'delivery_address', 'customer_info', 'select_payment', 'payment', 'confirmation']
+    : ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
   // Payment method config
@@ -969,10 +991,35 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               <OrderTypeSelector
                 theme={theme}
                 lang={lang}
-                onSelect={(_type) => {
-                  // Solo dine_in está activo; al seleccionarlo avanzamos a customer_info
-                  setDeliveryType('dine_in');
+                deliveryEnabled={true}
+                onSelect={(type) => {
+                  const dt = type === 'takeaway' ? 'takeout' : type as DeliveryType;
+                  setDeliveryType(dt);
+                  if (dt === 'delivery') {
+                    setStep('delivery_address');
+                  } else {
+                    setStep('customer_info');
+                  }
+                }}
+              />
+            )}
+
+            {/* ─── STEP: DELIVERY ADDRESS (Fase 1) ─── */}
+            {step === 'delivery_address' && (
+              <DeliveryCheckout
+                theme={theme}
+                tenant={tenant}
+                lang={lang}
+                prefilledPhone={customerPhone}
+                onComplete={(data) => {
+                  setDeliveryCheckoutData(data);
+                  // Pre-fill delivery phone from checkout data
+                  setDeliveryPhone(data.customerPhone);
                   setStep('customer_info');
+                }}
+                onCancel={() => {
+                  setDeliveryType('dine_in');
+                  setStep('order_type');
                 }}
               />
             )}

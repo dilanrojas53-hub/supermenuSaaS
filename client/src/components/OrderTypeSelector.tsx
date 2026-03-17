@@ -1,7 +1,7 @@
 /*
- * OrderTypeSelector — V20.0
- * Selector de tipo de pedido: Comer aquí (activo) / Takeaway (coming soon) / Delivery (coming soon)
- * Se muestra como primer paso del flujo del carrito, antes de customer_info.
+ * OrderTypeSelector — V21.0 (Fase 1 Delivery)
+ * Selector de tipo de pedido: Comer aquí (activo) / Takeaway / Delivery
+ * deliveryEnabled prop activa la opción de delivery cuando el tenant lo tiene configurado.
  * Los tipos inactivos muestran un badge "Próximamente" y un toast al hacer clic.
  */
 import { motion } from 'framer-motion';
@@ -24,9 +24,19 @@ interface OrderTypeSelectorProps {
   theme: ThemeSettings;
   lang: string;
   onSelect: (type: OrderType) => void;
+  /** When true, the delivery option is shown as active */
+  deliveryEnabled?: boolean;
+  /** When true, the takeaway option is shown as active */
+  takeawayEnabled?: boolean;
 }
 
-export default function OrderTypeSelector({ theme, lang, onSelect }: OrderTypeSelectorProps) {
+export default function OrderTypeSelector({
+  theme,
+  lang,
+  onSelect,
+  deliveryEnabled = false,
+  takeawayEnabled = false,
+}: OrderTypeSelectorProps) {
   const es = lang === 'es';
 
   const options: OrderTypeOption[] = [
@@ -44,7 +54,7 @@ export default function OrderTypeSelector({ theme, lang, onSelect }: OrderTypeSe
       emoji: '🛍️',
       title: es ? 'Para llevar' : 'Takeaway',
       subtitle: es ? 'Retira tu pedido en el local' : 'Pick up your order at the restaurant',
-      active: false,
+      active: takeawayEnabled,
     },
     {
       type: 'delivery',
@@ -52,7 +62,7 @@ export default function OrderTypeSelector({ theme, lang, onSelect }: OrderTypeSe
       emoji: '🛵',
       title: es ? 'A domicilio' : 'Delivery',
       subtitle: es ? 'Recíbelo en tu dirección' : 'Get it delivered to your address',
-      active: false,
+      active: deliveryEnabled,
     },
   ];
 
@@ -68,6 +78,8 @@ export default function OrderTypeSelector({ theme, lang, onSelect }: OrderTypeSe
     }
     onSelect(option.type);
   };
+
+  const anyComingSoon = options.some(o => !o.active);
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -166,10 +178,12 @@ export default function OrderTypeSelector({ theme, lang, onSelect }: OrderTypeSe
         ))}
       </div>
 
-      {/* Footer note */}
-      <p className="text-center text-xs mt-6 opacity-30" style={{ color: theme.text_color }}>
-        <span>{es ? 'Más opciones disponibles próximamente' : 'More options coming soon'}</span>
-      </p>
+      {/* Footer note — only shown if some options are coming soon */}
+      {anyComingSoon && (
+        <p className="text-center text-xs mt-6 opacity-30" style={{ color: theme.text_color }}>
+          <span>{es ? 'Más opciones disponibles próximamente' : 'More options coming soon'}</span>
+        </p>
+      )}
     </div>
   );
 }

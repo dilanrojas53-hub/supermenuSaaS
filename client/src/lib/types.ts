@@ -175,6 +175,51 @@ export interface Order {
   quick_request_seen_by_admin?: boolean;
 }
 
+// ─── FASE 1: DELIVERY TYPES ───
+
+/**
+ * Estado logístico del pedido delivery (separado de orders.status).
+ * Solo se usa cuando delivery_type === 'delivery'.
+ */
+export type DeliveryStatus =
+  | 'PENDING_CONFIRMATION'   // Pedido recibido, esperando confirmación
+  | 'CONFIRMED'              // Confirmado, en preparación
+  | 'READY_FOR_PICKUP'       // Listo, esperando rider
+  | 'DELIVERING'             // En camino
+  | 'DELIVERED'              // Entregado
+  | 'CANCELLED';             // Cancelado
+
+export interface DeliverySettings {
+  id: string;
+  tenant_id: string;
+  delivery_enabled: boolean;
+  restaurant_lat: number | null;
+  restaurant_lon: number | null;
+  coverage_radius_km: number;
+  base_eta_minutes: number;
+  delivery_fee: number;
+  min_order_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryDestination {
+  id: string;
+  tenant_id: string;
+  order_id: string | null;
+  customer_name: string;
+  customer_phone: string;
+  address_line: string;
+  reference_notes: string | null;
+  lat: number | null;
+  lon: number | null;
+  formatted_address: string | null;
+  distance_km: number | null;
+  eta_minutes: number | null;
+  is_within_coverage: boolean;
+  created_at: string;
+}
+
 // ─── V22.0: MODIFIER GROUPS ───
 
 export interface ModifierGroup {

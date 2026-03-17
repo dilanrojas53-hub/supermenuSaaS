@@ -660,6 +660,9 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
 
       {/* V26.0: Modo Operativo */}
       <OperativeModeCard tenant={tenant} onRefresh={onRefresh} />
+
+      {/* Fase 1: Configuración de Delivery */}
+      <DeliverySettingsCard tenant={tenant} />
     </div>
   );
 }
@@ -808,6 +811,206 @@ function ChangePasswordCard() {
         className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-5 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <KeyRound size={15} /> {saving ? 'Actualizando...' : 'Actualizar Contraseña'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Delivery Settings Card — Fase 1 ───
+function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
+  const [settings, setSettings] = useState<{
+    delivery_enabled: boolean;
+    delivery_radius_km: number;
+    restaurant_lat: number | null;
+    restaurant_lon: number | null;
+    base_eta_minutes: number;
+    delivery_fee: number;
+    min_order_amount: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('delivery_settings')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSettings({
+            delivery_enabled: data.delivery_enabled ?? false,
+            delivery_radius_km: data.delivery_radius_km ?? 5,
+            restaurant_lat: data.restaurant_lat ?? null,
+            restaurant_lon: data.restaurant_lon ?? null,
+            base_eta_minutes: data.base_eta_minutes ?? 30,
+            delivery_fee: data.delivery_fee ?? 0,
+            min_order_amount: data.min_order_amount ?? 0,
+          });
+        } else {
+          setSettings({
+            delivery_enabled: false,
+            delivery_radius_km: 5,
+            restaurant_lat: null,
+            restaurant_lon: null,
+            base_eta_minutes: 30,
+            delivery_fee: 0,
+            min_order_amount: 0,
+          });
+        }
+        setLoading(false);
+      });
+  }, [tenant.id]);
+
+  const handleSave = async () => {
+    if (!settings) return;
+    setSaving(true);
+    const payload = {
+      tenant_id: tenant.id,
+      delivery_enabled: settings.delivery_enabled,
+      delivery_radius_km: settings.delivery_radius_km,
+      restaurant_lat: settings.restaurant_lat,
+      restaurant_lon: settings.restaurant_lon,
+      base_eta_minutes: settings.base_eta_minutes,
+      delivery_fee: settings.delivery_fee,
+      min_order_amount: settings.min_order_amount,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase
+      .from('delivery_settings')
+      .upsert(payload, { onConflict: 'tenant_id' });
+    setSaving(false);
+    if (error) toast.error('Error: ' + error.message);
+    else toast.success('Configuración de delivery guardada ✅');
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) { toast.error('Geolocalización no disponible'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setSettings(prev => prev ? { ...prev, restaurant_lat: pos.coords.latitude, restaurant_lon: pos.coords.longitude } : prev);
+        setLocating(false);
+        toast.success('Ubicación del restaurante capturada ✅');
+      },
+      () => { setLocating(false); toast.error('No se pudo obtener la ubicación'); }
+    );
+  };
+
+  if (loading || !settings) return null;
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5 space-y-5 mt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bike size={18} className="text-orange-400" />
+          <h3 className="text-sm font-black text-white">Delivery a Domicilio</h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">FASE 1</span>
+        </div>
+        <ToggleSwitch
+          checked={settings.delivery_enabled}
+          onChange={(v) => setSettings({ ...settings, delivery_enabled: v })}
+          colorOn="#F97316"
+        />
+      </div>
+
+      {settings.delivery_enabled && (
+        <div className="space-y-4 pt-1">
+          {/* Ubicación del restaurante */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-2">📍 Ubicación del restaurante (punto de origen)</label>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-1">Latitud</label>
+                <input
+                  type="number" step="0.000001"
+                  value={settings.restaurant_lat ?? ''}
+                  onChange={e => setSettings({ ...settings, restaurant_lat: parseFloat(e.target.value) || null })}
+                  placeholder="9.9281"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-1">Longitud</label>
+                <input
+                  type="number" step="0.000001"
+                  value={settings.restaurant_lon ?? ''}
+                  onChange={e => setSettings({ ...settings, restaurant_lon: parseFloat(e.target.value) || null })}
+                  placeholder="-84.0907"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleDetectLocation}
+              disabled={locating}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+              style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)', color: '#F97316' }}
+            >
+              <Navigation size={13} />
+              {locating ? 'Detectando...' : 'Detectar mi ubicación actual'}
+            </button>
+            {settings.restaurant_lat && settings.restaurant_lon && (
+              <p className="text-[10px] text-green-400 mt-1.5">✅ Coordenadas guardadas: {settings.restaurant_lat.toFixed(5)}, {settings.restaurant_lon.toFixed(5)}</p>
+            )}
+          </div>
+
+          {/* Radio de cobertura */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">🗺️ Radio de cobertura</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range" min={1} max={30} step={0.5}
+                value={settings.delivery_radius_km}
+                onChange={e => setSettings({ ...settings, delivery_radius_km: parseFloat(e.target.value) })}
+                className="flex-1 accent-orange-500"
+              />
+              <span className="text-sm font-bold text-orange-400 w-16 text-right">{settings.delivery_radius_km} km</span>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Solo se aceptarán pedidos dentro de este radio desde el restaurante</p>
+          </div>
+
+          {/* ETA base y tarifa */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">⏱️ ETA base (min)</label>
+              <input
+                type="number" min={5} max={120}
+                value={settings.base_eta_minutes}
+                onChange={e => setSettings({ ...settings, base_eta_minutes: parseInt(e.target.value) || 30 })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">💰 Tarifa delivery</label>
+              <input
+                type="number" min={0} step={100}
+                value={settings.delivery_fee}
+                onChange={e => setSettings({ ...settings, delivery_fee: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">🛒 Mínimo pedido</label>
+              <input
+                type="number" min={0} step={500}
+                value={settings.min_order_amount}
+                onChange={e => setSettings({ ...settings, min_order_amount: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+        style={{ background: 'linear-gradient(135deg,#F97316,#EF4444)', color: '#fff' }}
+      >
+        <Save size={14} /> {saving ? 'Guardando...' : 'Guardar configuración de delivery'}
       </button>
     </div>
   );
