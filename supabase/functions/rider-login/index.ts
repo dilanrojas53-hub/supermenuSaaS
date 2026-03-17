@@ -1,5 +1,5 @@
 // Edge Function: rider-login
-// Verifica el PIN del rider server-side con bcrypt (npm) y rate limiting
+// Verifica el PIN del rider server-side dado un rider_id específico
 // NUNCA expone pin_hash al cliente
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -15,38 +15,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── bcrypt usando Web Crypto API (compatible con Deno Deploy) ────────────────
-// Implementación simplificada: si el pin_hash empieza con "$2" es bcrypt real,
-// si no, es texto plano (legacy). Para nuevos riders creados desde el cliente,
-// el hash se genera con bcryptjs en el browser y se almacena en pin_hash.
-// La Edge Function verifica usando la librería bcrypt de npm via esm.sh
-
-async function verifyPin(pin: string, hash: string): Promise<boolean> {
-  if (!hash) return false;
-  
-  // Legacy: texto plano
-  if (!hash.startsWith("$2")) {
-    return hash === pin;
-  }
-  
-  // bcrypt hash — usar bcryptjs via esm.sh (compatible con Deno)
-  try {
-    const { compareSync } = await import("https://esm.sh/bcryptjs@2.4.3");
-    return compareSync(pin, hash);
-  } catch (e) {
-    console.error("[rider-login] bcrypt error:", e);
-    // Fallback: comparación directa si bcrypt falla
-    return hash === pin;
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { slug, pin } = await req.json();
+    const body = await req.json();
+    const { slug, pin, rider_id } = body;
 
     if (!slug || !pin) {
       return new Response(
@@ -77,7 +53,7 @@ serve(async (req) => {
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    // 3. Verificar rate limiting en tabla rider_login_attempts
+    // 3. Verificar rate limiting
     const windowStart = new Date(
       Date.now() - LOCKOUT_MINUTES * 60 * 1000
     ).toISOString();
@@ -96,39 +72,51 @@ serve(async (req) => {
           error: `Demasiados intentos fallidos. Espera ${LOCKOUT_MINUTES} minutos.`,
           locked: true,
         }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 4. Obtener riders activos del tenant (con pin_hash — solo server-side)
-    const { data: riders, error: ridersErr } = await supabase
-      .from("rider_profiles")
-      .select("id, name, vehicle_type, is_active, pin_hash, tenant_id")
-      .eq("tenant_id", tenant.id)
-      .eq("is_active", true);
+    // 4. Obtener el rider específico (si se provee rider_id) o buscar por PIN entre todos
+    let matchedRider: { id: string; name: string; vehicle_type: string; tenant_id: string; pin_hash: string } | null = null;
 
-    if (ridersErr || !riders?.length) {
-      return new Response(
-        JSON.stringify({ error: "No hay repartidores activos" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (rider_id) {
+      // Flujo nuevo: rider_id específico → solo verificar su PIN
+      const { data: rider, error: riderErr } = await supabase
+        .from("rider_profiles")
+        .select("id, name, vehicle_type, is_active, pin_hash, tenant_id")
+        .eq("id", rider_id)
+        .eq("tenant_id", tenant.id)
+        .eq("is_active", true)
+        .single();
 
-    // 5. Verificar PIN contra cada rider
-    let matchedRider: typeof riders[0] | null = null;
-    for (const rider of riders) {
-      if (!rider.pin_hash) continue;
-      const isMatch = await verifyPin(pin, rider.pin_hash);
-      if (isMatch) {
+      if (riderErr || !rider) {
+        return new Response(
+          JSON.stringify({ error: "Repartidor no encontrado o inactivo" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verificar PIN (texto plano)
+      if (rider.pin_hash === pin) {
         matchedRider = rider;
-        break;
+      }
+    } else {
+      // Flujo legacy: buscar por PIN entre todos los riders del tenant
+      const { data: riders } = await supabase
+        .from("rider_profiles")
+        .select("id, name, vehicle_type, is_active, pin_hash, tenant_id")
+        .eq("tenant_id", tenant.id)
+        .eq("is_active", true);
+
+      for (const rider of (riders || [])) {
+        if (rider.pin_hash === pin) {
+          matchedRider = rider;
+          break;
+        }
       }
     }
 
-    // 6. Registrar intento (éxito o fallo)
+    // 5. Registrar intento
     await supabase.from("rider_login_attempts").insert({
       tenant_id: tenant.id,
       client_ip: clientIp,
@@ -143,14 +131,11 @@ serve(async (req) => {
           error: "PIN incorrecto",
           attemptsRemaining: Math.max(0, remaining),
         }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 7. Login exitoso — retornar datos del rider SIN pin_hash
+    // 6. Login exitoso — retornar datos del rider SIN pin_hash
     return new Response(
       JSON.stringify({
         success: true,
@@ -161,19 +146,13 @@ serve(async (req) => {
           tenant_id: tenant.id,
         },
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("[rider-login]", err);
     return new Response(
       JSON.stringify({ error: "Error interno del servidor", detail: String(err) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

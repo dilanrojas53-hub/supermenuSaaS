@@ -94,6 +94,11 @@ export default function RiderApp() {
   const [pinError, setPinError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  // Flujo de 2 pasos: primero seleccionar rider, luego ingresar PIN
+  const [availableRiders, setAvailableRiders] = useState<{id: string; name: string; vehicle_type: string}[]>([]);
+  const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
+  const [selectedRiderName, setSelectedRiderName] = useState<string>('');
+  const [loginStep, setLoginStep] = useState<'select' | 'pin'>('select');
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // F6-A: PWA install prompt
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
@@ -136,7 +141,7 @@ export default function RiderApp() {
   // ─── Cargar tenant + restaurar sesión desde localStorage ──────────────────────
   useEffect(() => {
     supabase.from('tenants').select('id, name').eq('slug', slug).single()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data) {
           setTenantId(data.id);
           setTenantName(data.name);
@@ -148,11 +153,21 @@ export default function RiderApp() {
               // Sesión válida por 12 horas
               if (parsed.loginAt && Date.now() - parsed.loginAt < 12 * 60 * 60 * 1000) {
                 setRider(parsed);
+                setLoading(false);
+                return;
               } else {
                 localStorage.removeItem(`rider_session_${slug}`);
               }
             } catch { localStorage.removeItem(`rider_session_${slug}`); }
           }
+          // Cargar lista de riders activos para el paso 1 del login
+          const { data: ridersData } = await supabase
+            .from('rider_profiles')
+            .select('id, name, vehicle_type')
+            .eq('tenant_id', data.id)
+            .eq('is_active', true)
+            .order('name');
+          if (ridersData) setAvailableRiders(ridersData);
         }
         setLoading(false);
       });
@@ -211,7 +226,7 @@ export default function RiderApp() {
 
   // ─── Login con PIN (server-side via Edge Function — pin_hash nunca llega al cliente) ──────
   const handlePinLogin = async () => {
-    if (!slug || pinInput.length < 4) return;
+    if (!slug || pinInput.length < 4 || !selectedRiderId) return;
     setLoginLoading(true);
     setPinError('');
     try {
@@ -220,7 +235,7 @@ export default function RiderApp() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, pin: pinInput }),
+          body: JSON.stringify({ slug, pin: pinInput, rider_id: selectedRiderId }),
         }
       );
       const data = await res.json();
@@ -342,7 +357,7 @@ export default function RiderApp() {
     );
   }
 
-  // ─── Render: Login PIN ───────────────────────────────────────────────────────
+  // ─── Render: Login (2 pasos) ─────────────────────────────────────────────────
   if (!rider) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
@@ -360,62 +375,121 @@ export default function RiderApp() {
             <p className="text-gray-400 text-sm mt-1">{tenantName}</p>
           </div>
 
-          {/* PIN Input */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <label className="block text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">
-              Ingresa tu PIN
-            </label>
-            <div className="flex gap-3 justify-center mb-6">
-              {[0, 1, 2, 3].map(i => (
-                <div
-                  key={i}
-                  className="w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all"
-                  style={{
-                    borderColor: pinInput.length > i ? '#F97316' : '#374151',
-                    backgroundColor: pinInput.length > i ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.03)',
-                    color: '#fff',
-                  }}
-                >
-                  {pinInput.length > i ? '●' : ''}
+          {loginStep === 'select' ? (
+            /* Paso 1: Seleccionar rider */
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <label className="block text-xs text-gray-400 mb-4 font-semibold uppercase tracking-wide">
+                ¿Quién eres?
+              </label>
+              {availableRiders.length === 0 ? (
+                <div className="text-center py-6">
+                  <User size={32} className="text-gray-600 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">No hay repartidores activos</p>
+                  <p className="text-gray-600 text-xs mt-1">Pide al admin que te agregue</p>
                 </div>
-              ))}
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {availableRiders.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        setSelectedRiderId(r.id);
+                        setSelectedRiderName(r.name);
+                        setLoginStep('pin');
+                        setPinInput('');
+                        setPinError('');
+                      }}
+                      className="flex items-center gap-3 p-4 rounded-xl text-left transition-all active:scale-98"
+                      style={{ backgroundColor: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-orange-400 font-black text-lg">{r.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold">{r.name}</p>
+                        <p className="text-gray-400 text-xs capitalize">{r.vehicle_type}</p>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-500 ml-auto" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {/* Teclado numérico */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((key, i) => (
+          ) : (
+            /* Paso 2: Ingresar PIN */
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              {/* Rider seleccionado */}
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-800">
+                <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                  <span className="text-orange-400 font-black text-lg">{selectedRiderName.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-bold">{selectedRiderName}</p>
+                  <p className="text-gray-400 text-xs">Ingresa tu PIN de 4 dígitos</p>
+                </div>
                 <button
-                  key={i}
-                  onClick={() => {
-                    if (key === '⌫') setPinInput(p => p.slice(0, -1));
-                    else if (key !== '' && pinInput.length < 4) setPinInput(p => p + String(key));
-                  }}
-                  disabled={key === ''}
-                  className="h-14 rounded-xl text-xl font-bold transition-all active:scale-95 disabled:invisible"
-                  style={{
-                    backgroundColor: key === '⌫' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.06)',
-                    color: key === '⌫' ? '#EF4444' : '#fff',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                  }}
+                  onClick={() => { setLoginStep('select'); setPinInput(''); setPinError(''); }}
+                  className="text-gray-500 hover:text-gray-300 text-xs"
                 >
-                  {key}
+                  Cambiar
                 </button>
-              ))}
+              </div>
+
+              <label className="block text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">
+                Ingresa tu PIN
+              </label>
+              <div className="flex gap-3 justify-center mb-6">
+                {[0, 1, 2, 3].map(i => (
+                  <div
+                    key={i}
+                    className="w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all"
+                    style={{
+                      borderColor: pinInput.length > i ? '#F97316' : '#374151',
+                      backgroundColor: pinInput.length > i ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.03)',
+                      color: '#fff',
+                    }}
+                  >
+                    {pinInput.length > i ? '●' : ''}
+                  </div>
+                ))}
+              </div>
+
+              {/* Teclado numérico */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((key, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (key === '⌫') setPinInput(p => p.slice(0, -1));
+                      else if (key !== '' && pinInput.length < 4) setPinInput(p => p + String(key));
+                    }}
+                    disabled={key === ''}
+                    className="h-14 rounded-xl text-xl font-bold transition-all active:scale-95 disabled:invisible"
+                    style={{
+                      backgroundColor: key === '⌫' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: key === '⌫' ? '#EF4444' : '#fff',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+
+              {pinError && (
+                <p className="text-red-400 text-sm text-center mb-3">{pinError}</p>
+              )}
+
+              <button
+                onClick={handlePinLogin}
+                disabled={pinInput.length < 4 || loginLoading}
+                className="w-full py-3.5 rounded-xl font-bold text-base transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg,#F97316,#EF4444)', color: '#fff' }}
+              >
+                {loginLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Entrar'}
+              </button>
             </div>
-
-            {pinError && (
-              <p className="text-red-400 text-sm text-center mb-3">{pinError}</p>
-            )}
-
-            <button
-              onClick={handlePinLogin}
-              disabled={pinInput.length < 4 || loginLoading}
-              className="w-full py-3.5 rounded-xl font-bold text-base transition-all disabled:opacity-40"
-              style={{ background: 'linear-gradient(135deg,#F97316,#EF4444)', color: '#fff' }}
-            >
-              {loginLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Entrar'}
-            </button>
-          </div>
+          )}
         </motion.div>
       </div>
     );
