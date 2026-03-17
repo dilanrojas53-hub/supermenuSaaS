@@ -2,6 +2,10 @@
  * DeliveryZonesPanel.tsx — Fase 5a+5b Delivery
  * Panel de configuración de zonas de cobertura con tarifas por zona.
  *
+ * IMPORTANTE: Usa MapView (proxy Manus) en lugar de cargar Google Maps directamente.
+ * El proxy autentica automáticamente sin necesitar VITE_GOOGLE_MAPS_API_KEY.
+ * Librerías disponibles: marker, places, geocoding, geometry, drawing
+ *
  * Features:
  * - Crear zonas circulares (centro + radio) o poligonales
  * - Tarifa de delivery por zona
@@ -13,7 +17,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatPrice } from '@/lib/types';
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+import { MapView } from '@/components/Map';
 import {
   MapPin, Plus, Trash2, Edit2, Save, X, Loader2,
   ToggleLeft, ToggleRight, Circle, Hexagon, DollarSign, Clock
@@ -49,6 +53,8 @@ const DEFAULT_FORM = {
   estimated_minutes: '30',
 };
 
+const ZONE_COLORS = ['#3B82F6', '#F59E0B', '#22C55E', '#F97316', '#8B5CF6'];
+
 export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,10 +62,8 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<any>(null);
-  const circlesRef = useRef<any[]>([]);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const circlesRef = useRef<google.maps.Circle[]>([]);
 
   // ─── Cargar zonas ──────────────────────────────────────────────────────────
   const fetchZones = useCallback(async () => {
@@ -74,31 +78,48 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
 
   useEffect(() => { fetchZones(); }, [fetchZones]);
 
-  // ─── Cargar Google Maps ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mapLoaded || !mapRef.current) return;
-    const scriptId = 'gmaps-zones-script';
-    if (document.getElementById(scriptId)) {
-      setMapLoaded(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=drawing,geometry`;
-    script.async = true;
-    script.onload = () => setMapLoaded(true);
-    document.head.appendChild(script);
-  }, [mapLoaded]);
+  // ─── Dibujar zonas en el mapa cuando cambian ───────────────────────────────
+  const drawZones = useCallback((map: google.maps.Map) => {
+    // Limpiar círculos anteriores
+    circlesRef.current.forEach(c => c.setMap(null));
+    circlesRef.current = [];
 
-  // ─── Inicializar mapa cuando está listo ────────────────────────────────────
+    zones
+      .filter(z => z.is_active && z.zone_type === 'circle' && z.center_lat && z.center_lon && z.radius_km)
+      .forEach((zone, i) => {
+        const color = ZONE_COLORS[i % ZONE_COLORS.length];
+        const circle = new window.google!.maps.Circle({
+          map,
+          center: { lat: zone.center_lat!, lng: zone.center_lon! },
+          radius: zone.radius_km! * 1000,
+          fillColor: color,
+          fillOpacity: 0.15,
+          strokeColor: color,
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+        });
+        circlesRef.current.push(circle);
+      });
+
+    // Centrar en primera zona activa con coordenadas
+    const firstWithCoords = zones.find(z => z.center_lat && z.center_lon);
+    if (firstWithCoords?.center_lat && firstWithCoords?.center_lon) {
+      map.setCenter({ lat: firstWithCoords.center_lat, lng: firstWithCoords.center_lon });
+    }
+  }, [zones]);
+
+  // Re-dibujar cuando cambian las zonas y el mapa ya está listo
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || googleMapRef.current) return;
-    const google = (window as any).google;
-    if (!google) return;
-    googleMapRef.current = new google.maps.Map(mapRef.current, {
-      center: { lat: 9.9281, lng: -84.0907 }, // Costa Rica default
-      zoom: 12,
-      mapTypeId: 'roadmap',
+    if (googleMapRef.current) {
+      drawZones(googleMapRef.current);
+    }
+  }, [zones, drawZones]);
+
+  // ─── Callback cuando el mapa está listo ───────────────────────────────────
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    googleMapRef.current = map;
+    // Aplicar estilos oscuros
+    map.setOptions({
       styles: [
         { elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
         { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1f2e' }] },
@@ -107,35 +128,8 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
         { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f1623' }] },
       ],
     });
-  }, [mapLoaded]);
-
-  // ─── Dibujar zonas en el mapa ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!googleMapRef.current || !mapLoaded) return;
-    const google = (window as any).google;
-    // Limpiar círculos anteriores
-    circlesRef.current.forEach(c => c.setMap(null));
-    circlesRef.current = [];
-    zones.filter(z => z.is_active && z.zone_type === 'circle' && z.center_lat && z.center_lon && z.radius_km).forEach((zone, i) => {
-      const colors = ['#3B82F6', '#F59E0B', '#22C55E', '#F97316', '#8B5CF6'];
-      const color = colors[i % colors.length];
-      const circle = new google.maps.Circle({
-        map: googleMapRef.current,
-        center: { lat: zone.center_lat!, lng: zone.center_lon! },
-        radius: zone.radius_km! * 1000,
-        fillColor: color,
-        fillOpacity: 0.15,
-        strokeColor: color,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-      });
-      circlesRef.current.push(circle);
-    });
-    // Ajustar bounds si hay zonas
-    if (zones.length > 0 && zones[0].center_lat) {
-      googleMapRef.current.setCenter({ lat: zones[0].center_lat, lng: zones[0].center_lon });
-    }
-  }, [zones, mapLoaded]);
+    drawZones(map);
+  }, [drawZones]);
 
   // ─── Detectar ubicación actual para el form ────────────────────────────────
   const detectLocation = () => {
@@ -212,8 +206,6 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
     fetchZones();
   };
 
-  const ZONE_COLORS = ['#3B82F6', '#F59E0B', '#22C55E', '#F97316', '#8B5CF6'];
-
   return (
     <div className="space-y-4">
       {/* ─── Header ────────────────────────────────────────────────────────── */}
@@ -231,17 +223,17 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
         </button>
       </div>
 
-      {/* ─── Mapa ──────────────────────────────────────────────────────────── */}
+      {/* ─── Mapa via proxy Manus (no requiere VITE_GOOGLE_MAPS_API_KEY) ──── */}
       <div
-        ref={mapRef}
         className="w-full rounded-2xl overflow-hidden"
-        style={{ height: '240px', background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ height: '240px', border: '1px solid rgba(255,255,255,0.07)' }}
       >
-        {!mapLoaded && (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 size={24} className="text-blue-400 animate-spin" />
-          </div>
-        )}
+        <MapView
+          className="w-full h-full"
+          initialCenter={{ lat: 9.9281, lng: -84.0907 }}
+          initialZoom={12}
+          onMapReady={handleMapReady}
+        />
       </div>
 
       {/* ─── Form ──────────────────────────────────────────────────────────── */}
@@ -283,7 +275,7 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
                   ].map(t => (
                     <button
                       key={t.key}
-                      onClick={() => setForm(f => ({ ...f, zone_type: t.key as any }))}
+                      onClick={() => setForm(f => ({ ...f, zone_type: t.key as 'circle' | 'polygon' }))}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                         form.zone_type === t.key
                           ? 'bg-blue-500 text-white'
