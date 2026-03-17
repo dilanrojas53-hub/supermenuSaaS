@@ -3190,6 +3190,18 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
         <p className="text-xs text-slate-400 flex items-center gap-2">
           <ChefHat size={12} className="text-orange-400" /> Cocina accede en: <span className="text-orange-400 font-mono">/kitchen/{tenant.slug}</span>
         </p>
+        <p className="text-xs text-slate-400 flex items-center gap-2">
+          <Bike size={12} className="text-amber-400" /> Riders acceden en: <span className="text-amber-400 font-mono">/rider/{tenant.slug}</span>
+        </p>
+      </div>
+
+      {/* ── Riders de Delivery ── */}
+      <div className="mt-2">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-1">
+          <Bike size={20} className="text-amber-400" /> Riders de Delivery
+        </h2>
+        <p className="text-xs text-slate-400 mb-4">Gestiona los repartidores. Cada rider accede con su PIN desde <span className="text-amber-400 font-mono">/rider/{tenant.slug}</span></p>
+        <DeliveryDispatchPanel tenant={tenant} />
       </div>
     </div>
   );
