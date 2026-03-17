@@ -858,7 +858,7 @@ function ChangePasswordCard() {
 function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
   const [settings, setSettings] = useState<{
     delivery_enabled: boolean;
-    delivery_radius_km: number;
+    coverage_radius_km: number;
     restaurant_lat: number | null;
     restaurant_lon: number | null;
     base_eta_minutes: number;
@@ -882,7 +882,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
         if (data) {
           setSettings({
             delivery_enabled: data.delivery_enabled ?? false,
-            delivery_radius_km: data.delivery_radius_km ?? 5,
+            coverage_radius_km: data.coverage_radius_km ?? 5,
             restaurant_lat: data.restaurant_lat ?? null,
             restaurant_lon: data.restaurant_lon ?? null,
             base_eta_minutes: data.base_eta_minutes ?? 30,
@@ -894,7 +894,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
         } else {
           setSettings({
             delivery_enabled: false,
-            delivery_radius_km: 5,
+            coverage_radius_km: 5,
             restaurant_lat: null,
             restaurant_lon: null,
             base_eta_minutes: 30,
@@ -914,7 +914,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
     const payload = {
       tenant_id: tenant.id,
       delivery_enabled: settings.delivery_enabled,
-      delivery_radius_km: settings.delivery_radius_km,
+      coverage_radius_km: settings.coverage_radius_km,
       restaurant_lat: settings.restaurant_lat,
       restaurant_lon: settings.restaurant_lon,
       base_eta_minutes: settings.base_eta_minutes,
@@ -1010,11 +1010,11 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             <div className="flex items-center gap-3">
               <input
                 type="range" min={1} max={30} step={0.5}
-                value={settings.delivery_radius_km}
-                onChange={e => setSettings({ ...settings, delivery_radius_km: parseFloat(e.target.value) })}
+                value={settings.coverage_radius_km}
+                onChange={e => setSettings({ ...settings, coverage_radius_km: parseFloat(e.target.value) })}
                 className="flex-1 accent-orange-500"
               />
-              <span className="text-sm font-bold text-orange-400 w-16 text-right">{settings.delivery_radius_km} km</span>
+              <span className="text-sm font-bold text-orange-400 w-16 text-right">{settings.coverage_radius_km} km</span>
             </div>
             <p className="text-[10px] text-slate-500 mt-1">Solo se aceptarán pedidos dentro de este radio desde el restaurante</p>
           </div>
