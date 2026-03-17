@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatPrice } from '@/lib/types';
-import { GOOGLE_MAPS_API_KEY } from '@/lib/maps';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
 import {
   MapPin, Plus, Trash2, Edit2, Save, X, Loader2,
   ToggleLeft, ToggleRight, Circle, Hexagon, DollarSign, Clock

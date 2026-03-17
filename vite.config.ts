@@ -181,6 +181,7 @@ const pwaPlugin = VitePWA({
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     navigateFallback: null,
     globIgnores: ['sw-push.js'], // sw-push.js se registra manualmente, no via workbox
+    maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB — bundle supera el default de 2 MiB
     runtimeCaching: [
       {
         // Edge Functions: siempre network (no cachear respuestas de push/login)
