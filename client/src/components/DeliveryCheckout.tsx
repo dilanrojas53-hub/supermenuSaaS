@@ -208,10 +208,10 @@ export default function DeliveryCheckout({
 
         // Reverse geocode para obtener dirección legible
         const address = await reverseGeocode(latitude, longitude);
-        if (address) {
-          gpsSetAddressRef.current = true; // Evitar que el debounce re-geocodifique
-          setAddressLine(address);
-        }
+        // Siempre establecer addressLine: con dirección legible o con coordenadas como fallback
+        const displayAddress = address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        gpsSetAddressRef.current = true; // Evitar que el debounce re-geocodifique
+        setAddressLine(displayAddress);
         setCoords({ lat: latitude, lon: longitude });
 
         if (deliverySettings?.restaurant_lat && deliverySettings?.restaurant_lon) {
@@ -225,10 +225,10 @@ export default function DeliveryCheckout({
           setDistanceKm(coverage.distanceKm);
           setEtaMinutes(coverage.etaMinutes);
           setIsWithinCoverage(coverage.isWithinCoverage);
-          setGeocodedAddress(address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          setGeocodedAddress(displayAddress);
           setGeoState(coverage.isWithinCoverage ? 'success' : 'out_of_coverage');
         } else {
-          setGeocodedAddress(address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          setGeocodedAddress(displayAddress);
           setGeoState('success');
           setIsWithinCoverage(true);
           setEtaMinutes(deliverySettings?.base_eta_minutes ?? 30);
