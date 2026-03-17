@@ -12,7 +12,7 @@
  * NO toca el flujo de dine_in ni takeout.
  * Se activa únicamente cuando deliveryType === 'delivery'.
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Phone, Navigation, Loader2, CheckCircle, AlertCircle, Clock, ChevronRight, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -85,6 +85,8 @@ export default function DeliveryCheckout({
   // GPS
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState('');
+  // Flag para evitar que el debounce re-geocodifique cuando GPS establece la dirección
+  const gpsSetAddressRef = useRef(false);
 
   // Submitting
   const [submitting, setSubmitting] = useState(false);
@@ -168,8 +170,13 @@ export default function DeliveryCheckout({
     }
   }, [addressLine, deliverySettings, es]);
 
-  // Debounce geocoding al escribir
+  // Debounce geocoding al escribir (no disparar si GPS estableció la dirección)
   useEffect(() => {
+    // Si GPS acaba de establecer la dirección, saltamos el debounce una vez
+    if (gpsSetAddressRef.current) {
+      gpsSetAddressRef.current = false;
+      return;
+    }
     if (addressLine.length < 10) {
       setGeoState('idle');
       setGeocodedAddress(null);
@@ -202,6 +209,7 @@ export default function DeliveryCheckout({
         // Reverse geocode para obtener dirección legible
         const address = await reverseGeocode(latitude, longitude);
         if (address) {
+          gpsSetAddressRef.current = true; // Evitar que el debounce re-geocodifique
           setAddressLine(address);
         }
         setCoords({ lat: latitude, lon: longitude });
