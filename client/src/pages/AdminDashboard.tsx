@@ -17,6 +17,7 @@ import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, ModifierOption } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
 import ModifiersTab from '@/components/ModifiersTab';
+import DeliveryDispatchPanel from '@/components/DeliveryDispatchPanel';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -1985,30 +1986,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         <>
         {/* Kanban: columnas según sub-tab activa */}
         {activeSubTab === 'DELIVERY' ? (
-          /* Vista Delivery: columna única con todos los pedidos de delivery activos */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KanbanColumn
-              title="Nuevos Delivery"
-              icon={<AlertCircle size={14} />}
-              color="#F59E0B"
-              orders={nuevos}
-              emptyMsg="Sin pedidos nuevos"
-            />
-            <KanbanColumn
-              title="En Camino"
-              icon={<Bike size={14} />}
-              color="#3B82F6"
-              orders={enCocina}
-              emptyMsg="Sin pedidos en camino"
-            />
-            <KanbanColumn
-              title="Entregados / Listos"
-              icon={<CheckCircle2 size={14} />}
-              color="#10B981"
-              orders={listos}
-              emptyMsg="Sin pedidos listos"
-            />
-          </div>
+          /* Vista Delivery: Panel de Dispatch con riders y asignación — Fase 2 */
+          <DeliveryDispatchPanel tenant={tenant} />
         ) : (
           /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

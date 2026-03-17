@@ -9,6 +9,7 @@ import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/phone';
+import { buildMapsLink } from '@/lib/maps';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
@@ -105,6 +106,119 @@ function SinpeTenantNumber({ tenantId }: { tenantId: string }) {
         {copied ? <Check size={14} /> : <Camera size={14} />}
         {copied ? 'Copiado' : 'Copiar'}
       </button>
+    </div>
+  );
+}
+
+// ─── Componente: Delivery Tracking Block ─────────────────────────────────────
+function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any }) {
+  const [riderLocation, setRiderLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const deliveryStatus = order.delivery_status as string | null;
+
+  // Escuchar actualizaciones de ubicación del rider en tiempo real
+  useEffect(() => {
+    if (!order.rider_id) return;
+    // Cargar última ubicación conocida
+    supabase
+      .from('rider_profiles')
+      .select('current_lat, current_lon, last_location_at')
+      .eq('id', order.rider_id)
+      .single()
+      .then(({ data }) => {
+        if (data?.current_lat && data?.current_lon) {
+          setRiderLocation({ lat: data.current_lat, lon: data.current_lon });
+        }
+      });
+    // Realtime: escuchar nuevas ubicaciones
+    const channel = supabase
+      .channel(`rider-loc-${order.rider_id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'rider_location_updates',
+        filter: `rider_id=eq.${order.rider_id}`,
+      }, (payload) => {
+        const loc = payload.new as any;
+        setRiderLocation({ lat: loc.lat, lon: loc.lon });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [order.rider_id]);
+
+  const DELIVERY_STEPS = [
+    { status: 'pending_assignment', label: 'Buscando repartidor', icon: '🔍', color: '#F59E0B' },
+    { status: 'assigned',          label: 'Repartidor asignado', icon: '🛵', color: '#3B82F6' },
+    { status: 'accepted',          label: 'Repartidor en camino', icon: '🛵', color: '#8B5CF6' },
+    { status: 'picked_up',         label: 'Pedido recogido', icon: '📦', color: '#F97316' },
+    { status: 'delivered',         label: '¡Entregado!', icon: '✅', color: '#22C55E' },
+  ];
+
+  const currentIdx = DELIVERY_STEPS.findIndex(s => s.status === deliveryStatus);
+
+  return (
+    <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-4">
+      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+        <Bike size={14} className="text-orange-400" />
+        Seguimiento del Delivery
+      </h2>
+
+      {/* Pasos del delivery */}
+      <div className="space-y-3">
+        {DELIVERY_STEPS.map((step, i) => {
+          const isDone = currentIdx > i;
+          const isActive = currentIdx === i;
+          return (
+            <div key={step.status} className="flex items-center gap-3">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all"
+                style={{
+                  background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
+                  border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
+                }}
+              >
+                {isDone ? '✓' : step.icon}
+              </div>
+              <span
+                className="text-sm font-semibold transition-all"
+                style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}
+              >
+                {step.label}
+              </span>
+              {isActive && (
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: step.color }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Info de dirección */}
+      {order.delivery_formatted_address && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-slate-800/50">
+          <MapPin size={13} className="text-orange-400 mt-0.5 flex-shrink-0" />
+          <p className="text-slate-300 text-xs leading-snug">{order.delivery_formatted_address}</p>
+        </div>
+      )}
+
+      {/* ETA */}
+      {order.delivery_eta_minutes && deliveryStatus !== 'delivered' && (
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Clock size={12} />
+          <span>ETA estimado: <strong className="text-white">{order.delivery_eta_minutes} min</strong></span>
+        </div>
+      )}
+
+      {/* Link a Maps si hay ubicación del rider */}
+      {riderLocation && deliveryStatus === 'picked_up' && (
+        <a
+          href={buildMapsLink(riderLocation.lat, riderLocation.lon)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all"
+          style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', color: '#60A5FA' }}
+        >
+          <MapPin size={12} />
+          Ver ubicación del repartidor en Maps
+        </a>
+      )}
     </div>
   );
 }
@@ -555,6 +669,9 @@ export default function OrderStatusPage() {
             </div>
           )}
         </div>
+
+        {/* ─── DELIVERY TRACKING BLOCK — Fase 2 ─── */}
+        {isDelivery && <DeliveryTrackingBlock orderId={order.id} order={order as any} />}
 
         {/* ─── ORDER DETAILS ─── */}
         <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
