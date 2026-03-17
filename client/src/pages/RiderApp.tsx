@@ -152,12 +152,30 @@ export default function RiderApp() {
           last_location_at: new Date().toISOString(),
         }).eq('id', rider.id);
         // Insertar en rider_location_updates para historial
-        const assignment = orders.find(o => o.id === activeOrderId)?.assignment;
+        const activeOrder = orders.find(o => o.id === activeOrderId);
+        const assignment = activeOrder?.assignment;
         await supabase.from('rider_location_updates').insert({
           rider_id: rider.id,
           assignment_id: assignment?.id || null,
           lat, lon, accuracy_m: accuracy,
         });
+        // ── ETA dinámico: recalcular distancia rider→cliente cada actualización ──
+        if (activeOrder?.delivery_lat && activeOrder?.delivery_lon) {
+          try {
+            const R = 6371;
+            const dLat = (activeOrder.delivery_lat - lat) * Math.PI / 180;
+            const dLon = (activeOrder.delivery_lon - lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat * Math.PI / 180) * Math.cos(activeOrder.delivery_lat * Math.PI / 180) *
+              Math.sin(dLon/2)**2;
+            const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const avgSpeedKmh = 25; // velocidad promedio moto en ciudad
+            const etaMin = Math.max(1, Math.ceil((distKm / avgSpeedKmh) * 60) + 2);
+            await supabase.from('orders').update({
+              delivery_eta_minutes: etaMin,
+            }).eq('id', activeOrderId);
+          } catch { /* ignorar errores de cálculo */ }
+        }
       });
     };
 

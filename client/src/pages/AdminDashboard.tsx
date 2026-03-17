@@ -18,6 +18,9 @@ import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, M
 import ImageUpload from '@/components/ImageUpload';
 import ModifiersTab from '@/components/ModifiersTab';
 import DeliveryDispatchPanel from '@/components/DeliveryDispatchPanel';
+import DeliveryHistoryPanel from '@/components/DeliveryHistoryPanel';
+import DeliveryZonesPanel from '@/components/DeliveryZonesPanel';
+import DeliveryOpsPanel from '@/components/DeliveryOpsPanel';
 import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -554,6 +557,39 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
   );
 }
 
+// ─── Delivery Tab with History + Ops (Fases 2-5) ───
+function DeliveryTabWithHistory({ tenant }: { tenant: Tenant }) {
+  const [view, setView] = useState<'ops' | 'dispatch' | 'history'>('ops');
+  const TABS = [
+    { key: 'ops' as const,      label: '🟢 Operaciones' },
+    { key: 'dispatch' as const, label: '🛵 Despacho' },
+    { key: 'history' as const,  label: '📋 Historial' },
+  ];
+  return (
+    <div className="space-y-4">
+      {/* Sub-nav */}
+      <div className="flex gap-2 flex-wrap">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setView(t.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              view === t.key
+                ? 'bg-blue-500 text-white'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {view === 'ops'      && <DeliveryOpsPanel      tenant={tenant} />}
+      {view === 'dispatch' && <DeliveryDispatchPanel  tenant={tenant} />}
+      {view === 'history'  && <DeliveryHistoryPanel   tenant={tenant} />}
+    </div>
+  );
+}
+
 // ─── Settings Tab ───
 function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void }) {
   const [form, setForm] = useState({
@@ -1014,11 +1050,17 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
       >
         <Save size={14} /> {saving ? 'Guardando...' : 'Guardar configuración de delivery'}
       </button>
+
+      {/* ── Zonas de cobertura ── */}
+      {settings.enabled && (
+        <div className="mt-6 pt-6 border-t border-slate-700/50">
+          <DeliveryZonesPanel tenant={tenant} />
+        </div>
+      )}
     </div>
   );
 }
-
-// ─── Theme Tab ───
+// ─── Theme Tab ────
 function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSettings; onRefresh: () => void }) {
   const { uiTheme, setUiTheme } = useUITheme();
   // V18.0: Estado de 5 colores del menú público + tema preset
@@ -1987,8 +2029,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         <>
         {/* Kanban: columnas según sub-tab activa */}
         {activeSubTab === 'DELIVERY' ? (
-          /* Vista Delivery: Panel de Dispatch con riders y asignación — Fase 2 */
-          <DeliveryDispatchPanel tenant={tenant} />
+          /* Vista Delivery: Dispatch + Historial — Fases 2-4 */
+          <DeliveryTabWithHistory tenant={tenant} />
         ) : (
           /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

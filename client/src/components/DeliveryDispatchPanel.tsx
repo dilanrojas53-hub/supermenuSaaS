@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { buildDirectionsLink } from '@/lib/maps';
+import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { formatPrice } from '@/lib/types';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import * as bcrypt from 'bcryptjs';
@@ -73,10 +74,12 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const [showAddRider, setShowAddRider] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const [showPins, setShowPins] = useState<Record<string, boolean>>({});
+  const [trackingOrder, setTrackingOrder] = useState<DeliveryOrder | null>(null);
 
   // Form de nuevo rider
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
   const [savingRider, setSavingRider] = useState(false);
+  const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number } | null>(null);
 
   // ─── Fetch data ─────────────────────────────────────────────────────────────
   const fetchRiders = useCallback(async () => {
@@ -100,6 +103,9 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   }, [tenant.id]);
 
   useEffect(() => {
+    // Cargar coordenadas del restaurante para el mapa
+    supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon').eq('tenant_id', tenant.id).single()
+      .then(({ data }) => { if (data) setDeliverySettings(data as any); });
     Promise.all([fetchRiders(), fetchOrders()]).finally(() => setLoading(false));
 
     // Realtime
@@ -435,13 +441,22 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                   </div>
                   <div className="flex items-center gap-2">
                     {order.delivery_lat && order.delivery_lon && (
-                      <a
-                        href={buildDirectionsLink(0, 0, order.delivery_lat, order.delivery_lon)}
-                        target="_blank" rel="noopener noreferrer"
-                        className="p-1.5 rounded text-slate-500 hover:text-blue-400 transition-colors"
-                      >
-                        <ExternalLink size={12} />
-                      </a>
+                      <>
+                        <button
+                          onClick={() => setTrackingOrder(order)}
+                          className="p-1.5 rounded text-slate-500 hover:text-blue-400 transition-colors"
+                          title="Ver en mapa"
+                        >
+                          <Navigation size={12} />
+                        </button>
+                        <a
+                          href={buildDirectionsLink(0, 0, order.delivery_lat, order.delivery_lon)}
+                          target="_blank" rel="noopener noreferrer"
+                          className="p-1.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      </>
                     )}
                     <span
                       className="px-2 py-0.5 rounded-full text-xs font-bold"
@@ -533,6 +548,21 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Live Tracking Map Modal ── */}
+      {trackingOrder && trackingOrder.rider_id && deliverySettings && (
+        <LiveTrackingMap
+          orderId={trackingOrder.id}
+          riderId={trackingOrder.rider_id}
+          restaurantLat={deliverySettings.restaurant_lat}
+          restaurantLon={deliverySettings.restaurant_lon}
+          clientLat={trackingOrder.delivery_lat!}
+          clientLon={trackingOrder.delivery_lon!}
+          clientAddress={trackingOrder.delivery_formatted_address || trackingOrder.delivery_address}
+          orderNumber={trackingOrder.order_number}
+          onClose={() => setTrackingOrder(null)}
+        />
+      )}
     </div>
   );
 }
