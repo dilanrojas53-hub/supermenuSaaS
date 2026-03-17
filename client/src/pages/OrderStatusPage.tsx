@@ -809,8 +809,8 @@ export default function OrderStatusPage() {
           )}
         </div>
 
-        {/* ─── TABLE QUICK REQUESTS ─── */}
-        {order.customer_table && order.status !== 'cancelado' && (
+        {/* ─── TABLE QUICK REQUESTS — solo dine_in ─── */}
+        {order.customer_table && order.status !== 'cancelado' && !isDelivery && !isTakeout && (
           <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1138,8 +1138,8 @@ export default function OrderStatusPage() {
       </div>
 
       {/* ─── V21.0: SMART BILL — Sticky Footer ─── */}
-      {/* Mostrar si el pedido fue entregado y el pago está pendiente */}
-      {isCompleted && (order as any).payment_status !== 'paid' && (
+      {/* Solo para dine_in: no tiene sentido pedir la cuenta a un mesero en delivery/takeout */}
+      {isCompleted && (order as any).payment_status !== 'paid' && !isDelivery && !isTakeout && (
         <div
           className="fixed bottom-0 left-0 right-0 z-50 p-4"
           style={{
