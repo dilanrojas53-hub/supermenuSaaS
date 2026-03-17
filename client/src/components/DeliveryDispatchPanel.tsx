@@ -14,6 +14,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { buildDirectionsLink } from '@/lib/maps';
 import { formatPrice } from '@/lib/types';
+import { buildWhatsAppUrl } from '@/lib/phone';
+import * as bcrypt from 'bcryptjs';
 import {
   Bike, MapPin, Phone, Plus, User, CheckCircle2, Clock,
   Navigation, AlertCircle, ExternalLink, Trash2, Eye,
@@ -129,6 +131,19 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
         assigned_at: new Date().toISOString(),
       }, { onConflict: 'order_id' });
 
+      // Notificar al rider por WhatsApp si tiene teléfono
+      const rider = riders.find(r => r.id === riderId);
+      const order = orders.find(o => o.id === orderId);
+      if (rider?.phone && order) {
+        const riderAppUrl = `${window.location.origin}/rider/${tenant.slug}`;
+        const msg = `🛵 *Nuevo pedido asignado* #${order.order_number}\n\n` +
+          `📍 *Dirección:* ${order.delivery_formatted_address || order.delivery_address}\n` +
+          (order.delivery_distance_km ? `📐 *Distancia:* ${order.delivery_distance_km.toFixed(1)} km\n` : '') +
+          (order.delivery_eta_minutes ? `⏱️ *ETA:* ${order.delivery_eta_minutes} min\n` : '') +
+          `\n🔗 Entra a la app: ${riderAppUrl}`;
+        const waUrl = buildWhatsAppUrl(rider.phone, msg);
+        if (waUrl) window.open(waUrl, '_blank');
+      }
       toast.success('Rider asignado ✅');
       await fetchOrders();
     } catch {
@@ -149,7 +164,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       tenant_id: tenant.id,
       name: newRider.name.trim(),
       phone: newRider.phone.trim() || null,
-      pin_hash: newRider.pin, // En Fase 3 se hasheará con edge function
+      pin_hash: bcrypt.hashSync(newRider.pin, 10), // Fase 3: hash bcrypt en cliente
       vehicle_type: newRider.vehicle_type,
       is_active: true,
     });
@@ -296,7 +311,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
 
                   {showPins[rider.id] && (
                     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                      <span className="text-yellow-400 text-xs font-mono font-bold">PIN: {rider.pin_hash}</span>
+                      <span className="text-yellow-400 text-xs font-mono font-bold">PIN guardado (hasheado) ✓</span>
                     </div>
                   )}
 

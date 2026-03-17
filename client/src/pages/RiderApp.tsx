@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'wouter';
 import { supabase } from '@/lib/supabase';
+import * as bcrypt from 'bcryptjs';
 import { buildDirectionsLink, buildMapsLink } from '@/lib/maps';
 import { formatPrice } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -184,9 +185,13 @@ export default function RiderApp() {
       return;
     }
 
-    // Verificar PIN (comparación directa — en producción usar bcrypt en edge function)
-    // Por ahora el PIN se guarda como texto plano en pin_hash para simplificar Fase 2
-    const match = riders.find(r => r.pin_hash === pinInput);
+    // Verificar PIN con bcrypt (Fase 3) — soporte para hashes nuevos y legacy texto plano
+    const match = riders.find(r => {
+      if (r.pin_hash.startsWith('$2')) {
+        return bcrypt.compareSync(pinInput, r.pin_hash);
+      }
+      return r.pin_hash === pinInput; // legacy
+    });
     if (!match) {
       setPinError('PIN incorrecto');
       setLoginLoading(false);

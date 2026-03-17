@@ -63,6 +63,9 @@ interface KitchenOrder {
   created_at: string;
   accepted_at?: string;
   has_new_items?: boolean;
+  delivery_type?: string;
+  delivery_address?: string;
+  kitchen_delivery_status?: string | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -273,12 +276,17 @@ function KitchenOrderCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {order.customer_table && (
-              <span className="text-sm font-black text-white">🪑 Mesa {order.customer_table}</span>
+              <span className="text-sm font-black text-white">🪺 Mesa {order.customer_table}</span>
             )}
             {order.customer_name && (
               <span className="text-xs text-slate-400">{order.customer_table ? '·' : ''} {order.customer_name}</span>
+            )}
+            {order.delivery_type === 'delivery' && (
+              <span className="text-[10px] font-black px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/35 uppercase tracking-wider">
+                🛵 Delivery
+              </span>
             )}
           </div>
         </div>
@@ -387,7 +395,7 @@ function KitchenScreen({
   const fetchOrders = useCallback(async () => {
     const { data, error } = await supabase
       .from('orders')
-      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status')
       .eq('tenant_id', tenant.id)
       .in('status', ['pendiente', 'en_cocina'])
       .order('created_at', { ascending: true });

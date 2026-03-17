@@ -18,6 +18,7 @@ import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, M
 import ImageUpload from '@/components/ImageUpload';
 import ModifiersTab from '@/components/ModifiersTab';
 import DeliveryDispatchPanel from '@/components/DeliveryDispatchPanel';
+import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -2071,7 +2072,6 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     </div>
   );
 }
-
 // ─── Analytics Tab — Dashboard Premium V2 ───
 type AnalyticsFilter = 'today' | 'yesterday' | 'week' | 'month';
 const analyticsFilterLabels: Record<AnalyticsFilter, string> = {
@@ -2611,6 +2611,9 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
           </button>
         </div>
       </div>
+
+      {/* ── Delivery Analytics ── */}
+      <DeliveryAnalyticsCard orders={orders as any} filter={analyticsFilter} />
     </div>
   );
 }
