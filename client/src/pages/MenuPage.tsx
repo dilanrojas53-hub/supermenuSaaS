@@ -376,16 +376,14 @@ function MenuContent() {
         </div>
       )}
 
-      {/* Category Tabs — Sticky Glassmorphism V10.0 */}
+      {/* Category Tabs — Sticky V11.0: usa el color del tema del restaurante */}
       <div
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          backgroundColor: 'var(--menu-bg)',
+          borderBottom: '1px solid var(--menu-border)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
@@ -397,11 +395,11 @@ function MenuContent() {
                 onClick={() => handleCategoryClick(cat.id)}
                 className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? 'var(--menu-badge)' : 'rgba(255,255,255,0.08)',
+                  backgroundColor: isActive ? 'var(--menu-badge)' : 'var(--menu-surface)',
                   color: isActive ? '#ffffff' : 'var(--menu-text)',
                   fontWeight: isActive ? 800 : 500,
-                  boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.35)' : 'none',
-                  border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.2)' : 'none',
+                  border: isActive ? 'none' : '1px solid var(--menu-border)',
                   letterSpacing: isActive ? '-0.01em' : '0',
                 }}
               >

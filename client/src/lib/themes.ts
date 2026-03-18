@@ -256,11 +256,22 @@ export function applyRestaurantTheme(params: {
   const root = document.documentElement;
   const isDark = isColorDark(background);
 
+  // Convertir hex a RGB para usar en rgba()
+  const hexToRgb = (hex: string): string => {
+    const clean = hex.replace('#', '');
+    if (clean.length < 6) return '230,99,26';
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    return `${r},${g},${b}`;
+  };
+
   // CSS vars del menú público
   root.style.setProperty('--menu-bg',              background);
   root.style.setProperty('--menu-surface',         surface);
   root.style.setProperty('--menu-text',            text);
   root.style.setProperty('--menu-accent',          primary);
+  root.style.setProperty('--menu-accent-rgb',      hexToRgb(primary));
   root.style.setProperty('--menu-accent-contrast', '#ffffff');
   root.style.setProperty('--menu-badge',           badge || primary);
   root.style.setProperty('--menu-muted',           isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)');
