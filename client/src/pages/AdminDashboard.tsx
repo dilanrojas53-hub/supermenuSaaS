@@ -1829,7 +1829,14 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const now = new Date().toISOString();
     const extra: Record<string, any> = { updated_at: now, has_new_items: false };
     if (newStatus === 'en_cocina') extra.accepted_at = now;
-    if (newStatus === 'listo') extra.ready_at = now;
+    if (newStatus === 'listo') {
+      extra.ready_at = now;
+      // Setear kitchen_committed_at para que DeliveryDispatchPanel detecte el pedido como listo para asignar rider
+      const orderObj = orders.find(o => o.id === orderId);
+      if ((orderObj as any)?.delivery_type === 'delivery') {
+        extra.kitchen_committed_at = now;
+      }
+    }
     if (newStatus === 'entregado') extra.completed_at = now;
     const { error } = await supabase.from('orders').update({ status: newStatus, ...extra }).eq('id', orderId);
     if (error) { toast.error('Error: ' + error.message); return; }

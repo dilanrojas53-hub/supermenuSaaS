@@ -265,23 +265,25 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const waitlistOrders = orders.filter(o => o.logistic_status === 'waitlist');
   // Soft-reserve: disponibilidad confirmada, pendiente de commit manual
   const softReserveOrders = orders.filter(o => o.logistic_status === 'soft_reserve');
-  // Comprometidos con cocina pero sin rider asignado
-  // REGLA: pedidos SINPE solo aparecen si payment_verified=true (pago validado por admin)
+  // REGLA PRINCIPAL: solo pedidos en estado 'listo' (cocina terminó) pueden asignarse al rider
+  // REGLA SINPE: pedidos SINPE solo aparecen si payment_verified=true (pago validado por admin)
   const committedUnassigned = orders.filter(o =>
+    (o as any).status === 'listo' &&
     o.kitchen_committed_at != null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment') &&
     o.logistic_status !== 'waitlist' &&
     o.logistic_status !== 'soft_reserve' &&
     ((o as any).payment_method !== 'sinpe' || (o as any).payment_verified === true)
   );
-  // Fallback: pedidos sin logistic_status (legacy) sin asignar
+  // Fallback legacy: pedidos 'listo' sin logistic_status (compatibilidad hacia atrás)
   const legacyUnassigned = orders.filter(o =>
+    (o as any).status === 'listo' &&
     o.logistic_status == null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment')
   );
   // Todos sin asignar (para la sección de dispatch)
   const unassigned = [...committedUnassigned, ...legacyUnassigned];
-  const assigned   = orders.filter(o => o.rider_id && o.delivery_status !== 'pending_assignment');
+  const assigned   = orders.filter(o => o.rider_id && o.delivery_status !== 'pending_assignment' && o.delivery_status !== 'delivered');
 
   // ─── Commit manual a cocina ──────────────────────────────────────────────
   const handleCommitToKitchen = async (orderId: string) => {

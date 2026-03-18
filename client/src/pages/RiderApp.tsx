@@ -669,15 +669,36 @@ export default function RiderApp() {
                     )}
 
                     {/* Botón de acción principal */}
-                    {nextAction && (
-                      <button
-                        onClick={() => handleStatusChange(order, nextAction.nextStatus)}
-                        className="w-full py-3 rounded-xl text-sm font-black transition-all active:scale-98"
-                        style={{ background: `linear-gradient(135deg,${nextAction.color},${nextAction.color}cc)`, color: '#fff' }}
-                      >
-                        {nextAction.label}
-                      </button>
-                    )}
+                    {nextAction && (() => {
+                      // Bloquear 'Aceptar pedido' si cocina aún no marcó el pedido como listo
+                      const isAcceptAction = nextAction.nextStatus === 'accepted';
+                      const orderStatus = (order as any).status;
+                      const isKitchenReady = orderStatus === 'listo' || orderStatus === 'entregado';
+                      const isBlocked = isAcceptAction && !isKitchenReady;
+                      return (
+                        <>
+                          {isBlocked && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                              <Clock size={12} />
+                              <span>Esperando que cocina marque el pedido como listo...</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => { if (!isBlocked) handleStatusChange(order, nextAction.nextStatus); }}
+                            disabled={isBlocked}
+                            className="w-full py-3 rounded-xl text-sm font-black transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{
+                              background: isBlocked
+                                ? 'rgba(55,65,81,0.8)'
+                                : `linear-gradient(135deg,${nextAction.color},${nextAction.color}cc)`,
+                              color: '#fff',
+                            }}
+                          >
+                            {nextAction.label}
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </motion.div>
               );

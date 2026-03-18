@@ -404,14 +404,14 @@ function KitchenScreen({
       .not('delivery_type', 'eq', 'delivery')
       .order('created_at', { ascending: true });
 
-    // Query 2: pedidos delivery con kitchen_committed_at seteado (comprometidos con cocina)
+    // Query 2: pedidos delivery activos — se muestran si tienen status en_cocina (validados por admin)
+    // Ya no se requiere kitchen_committed_at para aparecer; el admin es quien los envía a cocina
     const { data: deliveryData, error: err2 } = await supabase
       .from('orders')
-      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at,payment_method,payment_verified')
       .eq('tenant_id', tenant.id)
-      .in('status', ['pendiente', 'en_cocina'])
       .eq('delivery_type', 'delivery')
-      .not('kitchen_committed_at', 'is', null)
+      .in('status', ['en_cocina'])  // Solo los que el admin ya envió a cocina
       .order('created_at', { ascending: true });
 
     const error = err1 || err2;
@@ -484,9 +484,16 @@ function KitchenScreen({
     setActionLoading(orderId);
     const now = new Date().toISOString();
 
+    // Al marcar listo: setear kitchen_committed_at para que DeliveryDispatchPanel lo detecte
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'listo', ready_at: now, updated_at: now, has_new_items: false })
+      .update({
+        status: 'listo',
+        ready_at: now,
+        updated_at: now,
+        has_new_items: false,
+        kitchen_committed_at: now,  // Marca que cocina terminó — dispatch puede asignar rider
+      })
       .eq('id', orderId);
 
     if (error) {
