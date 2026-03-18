@@ -39,18 +39,37 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: 'linear-gradient(135deg, #0a0a0a 0%, #0f1724 50%, #0a0a0a 100%)' }}
+    >
       <div className="w-full max-w-md">
-        <div className="bg-muted/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl">
+        <div
+          className="rounded-2xl p-8"
+          style={{
+            backgroundColor: '#111827',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+          }}
+        >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/20">
-              <Lock size={28} className="text-foreground" />
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{
+                background: 'linear-gradient(135deg, #F59E0B, #EF4444)',
+                boxShadow: '0 8px 24px rgba(245,158,11,0.3)',
+              }}
+            >
+              <Lock size={28} style={{ color: '#000' }} />
             </div>
-            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Lora', serif" }}>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: '#f5f3ee', fontFamily: "'Lora', serif" }}
+            >
               {mode === 'superadmin' ? 'Super Admin' : 'Panel de Administración'}
             </h1>
-            <p className="text-muted-foreground text-sm mt-2">
+            <p className="text-sm mt-2" style={{ color: '#9b8f82' }}>
               {mode === 'superadmin'
                 ? 'Control central de la plataforma Smart Menu'
                 : `Gestiona tu restaurante${params.slug ? ` (${params.slug})` : ''}`}
@@ -60,37 +79,64 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">Email</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: '#9b8f82' }}>Email</label>
               <div className="relative">
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 pl-11 bg-muted/50 border border-border/50 rounded-xl text-foreground placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                  className="w-full px-4 py-3 pl-11 rounded-xl text-sm outline-none transition-all"
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#f5f3ee',
+                  }}
                   placeholder="tu@email.com"
                   autoComplete="email"
                   required
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = '#c6a75e';
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(198,167,94,0.2)';
+                  }}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/70" />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#9b8f82' }} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">Contraseña</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: '#9b8f82' }}>Contraseña</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all pr-12"
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all pr-12"
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#f5f3ee',
+                  }}
                   placeholder="Tu contraseña"
                   autoComplete="current-password"
                   required
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = '#c6a75e';
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(198,167,94,0.2)';
+                  }}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#9b8f82' }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -98,7 +144,13 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{
+                  backgroundColor: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                }}
+              >
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
@@ -106,11 +158,19 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 text-foreground font-bold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-lg shadow-amber-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #F59E0B, #EF4444)',
+                color: '#000',
+                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
+              }}
             >
               {loading ? (
                 <>
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  <div
+                    className="w-4 h-4 rounded-full border-2 animate-spin"
+                    style={{ borderColor: '#000', borderTopColor: 'transparent' }}
+                  />
                   Verificando...
                 </>
               ) : (
@@ -120,7 +180,7 @@ export default function AdminLogin({ mode }: AdminLoginProps) {
           </form>
         </div>
 
-        <p className="text-center text-slate-600 text-xs mt-6">
+        <p className="text-center text-xs mt-6" style={{ color: '#4b5563' }}>
           Smart Menu Platform — Autenticación segura con Supabase
         </p>
       </div>
