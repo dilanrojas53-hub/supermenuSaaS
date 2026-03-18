@@ -156,6 +156,10 @@ export default function Pricing() {
             const meta = PLAN_META[tier];
             const Icon = PLAN_ICONS[tier];
             const isDark = !PLAN_TEXT_DARK[tier];
+            const textPrimary = isDark ? '#ffffff' : '#111827';
+            const textSecondary = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)';
+            const textBody = isDark ? 'rgba(255,255,255,0.75)' : '#4B5563';
+            const textMuted = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(107,114,128,0.7)';
             const price = isAnnual ? Math.round(meta.annualPrice / 12) : meta.monthlyPrice;
             return (
               <motion.div key={tier} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: idx * 0.1 }}
@@ -169,21 +173,21 @@ export default function Pricing() {
                 <div className={`p-6 ${meta.badge ? 'pt-10' : ''}`}>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: meta.color, boxShadow: `0 4px 12px ${meta.color}40` }}>
-                      <Icon size={18} className="text-foreground" />
+                      <Icon size={18} style={{ color: isDark ? '#ffffff' : '#111827' }} />
                     </div>
                     <div>
-                      <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-foreground/60' : 'text-black/40'}`}>Plan</p>
-                      <h2 className={`text-lg font-black ${isDark ? 'text-foreground' : 'text-gray-900'}`} style={{ fontFamily: "'Lora', serif" }}>{meta.displayName}</h2>
+                      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: textSecondary }}>Plan</p>
+                      <h2 className="text-lg font-black" style={{ fontFamily: "'Lora', serif", color: textPrimary }}>{meta.displayName}</h2>
                     </div>
                   </div>
                   <div className="mb-4">
                     <div className="flex items-end gap-1">
-                      <span className={`text-3xl font-black ${isDark ? 'text-foreground' : 'text-gray-900'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{formatPlanPrice(price)}</span>
-                      <span className={`text-sm mb-1 ${isDark ? 'text-foreground/50' : 'text-muted-foreground/70'}`}>/mes</span>
+                      <span className="text-3xl font-black" style={{ fontFamily: "'Nunito', sans-serif", color: textPrimary }}>{formatPlanPrice(price)}</span>
+                      <span className="text-sm mb-1" style={{ color: textMuted }}>/mes</span>
                     </div>
                     {isAnnual && <p className="text-xs font-semibold mt-1" style={{ color: '#34D399' }}>Ahorrás {formatPlanPrice(meta.annualSavings)} al año</p>}
                   </div>
-                  <p className={`text-sm mb-5 leading-relaxed ${isDark ? 'text-foreground/70' : 'text-gray-600'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{meta.description}</p>
+                  <p className="text-sm mb-5 leading-relaxed" style={{ fontFamily: "'Nunito', sans-serif", color: textBody }}>{meta.description}</p>
                   <a href={buildWhatsAppUrl(meta.displayName, isAnnual)} target="_blank" rel="noopener noreferrer"
                     className="block w-full text-center py-3 rounded-xl text-sm font-black transition-all hover:scale-[1.02] active:scale-[0.98]"
                     style={{ backgroundColor: meta.highlighted ? '#D97706' : meta.color, color: 'white', boxShadow: `0 4px 14px ${meta.color}50`, fontFamily: "'Nunito', sans-serif" }}>
