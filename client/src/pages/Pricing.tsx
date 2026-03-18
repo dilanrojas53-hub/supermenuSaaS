@@ -203,7 +203,7 @@ export default function Pricing() {
       {/* ═══ TABLA DE FEATURES ═══ */}
       <div className="px-4 mt-12 max-w-5xl mx-auto">
         <h2 className="text-xl font-black text-gray-900 mb-2 text-center" style={{ fontFamily: "'Lora', serif" }}>¿Qué incluye cada plan?</h2>
-        <p className="text-sm text-muted-foreground/70 text-center mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>Features agrupadas por valor. Cada plan incluye todo lo del anterior.</p>
+        <p className="text-sm text-center mb-8" style={{ fontFamily: "'Nunito', sans-serif", color: 'rgba(0,0,0,0.5)' }}>Features agrupadas por valor. Cada plan incluye todo lo del anterior.</p>
 
         {/* Header columnas */}
         <div className="grid grid-cols-4 gap-2 mb-3 px-4">
@@ -221,7 +221,7 @@ export default function Pricing() {
               <button className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
                 onClick={() => setExpandedGroup(expandedGroup === group.label ? null : group.label)}>
                 <span className="text-sm font-black text-gray-800" style={{ fontFamily: "'Nunito', sans-serif" }}>{group.label}</span>
-                {expandedGroup === group.label ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
+                {expandedGroup === group.label ? <ChevronUp size={16} style={{ color: 'rgba(0,0,0,0.4)' }} /> : <ChevronDown size={16} style={{ color: 'rgba(0,0,0,0.4)' }} />}
               </button>
               <AnimatePresence>
                 {expandedGroup === group.label && (
