@@ -359,7 +359,7 @@ export default function RiderApp() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
         <div className="text-center">
           <AlertCircle size={48} className="text-red-400 mx-auto mb-3" />
-          <p className="text-white font-bold">Restaurante no encontrado</p>
+          <p className="text-foreground font-bold">Restaurante no encontrado</p>
         </div>
       </div>
     );
@@ -379,20 +379,20 @@ export default function RiderApp() {
             <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
               <Bike size={32} className="text-orange-400" />
             </div>
-            <h1 className="text-2xl font-black text-white">SmartMenu Rider</h1>
-            <p className="text-gray-400 text-sm mt-1">{tenantName}</p>
+            <h1 className="text-2xl font-black text-foreground">SmartMenu Rider</h1>
+            <p className="text-muted-foreground text-sm mt-1">{tenantName}</p>
           </div>
 
           {loginStep === 'select' ? (
             /* Paso 1: Seleccionar rider */
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <label className="block text-xs text-gray-400 mb-4 font-semibold uppercase tracking-wide">
+            <div className="bg-card border border-gray-800 rounded-2xl p-6">
+              <label className="block text-xs text-muted-foreground mb-4 font-semibold uppercase tracking-wide">
                 ¿Quién eres?
               </label>
               {availableRiders.length === 0 ? (
                 <div className="text-center py-6">
                   <User size={32} className="text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-400 text-sm">No hay repartidores activos</p>
+                  <p className="text-muted-foreground text-sm">No hay repartidores activos</p>
                   <p className="text-gray-600 text-xs mt-1">Pide al admin que te agregue</p>
                 </div>
               ) : (
@@ -414,10 +414,10 @@ export default function RiderApp() {
                         <span className="text-orange-400 font-black text-lg">{r.name.charAt(0).toUpperCase()}</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold">{r.name}</p>
-                        <p className="text-gray-400 text-xs capitalize">{r.vehicle_type}</p>
+                        <p className="text-foreground font-bold">{r.name}</p>
+                        <p className="text-muted-foreground text-xs capitalize">{r.vehicle_type}</p>
                       </div>
-                      <ChevronRight size={16} className="text-gray-500 ml-auto" />
+                      <ChevronRight size={16} className="text-muted-foreground/70 ml-auto" />
                     </button>
                   ))}
                 </div>
@@ -425,25 +425,25 @@ export default function RiderApp() {
             </div>
           ) : (
             /* Paso 2: Ingresar PIN */
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="bg-card border border-gray-800 rounded-2xl p-6">
               {/* Rider seleccionado */}
               <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-800">
                 <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
                   <span className="text-orange-400 font-black text-lg">{selectedRiderName.charAt(0).toUpperCase()}</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-bold">{selectedRiderName}</p>
-                  <p className="text-gray-400 text-xs">Ingresa tu PIN de 4 dígitos</p>
+                  <p className="text-foreground font-bold">{selectedRiderName}</p>
+                  <p className="text-muted-foreground text-xs">Ingresa tu PIN de 4 dígitos</p>
                 </div>
                 <button
                   onClick={() => { setLoginStep('select'); setPinInput(''); setPinError(''); }}
-                  className="text-gray-500 hover:text-gray-300 text-xs"
+                  className="text-muted-foreground/70 hover:text-muted-foreground text-xs"
                 >
                   Cambiar
                 </button>
               </div>
 
-              <label className="block text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">
+              <label className="block text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wide">
                 Ingresa tu PIN
               </label>
               <div className="flex gap-3 justify-center mb-6">
@@ -476,7 +476,7 @@ export default function RiderApp() {
                     style={{
                       backgroundColor: key === '⌫' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.06)',
                       color: key === '⌫' ? '#EF4444' : '#fff',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      border: '1px solid hsl(var(--border))',
                     }}
                   >
                     {key}
@@ -507,14 +507,14 @@ export default function RiderApp() {
   return (
     <div className="min-h-screen bg-gray-950 pb-8">
       {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-card border-b border-gray-800 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-orange-500/20 flex items-center justify-center">
             <User size={18} className="text-orange-400" />
           </div>
           <div>
-            <p className="text-white font-bold text-sm">{rider.name}</p>
-            <p className="text-gray-500 text-xs">{tenantName} · {rider.vehicle_type}</p>
+            <p className="text-foreground font-bold text-sm">{rider.name}</p>
+            <p className="text-muted-foreground/70 text-xs">{tenantName} · {rider.vehicle_type}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -533,7 +533,7 @@ export default function RiderApp() {
           )}
           <button
             onClick={() => rider && refetchOrders()}
-            className="p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
           >
             <RefreshCw size={16} />
           </button>
@@ -544,7 +544,7 @@ export default function RiderApp() {
               setActiveOrderId(null);
               if (slug) localStorage.removeItem(`rider_session_${slug}`);
             }}
-            className="p-2 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
+            className="p-2 rounded-lg text-muted-foreground hover:text-red-400 transition-colors"
           >
             <LogOut size={16} />
           </button>
@@ -570,7 +570,7 @@ export default function RiderApp() {
         {orders.length === 0 ? (
           <div className="text-center py-16">
             <Package size={48} className="text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-400 font-semibold">Sin pedidos asignados</p>
+            <p className="text-muted-foreground font-semibold">Sin pedidos asignados</p>
             <p className="text-gray-600 text-sm mt-1">Los pedidos aparecerán aquí cuando te sean asignados</p>
           </div>
         ) : (
@@ -585,13 +585,13 @@ export default function RiderApp() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
+                  className="bg-card border border-gray-800 rounded-2xl overflow-hidden"
                 >
                   {/* Header del pedido */}
                   <div className="px-4 py-3 flex items-center justify-between border-b border-gray-800">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-black">#{order.order_number}</span>
-                      <span className="text-gray-400 text-sm">{formatPrice(order.total)}</span>
+                      <span className="text-foreground font-black">#{order.order_number}</span>
+                      <span className="text-muted-foreground text-sm">{formatPrice(order.total)}</span>
                     </div>
                     <div
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
@@ -607,11 +607,11 @@ export default function RiderApp() {
                     <div className="flex items-start gap-2">
                       <MapPin size={15} className="text-orange-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium leading-snug">
+                        <p className="text-foreground text-sm font-medium leading-snug">
                           {order.delivery_formatted_address || order.delivery_address}
                         </p>
                         {order.delivery_distance_km && (
-                          <p className="text-gray-500 text-xs mt-0.5">
+                          <p className="text-muted-foreground/70 text-xs mt-0.5">
                             {order.delivery_distance_km.toFixed(1)} km · ~{order.delivery_eta_minutes} min
                           </p>
                         )}
@@ -621,7 +621,7 @@ export default function RiderApp() {
                     {/* Teléfono del cliente */}
                     {order.delivery_phone && (
                       <div className="flex items-center gap-2">
-                        <Phone size={13} className="text-gray-500 flex-shrink-0" />
+                        <Phone size={13} className="text-muted-foreground/70 flex-shrink-0" />
                         <a
                           href={`tel:${order.delivery_phone}`}
                           className="text-blue-400 text-sm hover:text-blue-300 transition-colors"
@@ -633,7 +633,7 @@ export default function RiderApp() {
 
                     {/* Notas */}
                     {order.notes && (
-                      <p className="text-gray-400 text-xs bg-gray-800/50 rounded-lg px-3 py-2">
+                      <p className="text-muted-foreground text-xs bg-muted/50 rounded-lg px-3 py-2">
                         📝 {order.notes}
                       </p>
                     )}
@@ -641,7 +641,7 @@ export default function RiderApp() {
                     {/* Items del pedido */}
                     <div className="space-y-1 pt-1">
                       {(order.items || []).slice(0, 3).map((item: any, j: number) => (
-                        <div key={j} className="flex items-center gap-2 text-xs text-gray-400">
+                        <div key={j} className="flex items-center gap-2 text-xs text-muted-foreground">
                           <ChevronRight size={10} className="text-gray-600" />
                           <span>{item.quantity}x {item.name}</span>
                         </div>

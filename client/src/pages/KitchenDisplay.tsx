@@ -149,15 +149,15 @@ function KitchenLogin({
           <div className="w-20 h-20 bg-orange-500/20 border border-orange-500/30 rounded-3xl flex items-center justify-center mx-auto mb-4">
             <ChefHat size={36} className="text-orange-400" />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Pantalla de Cocina</h1>
-          <p className="text-sm text-slate-400 mt-1">{tenant.name}</p>
+          <h1 className="text-2xl font-black text-foreground tracking-tight">Pantalla de Cocina</h1>
+          <p className="text-sm text-muted-foreground mt-1">{tenant.name}</p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl">
+        <div className="bg-card border border-gray-800 rounded-3xl p-6 shadow-2xl">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
                 Usuario
               </label>
               <input
@@ -168,12 +168,12 @@ function KitchenLogin({
                 placeholder="usuario_cocina"
                 autoCapitalize="none"
                 autoComplete="username"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
                 Contraseña
               </label>
               <div className="relative">
@@ -184,12 +184,12 @@ function KitchenLogin({
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors text-sm pr-11"
+                  className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors text-sm pr-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
                 >
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -205,7 +205,7 @@ function KitchenLogin({
             <button
               onClick={handleLogin}
               disabled={loading}
-              className="w-full py-3.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white font-bold rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-foreground font-bold rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -278,10 +278,10 @@ function KitchenOrderCard({
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {order.customer_table && (
-              <span className="text-sm font-black text-white">🪺 Mesa {order.customer_table}</span>
+              <span className="text-sm font-black text-foreground">🪺 Mesa {order.customer_table}</span>
             )}
             {order.customer_name && (
-              <span className="text-xs text-slate-400">{order.customer_table ? '·' : ''} {order.customer_name}</span>
+              <span className="text-xs text-muted-foreground">{order.customer_table ? '·' : ''} {order.customer_name}</span>
             )}
             {order.delivery_type === 'delivery' && (
               <span className="text-[10px] font-black px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/35 uppercase tracking-wider">
@@ -312,12 +312,12 @@ function KitchenOrderCard({
               {item.quantity}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-lg font-bold text-white leading-tight">{item.name}</p>
+              <p className="text-lg font-bold text-foreground leading-tight">{item.name}</p>
               {item.selectedModifiers && item.selectedModifiers.length > 0 && (
                 <div className="mt-0.5 space-y-0.5">
                   {item.selectedModifiers.map((mod, mi) => (
-                    <p key={mi} className="text-xs text-slate-400">
-                      <span className="text-slate-500">↳</span> {mod.option_name}
+                    <p key={mi} className="text-xs text-muted-foreground">
+                      <span className="text-muted-foreground/70">↳</span> {mod.option_name}
                       {mod.price_adjustment > 0 && (
                         <span className="text-orange-400/70"> (+₡{mod.price_adjustment.toLocaleString()})</span>
                       )}
@@ -520,14 +520,14 @@ function KitchenScreen({
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* ── Top bar Premium V9.0 ── */}
-      <header className="flex items-center justify-between px-5 py-3.5 shrink-0" style={{ backgroundColor: 'rgba(10,10,15,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
+      <header className="flex items-center justify-between px-5 py-3.5 shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--card) 95%, transparent0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', boxShadow: '0 4px 14px rgba(249,115,22,0.4)' }}>
-            <ChefHat size={19} className="text-white" />
+            <ChefHat size={19} className="text-foreground" />
           </div>
           <div>
-            <h1 className="text-sm font-black text-white leading-none">Cocina — {tenant.name}</h1>
-            <p className="text-[11px] text-slate-500 mt-0.5">{staff.name}</p>
+            <h1 className="text-sm font-black text-foreground leading-none">Cocina — {tenant.name}</h1>
+            <p className="text-[11px] text-muted-foreground/70 mt-0.5">{staff.name}</p>
           </div>
         </div>
 
@@ -552,20 +552,20 @@ function KitchenScreen({
               <Bell size={13} /> Silenciar
             </button>
           )}
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-gray-800/80 hover:bg-gray-700 flex items-center justify-center text-slate-400 hover:text-white transition-all" title="Actualizar">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-muted/80 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all" title="Actualizar">
             <RefreshCw size={14} />
           </button>
-          <button onClick={toggleFullscreen} className="w-9 h-9 rounded-xl bg-gray-800/80 hover:bg-gray-700 flex items-center justify-center text-slate-400 hover:text-white transition-all" title="Pantalla completa">
+          <button onClick={toggleFullscreen} className="w-9 h-9 rounded-xl bg-muted/80 hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all" title="Pantalla completa">
             <Maximize2 size={14} />
           </button>
-          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-gray-800/80 hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-all" title="Salir">
+          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-muted/80 hover:bg-red-500/20 flex items-center justify-center text-muted-foreground hover:text-red-400 transition-all" title="Salir">
             <LogOut size={14} />
           </button>
         </div>
       </header>
 
       {/* ── Stats bar + Tabs Premium ── */}
-      <div className="flex items-center gap-5 px-5 py-2.5 shrink-0" style={{ backgroundColor: 'rgba(10,10,15,0.7)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="flex items-center gap-5 px-5 py-2.5 shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--card) 95%, transparent0.7)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         {/* Tab selector */}
         {(() => {
           const localOrders = orders.filter(o => o.delivery_type !== 'delivery');
@@ -577,12 +577,12 @@ function KitchenScreen({
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black transition-all ${
                   kitchenTab === 'local'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-muted-foreground/70 hover:text-muted-foreground'
                 }`}
               >
                 🍽️ Comer Aquí / Encargo
                 {localOrders.filter(o => o.status === 'pendiente').length > 0 && (
-                  <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                  <span className="bg-red-500 text-foreground text-[9px] font-black px-1.5 py-0.5 rounded-full">
                     {localOrders.filter(o => o.status === 'pendiente').length}
                   </span>
                 )}
@@ -592,12 +592,12 @@ function KitchenScreen({
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black transition-all ${
                   kitchenTab === 'delivery'
                     ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-muted-foreground/70 hover:text-muted-foreground'
                 }`}
               >
                 🛵 Delivery
                 {deliveryOrders.filter(o => o.status === 'en_cocina').length > 0 && (
-                  <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                  <span className="bg-blue-500 text-foreground text-[9px] font-black px-1.5 py-0.5 rounded-full">
                     {deliveryOrders.filter(o => o.status === 'en_cocina').length}
                   </span>
                 )}
@@ -607,12 +607,12 @@ function KitchenScreen({
         })()}
         <div className="flex items-center gap-2 ml-auto">
           <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
-          <span className="text-xs text-slate-400">
-            <span className="text-blue-300 font-black text-sm">{orders.filter(o => o.status === 'pendiente').length}</span> <span className="text-slate-500">nuevos</span>
+          <span className="text-xs text-muted-foreground">
+            <span className="text-blue-300 font-black text-sm">{orders.filter(o => o.status === 'pendiente').length}</span> <span className="text-muted-foreground/70">nuevos</span>
           </span>
           <Flame size={13} className="text-orange-400 ml-2" />
-          <span className="text-xs text-slate-400">
-            <span className="text-orange-300 font-black text-sm">{orders.filter(o => o.status === 'en_cocina').length}</span> <span className="text-slate-500">en prep.</span>
+          <span className="text-xs text-muted-foreground">
+            <span className="text-orange-300 font-black text-sm">{orders.filter(o => o.status === 'en_cocina').length}</span> <span className="text-muted-foreground/70">en prep.</span>
           </span>
         </div>
         <div className="text-[10px] text-slate-700">
@@ -625,7 +625,7 @@ function KitchenScreen({
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-slate-500 font-semibold">Cargando pedidos...</p>
+            <p className="text-sm text-muted-foreground/70 font-semibold">Cargando pedidos...</p>
           </div>
         </div>
       ) : (() => {
@@ -757,7 +757,7 @@ function KitchenScreen({
             <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-5" style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.05))', border: '1px solid rgba(249,115,22,0.15)' }}>
               <ChefHat size={40} className="text-slate-600" />
             </div>
-            <h2 className="text-xl font-black text-slate-500">Cocina tranquila</h2>
+            <h2 className="text-xl font-black text-muted-foreground/70">Cocina tranquila</h2>
             <p className="text-sm text-slate-700 mt-1">No hay pedidos activos en este momento</p>
           </div>
         </div>
@@ -822,8 +822,8 @@ export default function KitchenDisplay() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
         <div className="text-center">
           <ChefHat size={40} className="text-slate-600 mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-white">Restaurante no encontrado</h2>
-          <p className="text-sm text-slate-500 mt-1">Verifica la URL de acceso a cocina</p>
+          <h2 className="text-lg font-bold text-foreground">Restaurante no encontrado</h2>
+          <p className="text-sm text-muted-foreground/70 mt-1">Verifica la URL de acceso a cocina</p>
         </div>
       </div>
     );

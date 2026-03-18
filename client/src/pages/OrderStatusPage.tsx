@@ -96,9 +96,9 @@ function SinpeTenantNumber({ tenantId }: { tenantId: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/25">
       <div>
-        <p className="text-xs text-slate-400 mb-0.5">Número SINPE del local</p>
+        <p className="text-xs text-muted-foreground mb-0.5">Número SINPE del local</p>
         <p className="text-lg font-black text-purple-200 tracking-wider">{sinpeNumber}</p>
-        {sinpeOwner && <p className="text-xs text-slate-500">A nombre de: {sinpeOwner}</p>}
+        {sinpeOwner && <p className="text-xs text-muted-foreground/70">A nombre de: {sinpeOwner}</p>}
       </div>
       <button
         onClick={handleCopy}
@@ -180,8 +180,8 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
   const currentIdx = DELIVERY_STEPS.findIndex(s => s.status === deliveryStatus);
 
   return (
-    <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-4">
-      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+    <div className="bg-card/60 rounded-2xl p-5 border border-slate-800/50 space-y-4">
+      <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
         <Bike size={14} className="text-orange-400" />
         Seguimiento del Delivery
       </h2>
@@ -196,7 +196,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">⏳</span>
               <div>
                 <p className="text-amber-300 text-sm font-bold">Tu pedido está en lista de espera</p>
-                <p className="text-slate-400 text-xs">Te notificaremos cuando haya disponibilidad</p>
+                <p className="text-muted-foreground text-xs">Te notificaremos cuando haya disponibilidad</p>
               </div>
             </div>
           )}
@@ -205,7 +205,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">✔️</span>
               <div>
                 <p className="text-blue-300 text-sm font-bold">Disponibilidad confirmada</p>
-                <p className="text-slate-400 text-xs">Tu pedido está siendo procesado</p>
+                <p className="text-muted-foreground text-xs">Tu pedido está siendo procesado</p>
               </div>
             </div>
           )}
@@ -214,7 +214,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">👨‍🍳</span>
               <div>
                 <p className="text-purple-300 text-sm font-bold">Cocina preparando tu pedido</p>
-                <p className="text-slate-400 text-xs">Pronto asignaremos un repartidor</p>
+                <p className="text-muted-foreground text-xs">Pronto asignaremos un repartidor</p>
               </div>
             </div>
           )}
@@ -223,7 +223,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">📦</span>
               <div>
                 <p className="text-yellow-300 text-sm font-bold">¡Pedido listo!</p>
-                <p className="text-slate-400 text-xs">Esperando que el repartidor lo recoja</p>
+                <p className="text-muted-foreground text-xs">Esperando que el repartidor lo recoja</p>
               </div>
             </div>
           )}
@@ -286,17 +286,17 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
 
       {/* Info de dirección */}
       {order.delivery_formatted_address && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-slate-800/50">
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-muted/50">
           <MapPin size={13} className="text-orange-400 mt-0.5 flex-shrink-0" />
-          <p className="text-slate-300 text-xs leading-snug">{order.delivery_formatted_address}</p>
+          <p className="text-muted-foreground text-xs leading-snug">{order.delivery_formatted_address}</p>
         </div>
       )}
 
       {/* ETA */}
       {order.delivery_eta_minutes && deliveryStatus !== 'delivered' && (
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock size={12} />
-          <span>ETA estimado: <strong className="text-white">{order.delivery_eta_minutes} min</strong></span>
+          <span>ETA estimado: <strong className="text-foreground">{order.delivery_eta_minutes} min</strong></span>
         </div>
       )}
 
@@ -611,10 +611,10 @@ export default function OrderStatusPage() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-6">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-foreground px-6">
         <XCircle size={48} className="text-red-400 mb-4" />
         <h2 className="text-xl font-bold mb-2">Orden no encontrada</h2>
-        <p className="text-sm text-slate-400 mb-6">{error || 'La orden no existe o fue eliminada.'}</p>
+        <p className="text-sm text-muted-foreground mb-6">{error || 'La orden no existe o fue eliminada.'}</p>
         <button
           onClick={() => window.history.back()}
           className="px-6 py-3 rounded-full bg-amber-500 text-black font-bold text-sm"
@@ -626,21 +626,21 @@ export default function OrderStatusPage() {
   }
 
   return (
-    <div className="min-h-screen text-white" style={{ backgroundColor: 'transparent' }}>
+    <div className="min-h-screen text-foreground" style={{ backgroundColor: 'transparent' }}>
       {/* Header */}
       <div className="sticky top-0 z-10 bg-black/60 backdrop-blur-md border-b border-slate-800/50">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center"
+            className="w-9 h-9 rounded-full bg-muted flex items-center justify-center"
           >
-            <ArrowLeft size={18} className="text-slate-400" />
+            <ArrowLeft size={18} className="text-muted-foreground" />
           </button>
           <div className="flex-1">
             <h1 className="text-base font-bold" style={{ fontFamily: "'Lora', serif" }}>
               Pedido #{order.order_number}
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground/70">
               {new Date(order.created_at).toLocaleString('es-CR', {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
               })}
@@ -660,8 +660,8 @@ export default function OrderStatusPage() {
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* ─── STATUS TRACKER ─── */}
-        <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5">Estado del pedido</h2>
+        <div className="bg-card/60 rounded-2xl p-5 border border-slate-800/50">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-5">Estado del pedido</h2>
 
           {isCancelled ? (
             <motion.div
@@ -671,12 +671,12 @@ export default function OrderStatusPage() {
             >
               <XCircle size={48} className="text-red-400 mx-auto mb-3" />
               <p className="text-lg font-bold text-red-400">Pedido cancelado</p>
-              <p className="text-sm text-slate-500 mt-1">Este pedido fue cancelado por el restaurante.</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Este pedido fue cancelado por el restaurante.</p>
             </motion.div>
           ) : (
             <div className="relative">
               {/* Vertical line */}
-              <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-slate-800" />
+              <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-muted" />
 
               {/* ── Paso especial: Verificación de pago SINPE ── */}
               {isSinpe && (
@@ -730,7 +730,7 @@ export default function OrderStatusPage() {
                       className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all ${
                         isDone ? 'bg-emerald-500/20' :
                         isActive ? 'ring-2 ring-offset-2 ring-offset-slate-900' :
-                        'bg-slate-800'
+                        'bg-muted'
                       }`}
                       style={{
                         backgroundColor: isDone ? '#10B98120' : isActive ? `${step.color}20` : undefined,
@@ -748,7 +748,7 @@ export default function OrderStatusPage() {
 
                     {/* Text */}
                     <div className={`pt-2 ${isFuture ? 'opacity-30' : ''}`}>
-                      <p className={`text-sm font-bold ${isActive ? 'text-white' : isDone ? 'text-slate-400' : 'text-slate-600'}`}>
+                      <p className={`text-sm font-bold ${isActive ? 'text-foreground' : isDone ? 'text-muted-foreground' : 'text-slate-600'}`}>
                         {step.label}
                       </p>
                       {isActive && step.key === 'pendiente' && (
@@ -784,15 +784,15 @@ export default function OrderStatusPage() {
         {isDelivery && <DeliveryTrackingBlock orderId={order.id} order={order as any} />}
 
         {/* ─── ORDER DETAILS ─── */}
-        <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Detalle del pedido</h2>
+        <div className="bg-card/60 rounded-2xl p-5 border border-slate-800/50">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Detalle del pedido</h2>
           <div className="space-y-1.5">
             {((order.items as any[]) || []).map((item: any, i: number) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-slate-300">
+                <span className="text-muted-foreground">
                   {item.quantity}× {item.name}
                 </span>
-                <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
+                <span className="text-muted-foreground/70">{formatPrice(item.price * item.quantity)}</span>
               </div>
             ))}
           </div>
@@ -801,7 +801,7 @@ export default function OrderStatusPage() {
             <span className="text-amber-400">{formatPrice(order.total)}</span>
           </div>
           {order.customer_name && (
-            <div className="mt-3 pt-3 border-t border-slate-800/50 text-xs text-slate-500 space-y-0.5">
+            <div className="mt-3 pt-3 border-t border-slate-800/50 text-xs text-muted-foreground/70 space-y-0.5">
               <p>👤 {order.customer_name}</p>
               {order.customer_table && <p>🪑 Mesa: {order.customer_table}</p>}
               {order.payment_method && <p>💳 {order.payment_method.toUpperCase()}</p>}
@@ -811,8 +811,8 @@ export default function OrderStatusPage() {
 
         {/* ─── TABLE QUICK REQUESTS — solo dine_in ─── */}
         {order.customer_table && order.status !== 'cancelado' && !isDelivery && !isTakeout && (
-          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
+          <div className="bg-card/60 rounded-2xl p-5 border border-slate-800/50">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {TABLE_QUICK_REQUESTS.map((request) => {
                 const isActive = activeQuickRequest === request.type;
@@ -834,7 +834,7 @@ export default function OrderStatusPage() {
                 );
               })}
             </div>
-            <p className="text-[11px] text-slate-500 mt-3">
+            <p className="text-[11px] text-muted-foreground/70 mt-3">
               Estas solicitudes avisan al staff en tiempo real y al admin con alerta visual.
             </p>
           </div>
@@ -842,14 +842,14 @@ export default function OrderStatusPage() {
 
         {/* ─── DELIVERY INFO CARD ─── */}
         {(isDelivery || isTakeout) && (
-          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-3">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+          <div className="bg-card/60 rounded-2xl p-5 border border-slate-800/50 space-y-3">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
               {isDelivery ? '🛕 Información de Delivery' : '🥡 Información de Takeout'}
             </h2>
             {scheduledDate && (
               <div className="flex items-center gap-2 text-sm">
                 <Clock size={14} className="text-amber-400" />
-                <span className="text-slate-300">
+                <span className="text-muted-foreground">
                   {scheduledDate === 'tomorrow' ? (
                     <span className="font-bold text-orange-400">⏰ Mañana</span>
                   ) : 'Hoy'}
@@ -860,12 +860,12 @@ export default function OrderStatusPage() {
             {deliveryAddress && (
               <div className="flex items-start gap-2 text-sm">
                 <MapPin size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                <span className="text-slate-300">{deliveryAddress}</span>
+                <span className="text-muted-foreground">{deliveryAddress}</span>
               </div>
             )}
             {/* Mapa de la ubicación de entrega */}
             {isDelivery && deliveryLat && deliveryLon && (
-              <div className="rounded-xl overflow-hidden border border-slate-700/60">
+              <div className="rounded-xl overflow-hidden border border-border/60">
                 <iframe
                   title="Mapa de entrega"
                   width="100%"
@@ -878,7 +878,7 @@ export default function OrderStatusPage() {
                   href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 bg-muted/80 hover:bg-muted/80 transition-colors"
                 >
                   <MapPin size={12} className="text-blue-400" />
                   <span className="text-xs text-blue-400 font-semibold">Ver en Google Maps</span>
@@ -908,11 +908,11 @@ export default function OrderStatusPage() {
                     <MapPin size={14} className="text-green-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-green-400">Ubicación GPS capturada ✅</p>
-                      <p className="text-[10px] text-slate-500 truncate">Se adjuntará al mensaje de WhatsApp</p>
+                      <p className="text-[10px] text-muted-foreground/70 truncate">Se adjuntará al mensaje de WhatsApp</p>
                     </div>
                     <button
                       onClick={() => setGpsLink(null)}
-                      className="text-slate-500 hover:text-slate-300 transition-colors text-xs"
+                      className="text-muted-foreground/70 hover:text-muted-foreground transition-colors text-xs"
                     >
                       ✕
                     </button>
@@ -935,7 +935,7 @@ export default function OrderStatusPage() {
                 </button>
 
                 {!gpsLink && (
-                  <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                  <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed px-1">
                     ℹ️ Usa el botón GPS para compartir tu ubicación exacta automáticamente.
                   </p>
                 )}
@@ -949,15 +949,15 @@ export default function OrderStatusPage() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-900/60 rounded-2xl p-5 border-2 border-purple-500/40 space-y-4"
+            className="bg-card/60 rounded-2xl p-5 border-2 border-purple-500/40 space-y-4"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
                 <span className="text-xl">📸</span>
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white">Comprobante SINPE</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Puedes subir la foto ahora o después de comer</p>
+                <h2 className="text-sm font-bold text-foreground">Comprobante SINPE</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Puedes subir la foto ahora o después de comer</p>
               </div>
             </div>
 
@@ -974,7 +974,7 @@ export default function OrderStatusPage() {
                   onClick={() => { setSinpeFile(null); setSinpePreview(''); }}
                   className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
                 >
-                  <XCircle size={14} className="text-white" />
+                  <XCircle size={14} className="text-foreground" />
                 </button>
               </div>
             ) : (
@@ -1042,7 +1042,7 @@ export default function OrderStatusPage() {
             <Check size={18} className="text-purple-300 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-purple-200">Comprobante enviado ✅</p>
-              <p className="text-xs text-slate-400">El restaurante verificará tu pago SINPE.</p>
+              <p className="text-xs text-muted-foreground">El restaurante verificará tu pago SINPE.</p>
             </div>
           </motion.div>
         )}
@@ -1077,7 +1077,7 @@ export default function OrderStatusPage() {
             <div className="text-center py-4">
               <p className="text-6xl mb-3">🍽️</p>
               <p className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>¡Buen provecho!</p>
-              <p className="text-sm text-slate-400 mt-1">Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
+              <p className="text-sm text-muted-foreground mt-1">Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
             </div>
             {/* Recordatorio de pago contextual */}
             {order.payment_method === 'sinpe' && (order as any).payment_status !== 'paid' && (
@@ -1090,7 +1090,7 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">📱</span>
                 <div>
                   <p className="text-sm font-bold text-purple-200">Recuerda tu pago por SINPE</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
                 </div>
               </motion.div>
             )}
@@ -1115,7 +1115,7 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">💵</span>
                 <div>
                   <p className="text-sm font-bold text-amber-200">Pago en efectivo</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
                 </div>
               </motion.div>
             )}
@@ -1129,7 +1129,7 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">💳</span>
                 <div>
                   <p className="text-sm font-bold text-blue-200">Pago con tarjeta</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
                 </div>
               </motion.div>
             )}

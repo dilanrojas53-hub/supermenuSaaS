@@ -226,7 +226,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           { label: 'Dist. promedio', value: stats.avgDist ? `${stats.avgDist.toFixed(1)} km` : '—', color: '#F97316' },
         ].map(s => (
           <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold mb-1">{s.label}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-1">{s.label}</p>
             <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
           </div>
         ))}
@@ -240,10 +240,10 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           { label: 'T. espera prom.', value: fmtMin(stats.avgWaitlistTime), icon: <Timer size={11} />, color: '#F97316', hint: 'Tiempo promedio en waitlist' },
           { label: 'Ciclo prom.', value: fmtMin(stats.avgCycleTime), icon: <Clock size={11} />, color: '#06B6D4', hint: 'Creación → dispatch' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }} title={s.hint}>
+          <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid hsl(var(--border))' }} title={s.hint}>
             <div className="flex items-center gap-1 mb-1" style={{ color: s.color }}>
               {s.icon}
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">{s.label}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">{s.label}</p>
             </div>
             <p className="text-lg font-black" style={{ color: s.color }}>{s.value}</p>
           </div>
@@ -253,13 +253,13 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Filtros ────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 items-center">
         {/* Fecha */}
-        <div className="flex rounded-xl overflow-hidden border border-slate-700">
+        <div className="flex rounded-xl overflow-hidden border border-border">
           {(Object.keys(DATE_LABELS) as DateFilter[]).map(f => (
             <button
               key={f}
               onClick={() => setDateFilter(f)}
               className={`px-3 py-1.5 text-xs font-bold transition-all ${
-                dateFilter === f ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                dateFilter === f ? 'bg-blue-500 text-foreground' : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
               {DATE_LABELS[f]}
@@ -271,7 +271,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={riderFilter}
           onChange={e => setRiderFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-muted border border-border text-muted-foreground"
         >
           <option value="all">Todos los riders</option>
           {riders.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -281,7 +281,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-muted border border-border text-muted-foreground"
         >
           <option value="all">Todos los estados</option>
           <option value="delivered">Entregados</option>
@@ -292,7 +292,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={logisticFilter}
           onChange={e => setLogisticFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-muted border border-border text-muted-foreground"
         >
           <option value="all">Todos (directo + waitlist)</option>
           <option value="direct">Solo directo (sin waitlist)</option>
@@ -300,25 +300,25 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         </select>
 
         {/* Búsqueda */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 flex-1 min-w-[160px]">
-          <Search size={12} className="text-slate-500 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted border border-border flex-1 min-w-[160px]">
+          <Search size={12} className="text-muted-foreground/70 shrink-0" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar dirección o #pedido…"
-            className="bg-transparent text-xs text-slate-300 placeholder-slate-500 outline-none w-full"
+            className="bg-transparent text-xs text-muted-foreground placeholder-slate-500 outline-none w-full"
           />
         </div>
 
         {/* Export */}
         <button
           onClick={exportCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-muted text-muted-foreground hover:bg-slate-600 transition-colors"
         >
           <Download size={12} /> CSV
         </button>
 
-        <button onClick={fetchData} className="p-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors">
+        <button onClick={fetchData} className="p-1.5 rounded-xl bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
           <Loader2 size={14} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -329,7 +329,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           <Loader2 size={24} className="text-blue-400 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-500 text-sm">
+        <div className="text-center py-12 text-muted-foreground/70 text-sm">
           Sin pedidos delivery en este período
         </div>
       ) : (
@@ -364,7 +364,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                     }
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-white text-sm font-bold">#{order.order_number}</p>
+                        <p className="text-foreground text-sm font-bold">#{order.order_number}</p>
                         {/* F10: badge logístico */}
                         {passedWaitlist && (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -377,54 +377,54 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-400 text-xs truncate max-w-[200px]">
+                      <p className="text-muted-foreground text-xs truncate max-w-[200px]">
                         {order.delivery_formatted_address || order.delivery_address}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right hidden sm:block">
-                      <p className="text-white text-sm font-bold">{formatPrice(order.total)}</p>
-                      <p className="text-slate-500 text-xs">
+                      <p className="text-foreground text-sm font-bold">{formatPrice(order.total)}</p>
+                      <p className="text-muted-foreground/70 text-xs">
                         {new Date(order.created_at).toLocaleDateString('es-CR', { day: '2-digit', month: 'short' })}
                       </p>
                     </div>
-                    {isExpanded ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+                    {isExpanded ? <ChevronUp size={14} className="text-muted-foreground/70" /> : <ChevronDown size={14} className="text-muted-foreground/70" />}
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-1 border-t border-slate-700/50 space-y-3">
+                  <div className="px-4 pb-4 pt-1 border-t border-border/50 space-y-3">
                     {/* Fila 1: datos básicos */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Rider</p>
+                        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mb-0.5">Rider</p>
                         <div className="flex items-center gap-1.5">
                           <Bike size={12} className="text-blue-400" />
-                          <p className="text-xs text-slate-300">{rider?.name || 'Sin asignar'}</p>
+                          <p className="text-xs text-muted-foreground">{rider?.name || 'Sin asignar'}</p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Distancia</p>
+                        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mb-0.5">Distancia</p>
                         <div className="flex items-center gap-1.5">
                           <MapPin size={12} className="text-orange-400" />
-                          <p className="text-xs text-slate-300">
+                          <p className="text-xs text-muted-foreground">
                             {order.delivery_distance_km ? `${order.delivery_distance_km.toFixed(1)} km` : '—'}
                           </p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">ETA estimado</p>
+                        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mb-0.5">ETA estimado</p>
                         <div className="flex items-center gap-1.5">
                           <Clock size={12} className="text-purple-400" />
-                          <p className="text-xs text-slate-300">
+                          <p className="text-xs text-muted-foreground">
                             {order.delivery_eta_minutes ? `${order.delivery_eta_minutes} min` : '—'}
                           </p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Creado</p>
-                        <p className="text-xs text-slate-300">
+                        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mb-0.5">Creado</p>
+                        <p className="text-xs text-muted-foreground">
                           {new Date(order.created_at).toLocaleString('es-CR', {
                             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
@@ -437,32 +437,32 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                       className="rounded-lg px-3 py-2.5 space-y-1.5"
                       style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
                     >
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold mb-2 flex items-center gap-1.5">
+                      <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide font-semibold mb-2 flex items-center gap-1.5">
                         <Timer size={10} /> Tiempos de ciclo (F10)
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Creación → Commit</p>
+                          <p className="text-[9px] text-muted-foreground/70 mb-0.5">Creación → Commit</p>
                           <p className="text-xs font-bold" style={{ color: commitTime !== null ? '#22C55E' : '#64748B' }}>
                             {fmtMin(commitTime)}
                           </p>
                         </div>
                         {passedWaitlist && (
                           <div>
-                            <p className="text-[9px] text-slate-500 mb-0.5">Tiempo en waitlist</p>
+                            <p className="text-[9px] text-muted-foreground/70 mb-0.5">Tiempo en waitlist</p>
                             <p className="text-xs font-bold" style={{ color: waitlistTime !== null ? '#F59E0B' : '#64748B' }}>
                               {fmtMin(waitlistTime)}
                             </p>
                           </div>
                         )}
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Commit → Dispatch</p>
+                          <p className="text-[9px] text-muted-foreground/70 mb-0.5">Commit → Dispatch</p>
                           <p className="text-xs font-bold" style={{ color: dispatchTime !== null ? '#8B5CF6' : '#64748B' }}>
                             {fmtMin(dispatchTime)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Ciclo total</p>
+                          <p className="text-[9px] text-muted-foreground/70 mb-0.5">Ciclo total</p>
                           <p className="text-xs font-bold" style={{ color: cycleTime !== null ? '#06B6D4' : '#64748B' }}>
                             {fmtMin(cycleTime)}
                           </p>

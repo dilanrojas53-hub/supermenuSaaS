@@ -49,7 +49,7 @@ function ToggleSwitch({ checked, onChange, label, colorOn = '#22C55E', colorOff 
       <div className="relative w-11 h-6 rounded-full transition-colors" style={{ backgroundColor: checked ? colorOn : colorOff }}>
         <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
       </div>
-      {label && <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{label}</span>}
+      {label && <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>}
     </button>
   );
 }
@@ -206,43 +206,43 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-white">Platillos ({items.length})</h2>
+        <h2 className="text-lg font-bold text-foreground">Platillos ({items.length})</h2>
         <button onClick={startCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
           <Plus size={16} /> Nuevo platillo
         </button>
       </div>
 
       {isEditing && (
-        <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6 mb-6">
-          <h3 className="text-white font-bold mb-4">{editingItem ? 'Editar platillo' : 'Nuevo platillo'}</h3>
+        <div className="bg-muted/50 border border-border/50 rounded-2xl p-6 mb-6">
+          <h3 className="text-foreground font-bold mb-4">{editingItem ? 'Editar platillo' : 'Nuevo platillo'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Nombre *</label>
+              <label className="block text-xs text-muted-foreground mb-1">Nombre *</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Precio (₡) *</label>
+              <label className="block text-xs text-muted-foreground mb-1">Precio (₡) *</label>
               <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs text-slate-400 mb-1">Descripción</label>
+              <label className="block text-xs text-muted-foreground mb-1">Descripción</label>
               <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                rows={2} className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none" />
+                rows={2} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Categoría *</label>
+              <label className="block text-xs text-muted-foreground mb-1">Categoría *</label>
               <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Badge</label>
+              <label className="block text-xs text-muted-foreground mb-1">Badge</label>
               <select value={form.badge} onChange={e => setForm({ ...form, badge: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
                 <option value="">Sin badge</option>
                 <option value="mas_pedido">Más pedido</option>
                 <option value="se_agota_rapido">Se agota rápido</option>
@@ -251,22 +251,22 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Orden</label>
+              <label className="block text-xs text-muted-foreground mb-1">Orden</label>
               <input type="number" value={form.sort_order} onChange={e => setForm({ ...form, sort_order: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Upsell (platillo sugerido)</label>
+              <label className="block text-xs text-muted-foreground mb-1">Upsell (platillo sugerido)</label>
               <select value={form.upsell_item_id} onChange={e => setForm({ ...form, upsell_item_id: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none">
                 <option value="">Sin upsell</option>
                 {items.filter(i => i.id !== editingItem?.id).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Texto de upsell</label>
+              <label className="block text-xs text-muted-foreground mb-1">Texto de upsell</label>
               <input value={form.upsell_text} onChange={e => setForm({ ...form, upsell_text: e.target.value })}
-                placeholder="Agrega unas papas..." className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                placeholder="Agrega unas papas..." className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             {/* Image Upload */}
             <div className="md:col-span-2">
@@ -285,19 +285,19 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
           </div>
           {/* V22.2: Modifier Groups assignment with inline option price editor */}
           {editingItem && (
-            <div className="mt-5 pt-5 border-t border-slate-600/50">
+            <div className="mt-5 pt-5 border-t border-border/50">
               <div className="flex items-center gap-2 mb-2">
                 <Sliders size={14} className="text-amber-400" />
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Grupos de modificadores</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grupos de modificadores</span>
               </div>
-              <p className="text-[11px] text-slate-500 mb-3">Activa los grupos y configura el precio de cada opción directamente aquí.</p>
+              <p className="text-[11px] text-muted-foreground/70 mb-3">Activa los grupos y configura el precio de cada opción directamente aquí.</p>
               {loadingModifiers ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
                   <div className="w-4 h-4 border border-amber-500 border-t-transparent rounded-full animate-spin" />
                   <span>Cargando grupos...</span>
                 </div>
               ) : allModifierGroups.length === 0 ? (
-                <p className="text-xs text-slate-500 italic">Sin grupos creados. Ve a la pestaña <strong className="text-amber-400">Modificadores</strong> para crear grupos.</p>
+                <p className="text-xs text-muted-foreground/70 italic">Sin grupos creados. Ve a la pestaña <strong className="text-amber-400">Modificadores</strong> para crear grupos.</p>
               ) : (
                 <div className="space-y-2">
                   {allModifierGroups.map(group => {
@@ -306,7 +306,7 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                     const options = groupOptions[group.id] || [];
                     return (
                       <div key={group.id} className={`rounded-xl border transition-all ${
-                        isAssigned ? 'border-amber-500/40 bg-amber-500/5' : 'border-slate-700/50 bg-slate-800/30'
+                        isAssigned ? 'border-amber-500/40 bg-amber-500/5' : 'border-border/50 bg-muted/30'
                       }`}>
                         {/* Group header row */}
                         <div className="flex items-center gap-2 px-3 py-2.5">
@@ -317,16 +317,16 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                               isAssigned ? 'bg-amber-500 border-amber-500' : 'border-slate-500 bg-transparent'
                             }`}
                           >
-                            {isAssigned && <Check size={11} className="text-white" />}
+                            {isAssigned && <Check size={11} className="text-foreground" />}
                           </button>
                           <span className={`text-sm font-medium flex-1 ${
-                            isAssigned ? 'text-amber-300' : 'text-slate-400'
+                            isAssigned ? 'text-amber-300' : 'text-muted-foreground'
                           }`}>{group.name}</span>
                           {isAssigned && options.length > 0 && (
                             <button
                               type="button"
                               onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
-                              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-amber-400 transition-colors"
+                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-amber-400 transition-colors"
                             >
                               <span>{options.length} opciones</span>
                               <ChevronDown size={12} className={`transition-transform ${
@@ -338,10 +338,10 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                         {/* Inline option price editor */}
                         {isAssigned && isExpanded && (
                           <div className="px-3 pb-3 space-y-2 border-t border-amber-500/20 pt-2">
-                            <p className="text-[10px] text-slate-500 mb-1">Configura el precio de cada opción:</p>
+                            <p className="text-[10px] text-muted-foreground/70 mb-1">Configura el precio de cada opción:</p>
                             {options.map(opt => (
-                              <div key={opt.id} className="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2 py-1.5">
-                                <span className="text-xs text-slate-300 flex-1 min-w-0 truncate">{opt.name}</span>
+                              <div key={opt.id} className="flex items-center gap-2 bg-muted/60 rounded-lg px-2 py-1.5">
+                                <span className="text-xs text-muted-foreground flex-1 min-w-0 truncate">{opt.name}</span>
                                 <select
                                   value={opt.pricing_type}
                                   onChange={e => {
@@ -349,7 +349,7 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                                     const newDelta = (newType === 'included' || newType === 'free') ? 0 : opt.price_delta;
                                     updateOptionPrice(opt.id, group.id, newType, newDelta);
                                   }}
-                                  className="text-[11px] bg-slate-700 border border-slate-600 rounded-lg text-white px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                  className="text-[11px] bg-muted border border-border rounded-lg text-foreground px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                                 >
                                   <option value="included">Incluido</option>
                                   <option value="free">Gratis</option>
@@ -369,7 +369,7 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                                       }));
                                     }}
                                     onBlur={e => updateOptionPrice(opt.id, group.id, opt.pricing_type, parseInt(e.target.value) || 0)}
-                                    className="w-20 text-[11px] bg-slate-700 border border-slate-600 rounded-lg text-white px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                                    className="w-20 text-[11px] bg-muted border border-border rounded-lg text-foreground px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
                                     placeholder="0"
                                   />
                                 )}
@@ -385,11 +385,11 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
             </div>
           )}
           <div className="flex gap-3 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
+            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
               <Save size={16} /> Guardar
             </button>
             <button onClick={() => { setEditingItem(null); setIsCreating(false); }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 text-white rounded-xl text-sm font-medium hover:bg-slate-500 transition-colors">
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 text-foreground rounded-xl text-sm font-medium hover:bg-slate-500 transition-colors">
               <X size={16} /> Cancelar
             </button>
           </div>
@@ -405,17 +405,17 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
             <div key={cat.id} className="mb-4">
               <h3 className="text-sm font-semibold text-amber-400 mb-2 px-1">{cat.name}</h3>
               {catItems.map(item => (
-                <div key={item.id} className={`flex items-center gap-3 bg-slate-800/50 border rounded-xl p-3 mb-2 group hover:border-slate-600 transition-colors ${!item.is_available ? 'opacity-50 border-red-500/20' : 'border-slate-700/50'}`}>
+                <div key={item.id} className={`flex items-center gap-3 bg-muted/50 border rounded-xl p-3 mb-2 group hover:border-border transition-colors ${!item.is_available ? 'opacity-50 border-red-500/20' : 'border-border/50'}`}>
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
-                      <UtensilsCrossed size={16} className="text-slate-500" />
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <UtensilsCrossed size={16} className="text-muted-foreground/70" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-white truncate min-w-0 max-w-[140px] sm:max-w-[200px]">{item.name}</span>
+                      <span className="text-sm font-medium text-foreground truncate min-w-0 max-w-[140px] sm:max-w-[200px]">{item.name}</span>
                       {item.badge && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">{item.badge}</span>}
                       {item.is_featured && <Star size={12} className="text-amber-400" />}
                     </div>
@@ -429,10 +429,10 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
                   <div className="relative z-50 pointer-events-auto shrink-0 flex items-center gap-1">
                     <button
                       onClick={() => startEdit(item)}
-                      className="p-2 hover:bg-slate-700 active:bg-slate-600 rounded-lg transition-colors"
+                      className="p-2 hover:bg-muted active:bg-slate-600 rounded-lg transition-colors"
                       title="Editar platillo"
                     >
-                      <Pencil size={14} className="text-slate-400" />
+                      <Pencil size={14} className="text-muted-foreground" />
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
@@ -496,39 +496,39 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-white">Categorías ({categories.length})</h2>
+        <h2 className="text-lg font-bold text-foreground">Categorías ({categories.length})</h2>
         <button onClick={() => { setIsCreating(true); setEditingCat(null); setForm({ name: '', description: '', sort_order: '0', is_active: true }); }}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
           <Plus size={16} /> Nueva categoría
         </button>
       </div>
 
       {isEditing && (
-        <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6 mb-6">
+        <div className="bg-muted/50 border border-border/50 rounded-2xl p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Nombre *</label>
+              <label className="block text-xs text-muted-foreground mb-1">Nombre *</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Orden</label>
+              <label className="block text-xs text-muted-foreground mb-1">Orden</label>
               <input type="number" value={form.sort_order} onChange={e => setForm({ ...form, sort_order: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs text-slate-400 mb-1">Descripción</label>
+              <label className="block text-xs text-muted-foreground mb-1">Descripción</label>
               <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <ToggleSwitch checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Activa" />
           </div>
           <div className="flex gap-3 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600">
+            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600">
               <Save size={16} /> Guardar
             </button>
             <button onClick={() => { setEditingCat(null); setIsCreating(false); }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 text-white rounded-xl text-sm font-medium hover:bg-slate-500">
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 text-foreground rounded-xl text-sm font-medium hover:bg-slate-500">
               <X size={16} /> Cancelar
             </button>
           </div>
@@ -537,18 +537,18 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
 
       <div className="space-y-2">
         {categories.map(cat => (
-          <div key={cat.id} className="flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 group hover:border-slate-600 transition-colors">
-            <GripVertical size={16} className="text-slate-600" />
+          <div key={cat.id} className="flex items-center gap-3 bg-muted/50 border border-border/50 rounded-xl p-4 group hover:border-border transition-colors">
+            <GripVertical size={16} className="text-muted-foreground/60" />
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white">{cat.name}</span>
+                <span className="text-sm font-medium text-foreground">{cat.name}</span>
                 {!cat.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">Inactiva</span>}
               </div>
-              {cat.description && <p className="text-xs text-slate-500 mt-0.5">{cat.description}</p>}
+              {cat.description && <p className="text-xs text-muted-foreground/70 mt-0.5">{cat.description}</p>}
             </div>
-            <span className="text-xs text-slate-500">Orden: {cat.sort_order}</span>
+            <span className="text-xs text-muted-foreground/70">Orden: {cat.sort_order}</span>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => startEdit(cat)} className="p-2 hover:bg-slate-700 rounded-lg"><Pencil size={14} className="text-slate-400" /></button>
+              <button onClick={() => startEdit(cat)} className="p-2 hover:bg-muted rounded-lg"><Pencil size={14} className="text-muted-foreground" /></button>
               <button onClick={() => handleDelete(cat.id)} className="p-2 hover:bg-red-500/10 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
             </div>
           </div>
@@ -577,20 +577,20 @@ function DeliveryTabWithHistory({ tenant, kanbanNode, pendingCount }: { tenant: 
             onClick={() => setView(t.key)}
             className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all ${
               view === t.key
-                ? 'bg-blue-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                ? 'bg-blue-500 text-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             {t.label}
             {t.badge != null && t.badge > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-foreground text-[10px] font-black px-1 shadow-lg animate-pulse">
                 {t.badge}
               </span>
             )}
           </button>
         ))}
       </div>
-      {view === 'kanban'   && (kanbanNode ?? <div className="text-center py-12 text-slate-500 text-sm">Sin pedidos delivery activos</div>)}
+      {view === 'kanban'   && (kanbanNode ?? <div className="text-center py-12 text-muted-foreground/70 text-sm">Sin pedidos delivery activos</div>)}
       {view === 'dispatch' && <DeliveryDispatchPanel  tenant={tenant} />}
       {view === 'ops'      && <DeliveryOpsPanel      tenant={tenant} />}
       {view === 'history'  && <DeliveryHistoryPanel   tenant={tenant} />}
@@ -633,7 +633,7 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-white mb-6">Configuración del Restaurante</h2>
+      <h2 className="text-lg font-bold text-foreground mb-6">Configuración del Restaurante</h2>
 
       {/* Open/Closed toggle - prominent */}
       <div className={`rounded-2xl p-5 mb-6 border-2 transition-colors ${form.is_open ? 'bg-green-500/5 border-green-500/30' : 'bg-red-500/5 border-red-500/30'}`}>
@@ -641,63 +641,63 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
           <div className="flex items-center gap-3">
             {form.is_open ? <Power size={24} className="text-green-400" /> : <PowerOff size={24} className="text-red-400" />}
             <div>
-              <h3 className="text-base font-bold text-white">{form.is_open ? 'Restaurante Abierto' : 'Restaurante Cerrado'}</h3>
-              <p className="text-xs text-slate-400">{form.is_open ? 'Los clientes pueden hacer pedidos' : 'Los pedidos están desactivados'}</p>
+              <h3 className="text-base font-bold text-foreground">{form.is_open ? 'Restaurante Abierto' : 'Restaurante Cerrado'}</h3>
+              <p className="text-xs text-muted-foreground">{form.is_open ? 'Los clientes pueden hacer pedidos' : 'Los pedidos están desactivados'}</p>
             </div>
           </div>
           <ToggleSwitch checked={form.is_open} onChange={handleToggleOpen} colorOn="#22C55E" colorOff="#EF4444" />
         </div>
       </div>
 
-      <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6">
+      <div className="bg-muted/50 border border-border/50 rounded-2xl p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Nombre del restaurante *</label>
+            <label className="block text-xs text-muted-foreground mb-1">Nombre del restaurante *</label>
             <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div>
             <ImageUpload bucket="logos" currentUrl={form.logo_url} onUpload={(url) => setForm({ ...form, logo_url: url })} label="Logo del restaurante" previewSize="sm" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs text-slate-400 mb-1">Descripción</label>
+            <label className="block text-xs text-muted-foreground mb-1">Descripción</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              rows={2} className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none" />
+              rows={2} className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none" />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Teléfono</label>
+            <label className="block text-xs text-muted-foreground mb-1">Teléfono</label>
             <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">WhatsApp (con código de país)</label>
+            <label className="block text-xs text-muted-foreground mb-1">WhatsApp (con código de país)</label>
             <input value={form.whatsapp_number} onChange={e => setForm({ ...form, whatsapp_number: e.target.value })}
-              placeholder="50688881111" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              placeholder="50688881111" className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs text-slate-400 mb-1">Dirección</label>
+            <label className="block text-xs text-muted-foreground mb-1">Dirección</label>
             <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div className="md:col-span-2 mt-2">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center"><Zap size={12} className="text-green-400" /></div>
-              <h3 className="text-sm font-bold text-white">SINPE Móvil</h3>
+              <h3 className="text-sm font-bold text-foreground">SINPE Móvil</h3>
             </div>
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Número SINPE</label>
+            <label className="block text-xs text-muted-foreground mb-1">Número SINPE</label>
             <input value={form.sinpe_number} onChange={e => setForm({ ...form, sinpe_number: e.target.value })}
-              placeholder="8888-1111" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              placeholder="8888-1111" className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Titular SINPE</label>
+            <label className="block text-xs text-muted-foreground mb-1">Titular SINPE</label>
             <input value={form.sinpe_owner} onChange={e => setForm({ ...form, sinpe_owner: e.target.value })}
-              placeholder="Nombre del titular" className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+              placeholder="Nombre del titular" className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
         </div>
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-6 disabled:opacity-50">
+          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-6 disabled:opacity-50">
           <Save size={16} /> {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
@@ -729,12 +729,12 @@ function OperativeModeCard({ tenant, onRefresh }: { tenant: Tenant; onRefresh: (
     setSaving(false);
   };
   return (
-    <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5 space-y-4">
+    <div className="bg-muted/40 border border-border/40 rounded-2xl p-5 space-y-4">
       <div className="flex items-center gap-2 mb-1">
         <Users size={16} className="text-blue-400" />
-        <h3 className="text-sm font-black text-white">Modo Operativo del Equipo</h3>
+        <h3 className="text-sm font-black text-foreground">Modo Operativo del Equipo</h3>
       </div>
-      <p className="text-xs text-slate-400">Define cómo se asignan los pedidos entre los meseros.</p>
+      <p className="text-xs text-muted-foreground">Define cómo se asignan los pedidos entre los meseros.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {[
           { key: 'shared', label: 'Operación Compartida', desc: 'Cualquier mesero puede tomar y atender cualquier pedido. Ideal para equipos pequeños.', icon: '👥' },
@@ -742,21 +742,21 @@ function OperativeModeCard({ tenant, onRefresh }: { tenant: Tenant; onRefresh: (
         ].map(opt => (
           <button key={opt.key} onClick={() => setMode(opt.key as any)}
             className="text-left p-4 rounded-xl border-2 transition-all"
-            style={mode === opt.key ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.08)' } : { borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.03)' }}>
+            style={mode === opt.key ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.08)' } : { borderColor: 'hsl(var(--border))', backgroundColor: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-lg">{opt.icon}</span>
               <span className="text-sm font-black" style={{ color: mode === opt.key ? '#F59E0B' : '#e2e8f0' }}>{opt.label}</span>
               {mode === opt.key && <span className="ml-auto text-[10px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">Activo</span>}
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">{opt.desc}</p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{opt.desc}</p>
           </button>
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <label className="text-xs text-slate-400 flex-shrink-0">Timeout de claim (minutos):</label>
+        <label className="text-xs text-muted-foreground flex-shrink-0">Timeout de claim (minutos):</label>
         <input type="number" min={5} max={120} value={timeout} onChange={e => setTimeout_(Number(e.target.value))}
-          className="w-20 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
-        <span className="text-[11px] text-slate-500">Si un pedido no se atiende en este tiempo, se libera automáticamente</span>
+          className="w-20 px-3 py-1.5 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
+        <span className="text-[11px] text-muted-foreground/70">Si un pedido no se atiende en este tiempo, se libera automáticamente</span>
       </div>
       <button onClick={handleSave} disabled={saving}
         className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
@@ -810,43 +810,43 @@ function ChangePasswordCard() {
   };
 
   return (
-    <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6 mt-6">
+    <div className="bg-muted/50 border border-border/50 rounded-2xl p-6 mt-6">
       <div className="flex items-center gap-2 mb-5">
         <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
           <KeyRound size={16} className="text-amber-400" />
         </div>
-        <h3 className="text-base font-bold text-white">Cambiar Contraseña</h3>
+        <h3 className="text-base font-bold text-foreground">Cambiar Contraseña</h3>
       </div>
       <div className="grid grid-cols-1 gap-4 max-w-md">
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Contraseña actual</label>
+          <label className="block text-xs text-muted-foreground mb-1">Contraseña actual</label>
           <input
             type="password"
             value={form.current}
             onChange={e => handleChange('current', e.target.value)}
             autoComplete="current-password"
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Nueva contraseña <span className="text-slate-500">(mín. 6 caracteres)</span></label>
+          <label className="block text-xs text-muted-foreground mb-1">Nueva contraseña <span className="text-muted-foreground/70">(mín. 6 caracteres)</span></label>
           <input
             type="password"
             value={form.next}
             onChange={e => handleChange('next', e.target.value)}
             autoComplete="new-password"
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Confirmar nueva contraseña</label>
+          <label className="block text-xs text-muted-foreground mb-1">Confirmar nueva contraseña</label>
           <input
             type="password"
             value={form.confirm}
             onChange={e => handleChange('confirm', e.target.value)}
             autoComplete="new-password"
-            className={`w-full px-3 py-2 bg-slate-800 border rounded-lg text-white text-sm focus:ring-2 focus:outline-none ${
-              mismatch ? 'border-red-500 focus:ring-red-500/50' : 'border-slate-600 focus:ring-amber-500/50'
+            className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground text-sm focus:ring-2 focus:outline-none ${
+              mismatch ? 'border-red-500 focus:ring-red-500/50' : 'border-border focus:ring-amber-500/50'
             }`}
           />
           {mismatch && (
@@ -857,7 +857,7 @@ function ChangePasswordCard() {
       <button
         onClick={handleSubmit}
         disabled={isDisabled || mismatch}
-        className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-5 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-5 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <KeyRound size={15} /> {saving ? 'Actualizando...' : 'Actualizar Contraseña'}
       </button>
@@ -960,11 +960,11 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
   if (loading || !settings) return null;
 
   return (
-    <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5 space-y-5 mt-6">
+    <div className="bg-muted/40 border border-border/40 rounded-2xl p-5 space-y-5 mt-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bike size={18} className="text-orange-400" />
-          <h3 className="text-sm font-black text-white">Delivery a Domicilio</h3>
+          <h3 className="text-sm font-black text-foreground">Delivery a Domicilio</h3>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">FASE 1</span>
         </div>
         <ToggleSwitch
@@ -978,26 +978,26 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
         <div className="space-y-4 pt-1">
           {/* Ubicación del restaurante */}
           <div>
-            <label className="block text-xs text-slate-400 mb-2">📍 Ubicación del restaurante (punto de origen)</label>
+            <label className="block text-xs text-muted-foreground mb-2">📍 Ubicación del restaurante (punto de origen)</label>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="block text-[10px] text-slate-500 mb-1">Latitud</label>
+                <label className="block text-[10px] text-muted-foreground/70 mb-1">Latitud</label>
                 <input
                   type="number" step="0.000001"
                   value={settings.restaurant_lat ?? ''}
                   onChange={e => setSettings({ ...settings, restaurant_lat: parseFloat(e.target.value) || null })}
                   placeholder="9.9281"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-slate-500 mb-1">Longitud</label>
+                <label className="block text-[10px] text-muted-foreground/70 mb-1">Longitud</label>
                 <input
                   type="number" step="0.000001"
                   value={settings.restaurant_lon ?? ''}
                   onChange={e => setSettings({ ...settings, restaurant_lon: parseFloat(e.target.value) || null })}
                   placeholder="-84.0907"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
                 />
               </div>
             </div>
@@ -1017,7 +1017,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
 
           {/* Radio de cobertura */}
           <div>
-            <label className="block text-xs text-slate-400 mb-1">🗺️ Radio de cobertura</label>
+            <label className="block text-xs text-muted-foreground mb-1">🗺️ Radio de cobertura</label>
             <div className="flex items-center gap-3">
               <input
                 type="range" min={1} max={30} step={0.5}
@@ -1027,36 +1027,36 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
               />
               <span className="text-sm font-bold text-orange-400 w-16 text-right">{settings.coverage_radius_km} km</span>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1">Solo se aceptarán pedidos dentro de este radio desde el restaurante</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-1">Solo se aceptarán pedidos dentro de este radio desde el restaurante</p>
           </div>
 
           {/* ETA base y tarifa */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">⏱️ ETA base (min)</label>
+              <label className="block text-xs text-muted-foreground mb-1">⏱️ ETA base (min)</label>
               <input
                 type="number" min={5} max={120}
                 value={settings.base_eta_minutes}
                 onChange={e => setSettings({ ...settings, base_eta_minutes: parseInt(e.target.value) || 30 })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">💰 Tarifa delivery</label>
+              <label className="block text-xs text-muted-foreground mb-1">💰 Tarifa delivery</label>
               <input
                 type="number" min={0} step={100}
                 value={settings.delivery_fee}
                 onChange={e => setSettings({ ...settings, delivery_fee: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">🛒 Mínimo pedido</label>
+              <label className="block text-xs text-muted-foreground mb-1">🛒 Mínimo pedido</label>
               <input
                 type="number" min={0} step={500}
                 value={settings.min_order_amount}
                 onChange={e => setSettings({ ...settings, min_order_amount: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
               />
             </div>
           </div>
@@ -1072,30 +1072,30 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   🛡️ Buffer de capacidad (%)
                 </label>
                 <input
                   type="number" min={50} max={100} step={5}
                   value={settings.commit_buffer_pct}
                   onChange={e => setSettings({ ...settings, commit_buffer_pct: parseInt(e.target.value) || 80 })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
                   No commitear si la capacidad supera este %. Default: 80%
                 </p>
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="block text-xs text-muted-foreground mb-1">
                   ⏱️ Espera máxima (min)
                 </label>
                 <input
                   type="number" min={5} max={120} step={5}
                   value={settings.max_wait_minutes}
                   onChange={e => setSettings({ ...settings, max_wait_minutes: parseInt(e.target.value) || 20 })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-purple-500/50 focus:outline-none"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-muted-foreground/70 mt-1">
                   Pedidos en waitlist se auto-promueven después de este tiempo. Default: 20 min
                 </p>
               </div>
@@ -1105,7 +1105,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
               style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}
             >
               <Zap size={11} className="text-purple-400 shrink-0 mt-0.5" />
-              <span className="text-slate-400 leading-relaxed">
+              <span className="text-muted-foreground leading-relaxed">
                 <strong className="text-purple-300">Buffer P1:</strong> Si la capacidad está al {settings.commit_buffer_pct}% o más, los nuevos pedidos van a waitlist aunque haya un slot libre. &nbsp;
                 <strong className="text-purple-300">Auto-promoción P4:</strong> Pedidos en espera más de {settings.max_wait_minutes} minutos se promueven automáticamente.
               </span>
@@ -1125,7 +1125,7 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
 
       {/* ── Zonas de cobertura ── */}
       {settings.delivery_enabled && (
-        <div className="mt-6 pt-6 border-t border-slate-700/50">
+        <div className="mt-6 pt-6 border-t border-border/50">
           <DeliveryZonesPanel tenant={tenant} />
         </div>
       )}
@@ -1226,11 +1226,11 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
             <Trash2 size={15} className="text-red-400" />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-black text-white">Limpieza de Pedidos</h3>
-            <p className="text-xs text-slate-400">Eliminar pedidos de prueba, fantasma o atascados</p>
+            <h3 className="text-sm font-black text-foreground">Limpieza de Pedidos</h3>
+            <p className="text-xs text-muted-foreground">Eliminar pedidos de prueba, fantasma o atascados</p>
           </div>
         </div>
-        {expanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+        {expanded ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
       </button>
 
       {expanded && (
@@ -1239,15 +1239,15 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
             <button
               onClick={fetchCandidates}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-muted text-muted-foreground hover:bg-slate-600 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {loading ? 'Buscando...' : 'Buscar candidatos'}
             </button>
             {candidates.length > 0 && (
               <>
-                <button onClick={selectAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Seleccionar todos</button>
-                <button onClick={clearAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Limpiar selección</button>
+                <button onClick={selectAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-muted text-muted-foreground hover:bg-slate-600 transition-colors">Seleccionar todos</button>
+                <button onClick={clearAll} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-muted text-muted-foreground hover:bg-slate-600 transition-colors">Limpiar selección</button>
               </>
             )}
           </div>
@@ -1258,7 +1258,7 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
               <AlertCircle size={16} className="text-amber-400 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-xs font-bold text-amber-300">Pedidos atascados detectados</p>
-                <p className="text-xs text-slate-400">Tienen delivery_status=delivered pero status≠entregado</p>
+                <p className="text-xs text-muted-foreground">Tienen delivery_status=delivered pero status≠entregado</p>
               </div>
               <button
                 onClick={handleFixStuck}
@@ -1271,7 +1271,7 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
           )}
 
           {candidates.length === 0 && !loading && (
-            <p className="text-xs text-slate-500 text-center py-4">No se encontraron pedidos candidatos. ¡Todo limpio! ✅</p>
+            <p className="text-xs text-muted-foreground/70 text-center py-4">No se encontraron pedidos candidatos. ¡Todo limpio! ✅</p>
           )}
 
           {candidates.length > 0 && (
@@ -1288,10 +1288,10 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
                       className="w-4 h-4 accent-red-500"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white">#{o.order_number} — {o.customer_name || 'Sin nombre'}</p>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-xs font-bold text-foreground">#{o.order_number} — {o.customer_name || 'Sin nombre'}</p>
+                      <p className="text-[10px] text-muted-foreground">
                         status: <span className="text-amber-300">{o.status}</span>
-                        {o.delivery_status && <> · delivery: <span className={isStuck ? 'text-red-400' : 'text-slate-300'}>{o.delivery_status}</span></>}
+                        {o.delivery_status && <> · delivery: <span className={isStuck ? 'text-red-400' : 'text-muted-foreground'}>{o.delivery_status}</span></>}
                         {' · '}{age}h atrás
                       </p>
                     </div>
@@ -1306,7 +1306,7 @@ function OrderCleanupCard({ tenantId }: { tenantId: string }) {
             <button
               onClick={handleMarkCancelled}
               disabled={deleting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black bg-red-500 text-foreground hover:bg-red-600 transition-colors disabled:opacity-50"
             >
               <Trash2 size={14} /> {deleting ? 'Procesando...' : `Cancelar ${selected.size} pedido(s) seleccionado(s)`}
             </button>
@@ -1495,7 +1495,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                 <div className="w-full h-8 rounded-lg mb-2 flex items-center justify-between px-2"
                   style={{ backgroundColor: preset.recommended.surface, border: `1px solid ${preset.recommended.primary}20` }}>
                   <span className="text-[9px] font-bold" style={{ color: preset.recommended.text }}>Platillo</span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white" style={{ backgroundColor: preset.recommended.primary }}>+</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold text-foreground" style={{ backgroundColor: preset.recommended.primary }}>+</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">{preset.emoji}</span>
@@ -1652,7 +1652,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
           <h3 className="text-lg font-bold mb-1" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
           {/* Nav de categorías */}
           <div className="flex gap-2 mb-3 overflow-hidden">
-            <span className="px-3 py-1 rounded-full text-xs font-bold text-white" style={{ backgroundColor: form.badge_color }}>Entradas</span>
+            <span className="px-3 py-1 rounded-full text-xs font-bold text-foreground" style={{ backgroundColor: form.badge_color }}>Entradas</span>
             <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Platos</span>
             <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Bebidas</span>
           </div>
@@ -1662,7 +1662,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
             <p className="text-xs mt-0.5" style={{ color: form.text_color, opacity: 0.6 }}>Descripción del platillo...</p>
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm font-bold" style={{ color: form.primary_color }}>₡5 500</span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold text-foreground" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
             </div>
           </div>
         </div>
@@ -2003,7 +2003,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         isDeliveredUrgent ? 'bg-red-500/8 border-red-500/50' :
         isDeliveredUnpaid ? 'bg-yellow-500/8 border-yellow-500/40' :
         isPaid ? 'bg-emerald-500/5 border-emerald-500/20 opacity-70' :
-        isUrgent ? 'bg-red-500/5 border-red-500/30' : 'bg-slate-800/60 border-slate-700/50'
+        isUrgent ? 'bg-red-500/5 border-red-500/30' : 'bg-muted/60 border-border/50'
       }`}>
         {/* ¡NUEVOS ITEMS! alert badge */}
         {hasNewItems && (
@@ -2030,15 +2030,15 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-base font-bold text-white">#{order.order_number}</span>
+          <span className="text-base font-bold text-foreground">#{order.order_number}</span>
           <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-            isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'
+            isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-muted text-muted-foreground'
           }`}>
             <Timer size={10} /> {elapsed}m
           </div>
         </div>
         {(order.customer_name || order.customer_table) && (
-          <div className="text-xs text-slate-400 mb-2 flex gap-2">
+          <div className="text-xs text-muted-foreground mb-2 flex gap-2">
             {order.customer_name && <span>👤 {order.customer_name}</span>}
             {order.customer_table && <span>🪑 {order.customer_table}</span>}
           </div>
@@ -2052,7 +2052,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             {quickRequestPendingForAdmin && (
               <button
                 onClick={() => markQuickRequestSeenByAdmin(order.id)}
-                className="mt-2 text-[11px] px-2.5 py-1 rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600"
+                className="mt-2 text-[11px] px-2.5 py-1 rounded-lg bg-muted text-foreground/90 hover:bg-slate-600"
               >
                 Marcar solicitud como vista
               </button>
@@ -2062,8 +2062,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         <div className="space-y-0.5 mb-3">
           {(order.items as any[]).map((item: any, i: number) => (
             <div key={i} className="flex justify-between text-sm">
-              <span className="text-slate-300">{item.quantity}× {item.name}</span>
-              <span className="text-slate-500 text-xs">{formatPrice(item.price * item.quantity)}</span>
+              <span className="text-muted-foreground">{item.quantity}× {item.name}</span>
+              <span className="text-muted-foreground/70 text-xs">{formatPrice(item.price * item.quantity)}</span>
             </div>
           ))}
         </div>
@@ -2080,9 +2080,9 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             )}
             {!isTomorrow && scheduledTime && (
               <div className="flex items-center gap-1.5">
-                <Clock size={11} className="text-slate-400" />
+                <Clock size={11} className="text-muted-foreground" />
                 {/* V4.0: mostrar 'ASAP' como 'Lo antes posible' en el Kanban */}
-                <span className="text-xs text-slate-300">
+                <span className="text-xs text-muted-foreground">
                   {scheduledTime === 'ASAP' ? '🛵 Lo antes posible' : `Hoy ${scheduledTime}`}
                 </span>
               </div>
@@ -2098,7 +2098,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 ) : (
                   <div className="flex items-start gap-1.5">
                     <MapPin size={11} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-xs text-slate-300 leading-tight">{deliveryAddress}</span>
+                    <span className="text-xs text-muted-foreground leading-tight">{deliveryAddress}</span>
                   </div>
                 )}
               </div>
@@ -2172,7 +2172,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             }`}>
               {isDeliveredUrgent ? '⚠️ COBRAR YA' : '⏰ PENDIENTE COBRO'}
             </span>
-            <span className="ml-auto text-xs font-bold text-slate-400">
+            <span className="ml-auto text-xs font-bold text-muted-foreground">
               Entregado hace {deliveredElapsed}m
             </span>
           </div>
@@ -2186,11 +2186,11 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 mb-3">
+        <div className="flex items-center justify-between pt-2 border-t border-border/50 mb-3">
           <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
           <div className="flex items-center gap-2">
             {isDelivery && <Bike size={12} className="text-blue-400" />}
-            <span className="text-[10px] text-slate-600 uppercase">{order.payment_method}</span>
+            <span className="text-[10px] text-muted-foreground/60 uppercase">{order.payment_method}</span>
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -2233,13 +2233,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20` }}>
           <span style={{ color }}>{icon}</span>
         </div>
-        <h3 className="font-bold text-white text-sm">{title}</h3>
-        <span className="ml-auto w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+        <h3 className="font-bold text-foreground text-sm">{title}</h3>
+        <span className="ml-auto w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-foreground"
           style={{ backgroundColor: color }}>{colOrders.length}</span>
       </div>
       <div className="space-y-3">
         {colOrders.length === 0 ? (
-          <div className="text-center py-8 text-slate-600 text-xs border-2 border-dashed border-slate-700/50 rounded-2xl">{emptyMsg}</div>
+          <div className="text-center py-8 text-muted-foreground/60 text-xs border-2 border-dashed border-border/50 rounded-2xl">{emptyMsg}</div>
         ) : colOrders.map(o => <KanbanCard key={o.id} order={o} />)}
       </div>
     </div>
@@ -2257,8 +2257,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Pedidos en Vivo</h2>
-          <p className="text-xs text-slate-500">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · {porCobrar.length} por cobrar</p>
+          <h2 className="text-lg font-bold text-foreground">Pedidos en Vivo</h2>
+          <p className="text-xs text-muted-foreground/70">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · {porCobrar.length} por cobrar</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Botón silenciar alarma — solo visible cuando está sonando */}
@@ -2272,25 +2272,25 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             </button>
           )}
           <button onClick={fetchOrders}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs hover:bg-slate-600 transition-colors">
             <RefreshCw size={12} /> Actualizar
           </button>
         </div>
       </div>
 
       {/* V17.2: Tabs principales Por Cobrar / Cobrados */}
-      <div className="flex gap-2 mb-4 p-1 bg-slate-800/60 rounded-2xl border border-slate-700/50">
+      <div className="flex gap-2 mb-4 p-1 bg-muted/60 rounded-2xl border border-border/50">
         <button
           onClick={() => setPaymentTab('pending')}
           className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
             paymentTab === 'pending'
               ? 'bg-yellow-500/20 border-yellow-500/60 text-yellow-300'
-              : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+              : 'border-transparent text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40'
           }`}
         >
           💰 Por Cobrar
           {porCobrar.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-foreground text-[10px] font-black px-1 shadow-lg animate-pulse">
               {porCobrar.length}
             </span>
           )}
@@ -2300,7 +2300,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
             paymentTab === 'paid'
               ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
-              : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+              : 'border-transparent text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40'
           }`}
         >
           ✅ Cobrados ({cobrados.length})
@@ -2311,7 +2311,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       {paymentTab === 'paid' && (
         <div className="space-y-3 mb-6">
           {cobrados.length === 0 ? (
-            <div className="text-center py-12 text-slate-600 text-xs border-2 border-dashed border-slate-700/50 rounded-2xl">Sin pedidos cobrados hoy</div>
+            <div className="text-center py-12 text-muted-foreground/60 text-xs border-2 border-dashed border-border/50 rounded-2xl">Sin pedidos cobrados hoy</div>
           ) : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
         </div>
       )}
@@ -2333,7 +2333,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       )}
 
       {/* ── Sub-navegación: Comer Aquí / Delivery / Por Encargo ── */}
-      <div className="flex gap-2 mb-5 p-1 bg-slate-800/60 rounded-2xl border border-slate-700/50">
+      <div className="flex gap-2 mb-5 p-1 bg-muted/60 rounded-2xl border border-border/50">
         {subTabs.map(tab => {
           const count = badgeCount(tab.key);
           const isActive = activeSubTab === tab.key;
@@ -2344,13 +2344,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
                 isActive
                   ? tab.activeColor
-                  : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+                  : 'border-transparent text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40'
               }`}
             >
               <span>{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
               {count > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-foreground text-[10px] font-black px-1 shadow-lg animate-pulse">
                   {count}
                 </span>
               )}
@@ -2431,17 +2431,17 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           onClick={() => setReceiptViewerUrl(null)}
         >
           <div
-            className="relative max-w-lg w-[90vw] max-h-[85vh] bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl"
+            className="relative max-w-lg w-[90vw] max-h-[85vh] bg-card rounded-2xl border border-border overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-800/80 border-b border-slate-700">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/80 border-b border-border">
+              <span className="text-sm font-bold text-foreground flex items-center gap-2">
                 🧾 Comprobante SINPE
               </span>
               <button
                 onClick={() => setReceiptViewerUrl(null)}
-                className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-slate-600 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X size={16} />
               </button>
@@ -2456,7 +2456,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               />
             </div>
             {/* Footer */}
-            <div className="px-4 py-3 bg-slate-800/80 border-t border-slate-700 flex gap-2">
+            <div className="px-4 py-3 bg-muted/80 border-t border-border flex gap-2">
               <a
                 href={receiptViewerUrl}
                 target="_blank"
@@ -2467,7 +2467,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               </a>
               <button
                 onClick={() => setReceiptViewerUrl(null)}
-                className="flex-1 py-2 rounded-xl text-sm font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+                className="flex-1 py-2 rounded-xl text-sm font-bold bg-muted text-muted-foreground hover:bg-slate-600 transition-colors"
               >
                 Cerrar
               </button>
@@ -2700,8 +2700,8 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         <span className="text-amber-400">{icon}</span>
       </div>
       <div>
-        <h3 className="text-sm font-black text-white leading-tight">{title}</h3>
-        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        <h3 className="text-sm font-black text-foreground leading-tight">{title}</h3>
+        {subtitle && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );
@@ -2710,7 +2710,7 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     <div className="space-y-10">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Analítica</h2>
-        <span className="text-[11px] text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/40">Este mes</span>
+        <span className="text-[11px] text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full border border-border/40">Este mes</span>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -2723,7 +2723,7 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
       <div>
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp size={15} className="text-green-400" />
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Prueba de ROI — Este Mes</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Prueba de ROI — Este Mes</h3>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -2735,18 +2735,18 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
             <div key={i} className="rounded-2xl p-5 transition-all hover:scale-[1.01]" style={{ backgroundColor: card.bg, border: `1px solid ${card.border}`, boxShadow: `0 4px 20px ${card.bg}` }}>
               <div className="flex items-center gap-2 mb-3">
                 <span style={{ color: card.color }}>{card.icon}</span>
-                <p className="text-[11px] text-slate-400 font-bold">{card.label}</p>
+                <p className="text-[11px] text-muted-foreground font-bold">{card.label}</p>
               </div>
               <p className="text-2xl font-black" style={{ color: card.color }}>{card.value}</p>
-              <p className="text-[11px] text-slate-600 mt-1.5 font-medium">{card.sub}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1.5 font-medium">{card.sub}</p>
             </div>
           ))}
         </div>
 
         {/* Revenue trend chart */}
         {stats.trendData.length > 0 && (
-          <div className="mt-3 bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
-            <p className="text-xs text-slate-400 mb-3">Tendencia de ventas — últimos 7 días</p>
+          <div className="mt-3 bg-muted/40 border border-border/40 rounded-2xl p-4">
+            <p className="text-xs text-muted-foreground mb-3">Tendencia de ventas — últimos 7 días</p>
             <ResponsiveContainer width="100%" height={100}>
               <AreaChart data={stats.trendData}>
                 <defs>
@@ -2778,31 +2778,31 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {[
           { label: 'Ticket Promedio', value: formatPrice(stats.avgTicket), icon: <DollarSign size={15} />, color: 'text-amber-400', bg: 'from-amber-500/10 to-amber-600/5 border-amber-500/20' },
-          { label: 'Pedidos este mes', value: stats.totalOrders, icon: <ClipboardList size={15} />, color: 'text-white', bg: 'from-slate-700/30 to-slate-800/20 border-slate-600/30' },
-          { label: 'Visitas al menú', value: stats.visits, icon: <Eye size={15} />, color: 'text-white', bg: 'from-slate-700/30 to-slate-800/20 border-slate-600/30' },
+          { label: 'Pedidos este mes', value: stats.totalOrders, icon: <ClipboardList size={15} />, color: 'text-foreground', bg: 'from-slate-700/30 to-slate-800/20 border-border/30' },
+          { label: 'Visitas al menú', value: stats.visits, icon: <Eye size={15} />, color: 'text-foreground', bg: 'from-slate-700/30 to-slate-800/20 border-border/30' },
           { label: 'Conversión', value: stats.visits > 0 ? `${Math.round((stats.totalOrders / stats.visits) * 100)}%` : '0%', icon: <TrendingUp size={15} />, color: 'text-green-400', bg: 'from-green-500/10 to-green-600/5 border-green-500/20' },
         ].map(({ label, value, icon, color, bg }) => (
           <div key={label} className={`bg-gradient-to-br ${bg} border rounded-[2rem] p-5 shadow-xl`}>
-            <div className="flex items-center gap-1.5 mb-2 text-slate-500">{icon}<p className="text-xs font-semibold">{label}</p></div>
+            <div className="flex items-center gap-1.5 mb-2 text-muted-foreground/70">{icon}<p className="text-xs font-semibold">{label}</p></div>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* ── Picos de Venta + Top 3 con filtro dinámico ── */}
-      <div className="bg-gray-900/80 border border-slate-700/50 rounded-3xl p-5 shadow-xl space-y-5">
+      <div className="bg-card/80 border border-border/50 rounded-3xl p-5 shadow-xl space-y-5">
         {/* Filtro de tiempo */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-amber-400" />
-            <h3 className="text-sm font-bold text-white">Picos de Venta</h3>
-            <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{filteredStats.filteredCount} pedidos</span>
+            <h3 className="text-sm font-bold text-foreground">Picos de Venta</h3>
+            <span className="text-[10px] text-muted-foreground/70 bg-muted px-2 py-0.5 rounded-full">{filteredStats.filteredCount} pedidos</span>
           </div>
           <div className="flex gap-1">
             {(Object.keys(analyticsFilterLabels) as AnalyticsFilter[]).map(f => (
               <button key={f} onClick={() => setAnalyticsFilter(f)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  analyticsFilter === f ? 'bg-amber-500 text-black' : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600'
+                  analyticsFilter === f ? 'bg-amber-500 text-black' : 'bg-muted/60 text-muted-foreground hover:bg-slate-600'
                 }`}>
                 {analyticsFilterLabels[f]}
               </button>
@@ -2820,12 +2820,12 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
             const total = filteredStats.timeBlocks.manana + filteredStats.timeBlocks.tarde + filteredStats.timeBlocks.noche;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
-              <div key={label} className="bg-slate-800/60 rounded-2xl p-4 text-center border border-slate-700/40">
+              <div key={label} className="bg-muted/60 rounded-2xl p-4 text-center border border-border/40">
                 <div className="text-2xl mb-1">{emoji}</div>
-                <p className="text-xs text-slate-400 font-semibold">{label}</p>
-                <p className="text-[10px] text-slate-600 mb-2">{sublabel}</p>
+                <p className="text-xs text-muted-foreground font-semibold">{label}</p>
+                <p className="text-[10px] text-muted-foreground/60 mb-2">{sublabel}</p>
                 <p className="text-2xl font-bold" style={{ color }}>{count}</p>
-                <p className="text-[10px] text-slate-500 mt-1">{pct}%</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">{pct}%</p>
               </div>
             );
           })}
@@ -2835,10 +2835,10 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Trophy size={14} className="text-amber-400" />
-            <h3 className="text-sm font-bold text-white">Top 3 Platillos Más Vendidos</h3>
+            <h3 className="text-sm font-bold text-foreground">Top 3 Platillos Más Vendidos</h3>
           </div>
           {filteredStats.top3.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-4">Sin datos en este período</p>
+            <p className="text-xs text-muted-foreground/70 text-center py-4">Sin datos en este período</p>
           ) : (
             <div className="space-y-3">
               {filteredStats.top3.map((item: { name: string; count: number }, i: number) => {
@@ -2849,10 +2849,10 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
                     <span className="text-xl w-7 flex-shrink-0">{medals[i]}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-semibold text-white truncate max-w-[160px]">{item.name}</span>
+                        <span className="text-sm font-semibold text-foreground truncate max-w-[160px]">{item.name}</span>
                         <span className="text-xs font-bold text-amber-400 ml-2 flex-shrink-0">{item.count} uds.</span>
                       </div>
-                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all"
                           style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: ['#F59E0B', '#94A3B8', '#CD7F32'][i] }} />
                       </div>
@@ -2876,13 +2876,13 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
       {/* ── Top 5 + Horas Pico ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Top 5 Platillos */}
-        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+        <div className="bg-muted/40 border border-border/40 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Trophy size={14} className="text-amber-400" />
-            <h3 className="text-sm font-bold text-white">Top 5 Platillos</h3>
+            <h3 className="text-sm font-bold text-foreground">Top 5 Platillos</h3>
           </div>
           {stats.top5.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-4">Sin datos aún</p>
+            <p className="text-xs text-muted-foreground/70 text-center py-4">Sin datos aún</p>
           ) : (
             <div className="space-y-2">
               {stats.top5.map((item, i) => {
@@ -2891,12 +2891,12 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
                   <div key={item.name}>
                     <div className="flex items-center justify-between mb-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-500 w-4">#{i + 1}</span>
-                        <span className="text-sm text-white truncate max-w-[140px]">{item.name}</span>
+                        <span className="text-xs font-bold text-muted-foreground/70 w-4">#{i + 1}</span>
+                        <span className="text-sm text-foreground truncate max-w-[140px]">{item.name}</span>
                       </div>
-                      <span className="text-xs text-slate-400">{item.count} uds.</span>
+                      <span className="text-xs text-muted-foreground">{item.count} uds.</span>
                     </div>
-                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-amber-500 transition-all"
                         style={{ width: `${(item.count / maxCount) * 100}%` }} />
                     </div>
@@ -2908,10 +2908,10 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         </div>
 
         {/* Horas Pico */}
-        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+        <div className="bg-muted/40 border border-border/40 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Clock size={14} className="text-blue-400" />
-            <h3 className="text-sm font-bold text-white">Horas Pico (7 días)</h3>
+            <h3 className="text-sm font-bold text-foreground">Horas Pico (7 días)</h3>
           </div>
           <ResponsiveContainer width="100%" height={120}>
             <BarChart data={stats.hourlyData} barSize={8}>
@@ -2934,62 +2934,62 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         <SectionHeader icon={<Users size={15} />} title="Equipo" subtitle="Cómo está rindiendo el personal hoy" />
 
       {/* ── Rendimiento del Equipo ── */}
-      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+      <div className="bg-muted/40 border border-border/40 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-4">
           <UserCheck size={15} className="text-blue-400" />
-          <h3 className="text-sm font-bold text-white">Rendimiento del Equipo — Hoy</h3>
-          <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+          <h3 className="text-sm font-bold text-foreground">Rendimiento del Equipo — Hoy</h3>
+          <span className="text-xs text-muted-foreground/70 bg-muted px-2 py-0.5 rounded-full">
             {staffStats.reduce((s, m) => s + m.completed, 0)} pedidos completados
           </span>
         </div>
         {staffStats.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-6">Sin actividad de meseros hoy</p>
+          <p className="text-xs text-muted-foreground/70 text-center py-6">Sin actividad de meseros hoy</p>
         ) : (
           <div className="space-y-3">
             {staffStats.map(member => (
-              <div key={member.name} className="bg-slate-900/60 border border-slate-700/30 rounded-xl p-4">
+              <div key={member.name} className="bg-card/60 border border-border/30 rounded-xl p-4">
                 {/* Staff header */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-foreground font-bold text-xs flex-shrink-0">
                       {member.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm font-bold text-white">{member.name}</span>
+                    <span className="text-sm font-bold text-foreground">{member.name}</span>
                   </div>
                   <span className="text-xs font-bold text-amber-400">{formatPrice(member.totalRevenue)}</span>
                 </div>
                 {/* Metrics row */}
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold text-white">{member.completed}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Completados</p>
+                  <div className="bg-muted/60 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-foreground">{member.completed}</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Completados</p>
                   </div>
-                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+                  <div className="bg-muted/60 rounded-lg p-2.5 text-center">
                     <p className="text-lg font-bold text-green-400">{member.cobrados}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Cobrados</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Cobrados</p>
                   </div>
-                  <div className="bg-slate-800/60 rounded-lg p-2.5 text-center">
+                  <div className="bg-muted/60 rounded-lg p-2.5 text-center">
                     <p className="text-lg font-bold text-blue-400">
                       {member.avgTimeMin > 0 ? `${member.avgTimeMin}m` : '—'}
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Tiempo prom.</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Tiempo prom.</p>
                   </div>
                 </div>
                 {/* Order list */}
                 {member.orders.length > 0 && (
                   <div className="mt-3 space-y-1">
                     {member.orders.map(o => (
-                      <div key={o.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-700/20 last:border-0">
+                      <div key={o.id} className="flex items-center justify-between text-xs py-1 border-b border-border/20 last:border-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-400">#{o.order_number}</span>
-                          <span className="text-slate-500">{o.customer_name}</span>
+                          <span className="text-muted-foreground">#{o.order_number}</span>
+                          <span className="text-muted-foreground/70">{o.customer_name}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                             o.status === 'entregado' ? 'bg-green-500/20 text-green-400' :
                             o.status === 'listo' ? 'bg-blue-500/20 text-blue-400' :
                             o.status === 'en_cocina' ? 'bg-orange-500/20 text-orange-400' :
-                            'bg-slate-700 text-slate-400'
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {o.status === 'entregado' ? 'Entregado' :
                              o.status === 'listo' ? 'Listo' :
@@ -2998,7 +2998,7 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
                           {(o as any).payment_status === 'paid' && (
                             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Cobrado</span>
                           )}
-                          <span className="text-slate-400 font-medium">{formatPrice(o.total)}</span>
+                          <span className="text-muted-foreground font-medium">{formatPrice(o.total)}</span>
                         </div>
                       </div>
                     ))}
@@ -3091,8 +3091,8 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">Historial de Pedidos</h2>
-        <button onClick={fetchHistory} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 transition-colors">
+        <h2 className="text-lg font-bold text-foreground">Historial de Pedidos</h2>
+        <button onClick={fetchHistory} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs hover:bg-slate-600 transition-colors">
           <RefreshCw size={12} /> Actualizar
         </button>
       </div>
@@ -3102,7 +3102,7 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
         {(Object.keys(filterLabels) as HistoryFilter[]).map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              filter === f ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              filter === f ? 'bg-amber-500 text-black' : 'bg-muted text-muted-foreground hover:bg-slate-600'
             }`}>
             {filterLabels[f]}
           </button>
@@ -3114,15 +3114,15 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
         <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-[2rem] p-5 shadow-xl">
           <div className="flex items-center gap-2 mb-3">
             <DollarSign size={15} className="text-amber-400" />
-            <p className="text-xs text-slate-400 font-semibold">Ingresos Totales</p>
+            <p className="text-xs text-muted-foreground font-semibold">Ingresos Totales</p>
           </div>
           <p className="text-2xl font-bold text-amber-400">{formatPrice(kpis.totalRevenue)}</p>
-          <p className="text-xs text-slate-500 mt-1.5">{filterLabels[filter]}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">{filterLabels[filter]}</p>
         </div>
         <div className="bg-gradient-to-br from-emerald-500/10 to-rose-500/10 border border-rose-500/20 rounded-[2rem] p-5 shadow-xl">
           <div className="flex items-center gap-2 mb-3">
             <Zap size={15} className="text-emerald-400" />
-            <p className="text-xs text-slate-300 font-bold">Revenue por IA ✨</p>
+            <p className="text-xs text-muted-foreground font-bold">Revenue por IA ✨</p>
           </div>
           <p className="text-2xl font-bold text-emerald-400">{formatPrice(kpis.aiUpsellRevenue)}</p>
           <p className="text-xs text-rose-400/70 mt-1.5 font-medium">generado por GPT</p>
@@ -3130,10 +3130,10 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
         <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-[2rem] p-5 shadow-xl">
           <div className="flex items-center gap-2 mb-3">
             <ClipboardList size={15} className="text-blue-400" />
-            <p className="text-xs text-slate-400 font-semibold">Volumen de Pedidos</p>
+            <p className="text-xs text-muted-foreground font-semibold">Volumen de Pedidos</p>
           </div>
           <p className="text-2xl font-bold text-blue-400">{kpis.count}</p>
-          <p className="text-xs text-slate-500 mt-1.5">pedidos completados</p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">pedidos completados</p>
         </div>
       </div>
 
@@ -3141,22 +3141,22 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
       {loading ? (
         <div className="text-center py-12"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-12 text-slate-500 text-sm">Sin pedidos en este período</div>
+        <div className="text-center py-12 text-muted-foreground/70 text-sm">Sin pedidos en este período</div>
       ) : (
-        <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl overflow-hidden">
-          <div className="hidden sm:grid grid-cols-6 px-4 py-2 border-b border-slate-700/50 text-xs text-slate-500 font-semibold uppercase tracking-wider">
+        <div className="bg-muted/40 border border-border/40 rounded-2xl overflow-hidden">
+          <div className="hidden sm:grid grid-cols-6 px-4 py-2 border-b border-border/50 text-xs text-muted-foreground/70 font-semibold uppercase tracking-wider">
             <span>#</span><span>Cliente</span><span>Tipo</span><span>Total</span><span>Mesero</span><span>Detalle</span>
           </div>
           <div className="divide-y divide-slate-700/30">
             {orders.map(o => (
               <div key={o.id}>
-                <div className="grid grid-cols-2 sm:grid-cols-6 items-center px-4 py-3 hover:bg-slate-700/20 transition-colors">
-                  <span className="text-sm font-bold text-white">#{o.order_number}</span>
-                  <span className="text-sm text-slate-300 truncate">{o.customer_name || '—'}</span>
-                  <span className="text-xs text-slate-400 hidden sm:block">{deliveryLabel(o)}</span>
+                <div className="grid grid-cols-2 sm:grid-cols-6 items-center px-4 py-3 hover:bg-muted/20 transition-colors">
+                  <span className="text-sm font-bold text-foreground">#{o.order_number}</span>
+                  <span className="text-sm text-muted-foreground truncate">{o.customer_name || '—'}</span>
+                  <span className="text-xs text-muted-foreground hidden sm:block">{deliveryLabel(o)}</span>
                   <span className="text-sm font-bold text-amber-400">{formatPrice(o.total)}</span>
                   <span className="text-xs flex items-center gap-1">
-                    {(o as any).handled_by_name ? <><UserCheck size={10} className="text-blue-400" /><span className="text-blue-300 font-semibold">{(o as any).handled_by_name}</span></> : <span className="text-slate-600">—</span>}
+                    {(o as any).handled_by_name ? <><UserCheck size={10} className="text-blue-400" /><span className="text-blue-300 font-semibold">{(o as any).handled_by_name}</span></> : <span className="text-muted-foreground/60">—</span>}
                   </span>
                   <button
                     onClick={() => setExpandedOrderId(expandedOrderId === o.id ? null : o.id)}
@@ -3165,8 +3165,8 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
                   </button>
                 </div>
                 {expandedOrderId === o.id && (
-                  <div className="px-4 pb-3 bg-slate-900/40">
-                    <div className="text-xs text-slate-500 mb-1">
+                  <div className="px-4 pb-3 bg-card/40">
+                    <div className="text-xs text-muted-foreground/70 mb-1">
                       {new Date(o.created_at).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       {(o as any).scheduled_date && (
                         <span className="ml-2 text-orange-400">⏰ Programado: {(o as any).scheduled_date === 'tomorrow' ? 'Mañana' : 'Hoy'} {(o as any).scheduled_time}</span>
@@ -3175,16 +3175,16 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
                     <div className="space-y-0.5">
                       {((o.items || []) as any[]).map((item: any, i: number) => (
                         <div key={i} className="flex justify-between text-xs">
-                          <span className="text-slate-400">{item.quantity}× {item.name}</span>
-                          <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
+                          <span className="text-muted-foreground">{item.quantity}× {item.name}</span>
+                          <span className="text-muted-foreground/70">{formatPrice(item.price * item.quantity)}</span>
                         </div>
                       ))}
                     </div>
                     {(o as any).delivery_address && (
-                      <p className="text-xs text-slate-400 mt-1">📍 {(o as any).delivery_address}</p>
+                      <p className="text-xs text-muted-foreground mt-1">📍 {(o as any).delivery_address}</p>
                     )}
                     {(o as any).delivery_phone && (
-                      <p className="text-xs text-slate-400">📱 {(o as any).delivery_phone}</p>
+                      <p className="text-xs text-muted-foreground">📱 {(o as any).delivery_phone}</p>
                     )}
                   </div>
                 )}
@@ -3222,18 +3222,18 @@ function QRTab({ tenant }: { tenant: Tenant }) {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-white mb-6">Código QR del Menú</h2>
-      <div className="bg-slate-700/50 border border-slate-600/50 rounded-2xl p-6 text-center max-w-sm mx-auto">
+      <h2 className="text-lg font-bold text-foreground mb-6">Código QR del Menú</h2>
+      <div className="bg-muted/50 border border-border/50 rounded-2xl p-6 text-center max-w-sm mx-auto">
         <div className="bg-white rounded-2xl p-6 mb-4 inline-block">
           <img src={qrApiUrl} alt="QR Code" className="w-48 h-48 mx-auto" />
         </div>
-        <p className="text-sm text-slate-300 mb-1 font-semibold">{tenant.name}</p>
-        <p className="text-xs text-slate-500 mb-4 font-mono">{menuUrl}</p>
+        <p className="text-sm text-muted-foreground mb-1 font-semibold">{tenant.name}</p>
+        <p className="text-xs text-muted-foreground/70 mb-4 font-mono">{menuUrl}</p>
         <button onClick={handleDownload}
-          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mx-auto">
+          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-foreground rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mx-auto">
           <Download size={16} /> Descargar QR
         </button>
-        <p className="text-[10px] text-slate-600 mt-3">Imprime este QR y colócalo en las mesas de tu restaurante</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-3">Imprime este QR y colócalo en las mesas de tu restaurante</p>
       </div>
     </div>
   );
@@ -3332,8 +3332,8 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users size={20} className="text-blue-400" /> Equipo / Personal</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Gestiona los meseros y cajeros de tu restaurante</p>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Users size={20} className="text-blue-400" /> Equipo / Personal</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Gestiona los meseros y cajeros de tu restaurante</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
@@ -3343,12 +3343,12 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       </div>
 
       {/* Admin PIN config */}
-      <div className="bg-slate-800/40 border border-yellow-500/20 rounded-2xl p-5">
+      <div className="bg-muted/40 border border-yellow-500/20 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck size={16} className="text-yellow-400" />
           <h3 className="text-sm font-bold text-yellow-400">PIN de Seguridad del Admin</h3>
         </div>
-        <p className="text-xs text-slate-400 mb-4">Este PIN de 4 dígitos se requerirá cuando un mesero intente cancelar una orden.</p>
+        <p className="text-xs text-muted-foreground mb-4">Este PIN de 4 dígitos se requerirá cuando un mesero intente cancelar una orden.</p>
         <div className="flex items-center gap-3">
           <input
             type="password"
@@ -3356,7 +3356,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
             value={adminPin}
             onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="••••"
-            className="w-24 px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-center text-lg font-bold text-white tracking-widest focus:outline-none focus:border-yellow-500"
+            className="w-24 px-3 py-2 bg-card border border-border rounded-xl text-center text-lg font-bold text-foreground tracking-widest focus:outline-none focus:border-yellow-500"
           />
           <button onClick={handleSavePin} disabled={savingPin}
             className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-black rounded-xl text-sm font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50">
@@ -3370,8 +3370,8 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
 
       {/* Create staff form */}
       {showForm && (
-        <div className="bg-slate-800/60 border border-slate-600/40 rounded-2xl p-5 space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><UserPlus size={14} /> Nuevo Usuario</h3>
+        <div className="bg-muted/60 border border-border/40 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2"><UserPlus size={14} /> Nuevo Usuario</h3>
           {/* Role selector */}
           <div className="flex gap-2">
             <button
@@ -3380,7 +3380,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
                 newRole === 'staff'
                   ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+                  : 'bg-muted text-muted-foreground border-border hover:border-slate-500'
               }`}
             >
               <UtensilsCrossed size={12} /> Mesero
@@ -3391,7 +3391,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
                 newRole === 'kitchen'
                   ? 'bg-orange-500/20 text-orange-400 border-orange-500/40'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+                  : 'bg-muted text-muted-foreground border-border hover:border-slate-500'
               }`}
             >
               <ChefHat size={12} /> Cocina
@@ -3399,30 +3399,30 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Nombre completo</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Nombre completo</label>
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Juan Pérez"
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+                className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Username (para login)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Username (para login)</label>
               <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="juan"
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+                className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Contraseña</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Contraseña</label>
               <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••"
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+                className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:border-blue-500" />
             </div>
           </div>
           <div className="flex gap-2">
             <button onClick={handleCreateStaff} disabled={saving}
-              className={`flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
+              className={`flex items-center gap-2 px-4 py-2 text-foreground rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
                 newRole === 'kitchen' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'
               }`}>
               <Save size={14} /> {saving ? 'Creando...' : newRole === 'kitchen' ? 'Crear Usuario Cocina' : 'Crear Mesero'}
             </button>
             <button onClick={() => setShowForm(false)}
-              className="px-4 py-2 bg-slate-700 text-slate-300 rounded-xl text-sm hover:bg-slate-600 transition-colors">
+              className="px-4 py-2 bg-muted text-muted-foreground rounded-xl text-sm hover:bg-slate-600 transition-colors">
               Cancelar
             </button>
           </div>
@@ -3433,7 +3433,7 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       {loading ? (
         <div className="text-center py-8"><div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : staff.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
+        <div className="text-center py-12 text-muted-foreground/70">
           <Users size={32} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">No hay meseros registrados</p>
           <p className="text-xs mt-1">Agrega tu primer mesero para que puedan usar el panel de staff</p>
@@ -3441,9 +3441,9 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       ) : (
         <div className="space-y-2">
           {staff.map(member => (
-            <div key={member.id} className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/40 rounded-2xl">
+            <div key={member.id} className="flex items-center justify-between p-4 bg-muted/40 border border-border/40 rounded-2xl">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-foreground font-bold text-sm ${
                     member.role === 'kitchen'
                       ? 'bg-gradient-to-br from-orange-500 to-red-600'
                       : 'bg-gradient-to-br from-blue-500 to-purple-600'
@@ -3451,16 +3451,16 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
                   {member.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">{member.name}</p>
-                  <p className="text-xs text-slate-400">@{member.username} · {member.role === 'kitchen' ? '🍳 Cocina' : 'Mesero'}</p>
+                  <p className="text-sm font-bold text-foreground">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">@{member.username} · {member.role === 'kitchen' ? '🍳 Cocina' : 'Mesero'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${member.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/40 text-slate-500'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${member.is_active ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/40 text-muted-foreground/70'}`}>
                   {member.is_active ? 'Activo' : 'Inactivo'}
                 </span>
                 <button onClick={() => handleToggleActive(member)}
-                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors text-slate-300">
+                  className="p-2 rounded-lg bg-muted hover:bg-slate-600 transition-colors text-muted-foreground">
                   {member.is_active ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
                 <button
@@ -3486,24 +3486,24 @@ function StaffTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void
       )}
 
       {/* Login URLs info */}
-      <div className="bg-slate-800/40 border border-slate-600/20 rounded-2xl p-4 space-y-2">
-        <p className="text-xs text-slate-400 flex items-center gap-2">
+      <div className="bg-muted/40 border border-border/20 rounded-2xl p-4 space-y-2">
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
           <Eye size={12} /> Meseros inician sesión en: <span className="text-blue-400 font-mono">/staff/{tenant.slug}</span>
         </p>
-        <p className="text-xs text-slate-400 flex items-center gap-2">
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
           <ChefHat size={12} className="text-orange-400" /> Cocina accede en: <span className="text-orange-400 font-mono">/kitchen/{tenant.slug}</span>
         </p>
-        <p className="text-xs text-slate-400 flex items-center gap-2">
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
           <Bike size={12} className="text-amber-400" /> Riders acceden en: <span className="text-amber-400 font-mono">/rider/{tenant.slug}</span>
         </p>
       </div>
 
       {/* ── Riders de Delivery ── */}
       <div className="mt-2">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-1">
+        <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-1">
           <Bike size={20} className="text-amber-400" /> Riders de Delivery
         </h2>
-        <p className="text-xs text-slate-400 mb-4">Gestiona los repartidores. Cada rider accede con su PIN desde <span className="text-amber-400 font-mono">/rider/{tenant.slug}</span></p>
+        <p className="text-xs text-muted-foreground mb-4">Gestiona los repartidores. Cada rider accede con su PIN desde <span className="text-amber-400 font-mono">/rider/{tenant.slug}</span></p>
         <DeliveryDispatchPanel tenant={tenant} />
       </div>
     </div>
@@ -3567,13 +3567,13 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-black text-white flex items-center gap-2"><TrendingUp size={20} className="text-amber-400" /> Rendimiento del Equipo</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Métricas operativas en tiempo real por mesero</p>
+          <h2 className="text-lg font-black text-foreground flex items-center gap-2"><TrendingUp size={20} className="text-amber-400" /> Rendimiento del Equipo</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Métricas operativas en tiempo real por mesero</p>
         </div>
         <div className="flex gap-1.5">
           {(Object.keys(filterLabels) as (keyof typeof filterLabels)[]).map(f => (
             <button key={f} onClick={() => setFilter(f)} className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-              style={filter === f ? { background: 'linear-gradient(135deg,#F59E0B,#F97316)', color: '#000' } : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={filter === f ? { background: 'linear-gradient(135deg,#F59E0B,#F97316)', color: '#000' } : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#94a3b8', border: '1px solid hsl(var(--border))' }}>
               {filterLabels[f]}
             </button>
           ))}
@@ -3584,7 +3584,7 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
           {insights.map((ins, i) => (
             <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-xl"
               style={{ backgroundColor: ins.type === 'good' ? 'rgba(34,197,94,0.08)' : ins.type === 'warn' ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.08)', border: `1px solid ${ins.type === 'good' ? 'rgba(34,197,94,0.2)' : ins.type === 'warn' ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)'}` }}>
-              <p className="text-sm text-slate-200">{ins.text}</p>
+              <p className="text-sm text-foreground/90">{ins.text}</p>
             </div>
           ))}
         </div>
@@ -3592,10 +3592,10 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
       {loading ? (
         <div className="flex items-center justify-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" /></div>
       ) : staffMetrics.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">
+        <div className="text-center py-16 text-muted-foreground/70">
           <UserCheck size={40} className="mx-auto mb-3 opacity-20" />
           <p className="text-sm">Sin actividad registrada</p>
-          <p className="text-xs mt-1 text-slate-600">Los eventos se registran cuando los meseros aceptan o entregan pedidos</p>
+          <p className="text-xs mt-1 text-muted-foreground/60">Los eventos se registran cuando los meseros aceptan o entregan pedidos</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -3603,18 +3603,18 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
             <div key={member.name} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(30,41,59,0.6)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-foreground font-black text-sm flex-shrink-0"
                     style={{ background: idx === 0 ? 'linear-gradient(135deg,#F59E0B,#F97316)' : idx === 1 ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'linear-gradient(135deg,#22c55e,#16a34a)' }}>
                     {member.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-black text-white">{member.name}</p>
+                    <p className="text-sm font-black text-foreground">{member.name}</p>
                     {idx === 0 && <span className="text-[10px] font-bold text-amber-400">🏆 Top performer</span>}
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black text-white">{member.ordersDelivered}</p>
-                  <p className="text-[10px] text-slate-500">entregados</p>
+                  <p className="text-lg font-black text-foreground">{member.ordersDelivered}</p>
+                  <p className="text-[10px] text-muted-foreground/70">entregados</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
@@ -3626,7 +3626,7 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
                 ].map(m => (
                   <div key={m.label} className="px-4 py-3 text-center" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
                     <p className="text-xl font-black" style={{ color: m.color }}>{m.value}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{m.label}</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">{m.label}</p>
                   </div>
                 ))}
               </div>
@@ -3635,11 +3635,11 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
         </div>
       )}
       {events.length > 0 && (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(30,41,59,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-            <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">Últimos eventos</h3>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(30,41,59,0.4)', border: '1px solid hsl(var(--border))' }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'hsl(var(--border))' }}>
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Últimos eventos</h3>
           </div>
-          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+          <div className="divide-y" style={{ borderColor: 'hsl(var(--border))' }}>
             {events.slice(0, 20).map(e => {
               const ev = eventLabels[e.event_type] || { label: e.event_type, color: '#64748b' };
               return (
@@ -3647,13 +3647,13 @@ function StaffAnalyticsTab({ tenant }: { tenant: Tenant }) {
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
                     <div>
-                      <p className="text-xs font-bold text-slate-200">{e.staff_name}</p>
-                      <p className="text-[10px] text-slate-500">{ev.label}{e.order_number ? ` — #${e.order_number}` : ''}{e.table_number ? ` · Mesa ${e.table_number}` : ''}</p>
+                      <p className="text-xs font-bold text-foreground/90">{e.staff_name}</p>
+                      <p className="text-[10px] text-muted-foreground/70">{ev.label}{e.order_number ? ` — #${e.order_number}` : ''}{e.table_number ? ` · Mesa ${e.table_number}` : ''}</p>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
-                    {e.response_time_seconds && <p className="text-[10px] text-slate-500">{fmtTime(e.response_time_seconds)}</p>}
-                    <p className="text-[10px] text-slate-600">{new Date(e.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</p>
+                    {e.response_time_seconds && <p className="text-[10px] text-muted-foreground/70">{fmtTime(e.response_time_seconds)}</p>}
+                    <p className="text-[10px] text-muted-foreground/60">{new Date(e.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>
               );
@@ -3755,16 +3755,16 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Corte Inteligente</h2>
-          <p className="text-[12px] text-slate-500 mt-0.5">Cierre del día con arqueo manual y cuadre automático</p>
+          <p className="text-[12px] text-muted-foreground/70 mt-0.5">Cierre del día con arqueo manual y cuadre automático</p>
         </div>
-        <span className="text-[11px] text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/40">
+        <span className="text-[11px] text-muted-foreground/70 bg-muted/60 px-3 py-1 rounded-full border border-border/40">
           {new Date().toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>
       </div>
 
       {/* Resumen del sistema */}
       <div>
-        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3">Resumen del sistema</p>
+        <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70 mb-3">Resumen del sistema</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Total del día', value: formatPrice(corteStats.total), color: 'text-amber-400', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
@@ -3773,7 +3773,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
             { label: 'Tarjeta', value: formatPrice(corteStats.byMethod.tarjeta), color: 'text-blue-400', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.15)' },
           ].map(({ label, value, color, bg, border }) => (
             <div key={label} className="rounded-2xl p-4" style={{ backgroundColor: bg, border: `1px solid ${border}` }}>
-              <p className="text-[11px] text-slate-500 mb-1.5">{label}</p>
+              <p className="text-[11px] text-muted-foreground/70 mb-1.5">{label}</p>
               <p className={`text-lg font-bold ${color}`}>{value}</p>
             </div>
           ))}
@@ -3781,14 +3781,14 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
       </div>
 
       {/* Detalle de pedidos */}
-      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-4">
+      <div className="bg-muted/40 border border-border/40 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <ClipboardList size={14} className="text-slate-400" />
-            <span className="text-sm font-bold text-white">{corteStats.count} pedidos hoy</span>
+            <ClipboardList size={14} className="text-muted-foreground" />
+            <span className="text-sm font-bold text-foreground">{corteStats.count} pedidos hoy</span>
           </div>
           <button onClick={() => setCorteVisible(!corteVisible)}
-            className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
             {corteVisible ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             {corteVisible ? 'Ocultar' : 'Ver detalle'}
           </button>
@@ -3796,13 +3796,13 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
         {corteVisible && corteStats.orders.length > 0 && (
           <div className="max-h-52 overflow-y-auto space-y-1">
             {corteStats.orders.map(o => (
-              <div key={o.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-700/30 last:border-0">
+              <div key={o.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/30 last:border-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400">#{o.order_number}</span>
-                  <span className="text-slate-500">{new Date(o.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</span>
-                  <span className="text-slate-600 capitalize">{o.payment_method || 'efectivo'}</span>
+                  <span className="text-muted-foreground">#{o.order_number}</span>
+                  <span className="text-muted-foreground/70">{new Date(o.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-muted-foreground/60 capitalize">{o.payment_method || 'efectivo'}</span>
                 </div>
-                <span className="text-white font-medium">{formatPrice(o.total)}</span>
+                <span className="text-foreground font-medium">{formatPrice(o.total)}</span>
               </div>
             ))}
           </div>
@@ -3810,11 +3810,11 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
       </div>
 
       {/* Arqueo Manual */}
-      <div className="bg-slate-800/40 border border-slate-700/40 rounded-2xl p-5">
+      <div className="bg-muted/40 border border-border/40 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <Scissors size={15} className="text-purple-400" />
-          <h3 className="text-sm font-bold text-white">Arqueo Manual</h3>
-          <span className="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">Ingresa lo que contaste físicamente</span>
+          <h3 className="text-sm font-bold text-foreground">Arqueo Manual</h3>
+          <span className="text-[11px] text-muted-foreground/70 bg-muted px-2 py-0.5 rounded-full">Ingresa lo que contaste físicamente</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           {[
@@ -3823,15 +3823,15 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
             { key: 'tarjeta' as const, label: 'Tarjeta', color: '#60a5fa' },
           ].map(({ key, label, color }) => (
             <div key={key}>
-              <label className="text-[11px] font-bold text-slate-400 mb-1.5 block">{label}</label>
+              <label className="text-[11px] font-bold text-muted-foreground mb-1.5 block">{label}</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">₡</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-sm font-bold">₡</span>
                 <input
                   type="number"
                   value={arqueoValues[key]}
                   onChange={e => { setArqueoValues(prev => ({ ...prev, [key]: e.target.value })); setArqueoSaved(false); }}
                   placeholder="0"
-                  className="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl pl-7 pr-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-1 transition-all"
+                  className="w-full bg-card/60 border border-border/60 rounded-xl pl-7 pr-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-1 transition-all"
                   style={{ color }}
                 />
               </div>
@@ -3851,16 +3851,16 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
             border: `1px solid ${diferencia === 0 ? 'rgba(52,211,153,0.2)' : diferencia > 0 ? 'rgba(96,165,250,0.2)' : 'rgba(239,68,68,0.2)'}`
           }}>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-400">Total arqueo</span>
-              <span className="text-base font-bold text-white">{formatPrice(arqueoTotal)}</span>
+              <span className="text-sm text-muted-foreground">Total arqueo</span>
+              <span className="text-base font-bold text-foreground">{formatPrice(arqueoTotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-400">Total sistema</span>
+              <span className="text-sm text-muted-foreground">Total sistema</span>
               <span className="text-base font-bold text-amber-400">{formatPrice(corteStats.total)}</span>
             </div>
-            <div className="h-px bg-slate-700/40" />
+            <div className="h-px bg-muted/40" />
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-white">Diferencia</span>
+              <span className="text-sm font-bold text-foreground">Diferencia</span>
               <span className={`text-lg font-black ${diferencia === 0 ? 'text-green-400' : diferencia > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                 {diferencia >= 0 ? '+' : ''}{formatPrice(diferencia)}
               </span>
@@ -3875,7 +3875,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
       {/* Acciones */}
       <div className="flex gap-3">
         <button onClick={handleDownloadCorte}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-700 text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-600 transition-colors">
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-muted text-muted-foreground rounded-xl text-xs font-bold hover:bg-slate-600 transition-colors">
           <Download size={13} /> Descargar TXT
         </button>
         <button onClick={handleWhatsAppCorte}
@@ -4003,7 +4003,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Right: current section label */}
-          <p className="text-xs text-slate-500 font-mono hidden lg:block">/{slug}</p>
+          <p className="text-xs text-muted-foreground/70 font-mono hidden lg:block">/{slug}</p>
           <div className="lg:hidden w-10" />
         </header>
 

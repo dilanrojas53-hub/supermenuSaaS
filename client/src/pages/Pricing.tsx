@@ -114,7 +114,7 @@ export default function Pricing() {
         <div className="relative z-10 px-6 pt-8 pb-14 max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-10">
             <Link href="/">
-              <span className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors">
+              <span className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft size={18} />
                 <span className="text-sm font-medium" style={{ fontFamily: "'Nunito', sans-serif" }}>Inicio</span>
               </span>
@@ -122,19 +122,19 @@ export default function Pricing() {
             <img src={LOGO_WHITE} alt="SuperMenu" className="w-auto" style={{ height: '28px' }} />
           </div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-3" style={{ fontFamily: "'Lora', serif" }}>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3" style={{ fontFamily: "'Lora', serif" }}>
               Planes y Precios
             </h1>
-            <p className="text-gray-300 max-w-lg mx-auto mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>
+            <p className="text-muted-foreground max-w-lg mx-auto mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>
               Tres planes con lógica de producto real. Cada uno incluye lo del anterior.
               El add-on <strong className="text-sky-400">Delivery OS</strong> es separable y compatible con cualquier plan.
             </p>
             <div className="flex items-center justify-center gap-4">
-              <span className={`text-sm font-semibold transition-colors ${!isAnnual ? 'text-white' : 'text-gray-400'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>Mensual</span>
+              <span className={`text-sm font-semibold transition-colors ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>Mensual</span>
               <button onClick={() => setIsAnnual(!isAnnual)} className="relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none" style={{ backgroundColor: isAnnual ? '#D97706' : 'rgba(255,255,255,0.2)' }} aria-label="Toggle facturación anual">
                 <motion.div className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md" animate={{ left: isAnnual ? '30px' : '2px' }} transition={{ type: 'spring', stiffness: 500, damping: 30 }} />
               </button>
-              <span className={`text-sm font-semibold transition-colors ${isAnnual ? 'text-white' : 'text-gray-400'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>Anual</span>
+              <span className={`text-sm font-semibold transition-colors ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>Anual</span>
               <AnimatePresence>
                 {isAnnual && (
                   <motion.span initial={{ opacity: 0, scale: 0.8, x: -10 }} animate={{ opacity: 1, scale: 1, x: 0 }} exit={{ opacity: 0, scale: 0.8, x: -10 }}
@@ -169,21 +169,21 @@ export default function Pricing() {
                 <div className={`p-6 ${meta.badge ? 'pt-10' : ''}`}>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: meta.color, boxShadow: `0 4px 12px ${meta.color}40` }}>
-                      <Icon size={18} className="text-white" />
+                      <Icon size={18} className="text-foreground" />
                     </div>
                     <div>
-                      <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-white/60' : 'text-black/40'}`}>Plan</p>
-                      <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: "'Lora', serif" }}>{meta.displayName}</h2>
+                      <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-foreground/60' : 'text-black/40'}`}>Plan</p>
+                      <h2 className={`text-lg font-black ${isDark ? 'text-foreground' : 'text-gray-900'}`} style={{ fontFamily: "'Lora', serif" }}>{meta.displayName}</h2>
                     </div>
                   </div>
                   <div className="mb-4">
                     <div className="flex items-end gap-1">
-                      <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{formatPlanPrice(price)}</span>
-                      <span className={`text-sm mb-1 ${isDark ? 'text-white/50' : 'text-gray-500'}`}>/mes</span>
+                      <span className={`text-3xl font-black ${isDark ? 'text-foreground' : 'text-gray-900'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{formatPlanPrice(price)}</span>
+                      <span className={`text-sm mb-1 ${isDark ? 'text-foreground/50' : 'text-muted-foreground/70'}`}>/mes</span>
                     </div>
                     {isAnnual && <p className="text-xs font-semibold mt-1" style={{ color: '#34D399' }}>Ahorrás {formatPlanPrice(meta.annualSavings)} al año</p>}
                   </div>
-                  <p className={`text-sm mb-5 leading-relaxed ${isDark ? 'text-white/70' : 'text-gray-600'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{meta.description}</p>
+                  <p className={`text-sm mb-5 leading-relaxed ${isDark ? 'text-foreground/70' : 'text-gray-600'}`} style={{ fontFamily: "'Nunito', sans-serif" }}>{meta.description}</p>
                   <a href={buildWhatsAppUrl(meta.displayName, isAnnual)} target="_blank" rel="noopener noreferrer"
                     className="block w-full text-center py-3 rounded-xl text-sm font-black transition-all hover:scale-[1.02] active:scale-[0.98]"
                     style={{ backgroundColor: meta.highlighted ? '#D97706' : meta.color, color: 'white', boxShadow: `0 4px 14px ${meta.color}50`, fontFamily: "'Nunito', sans-serif" }}>
@@ -199,7 +199,7 @@ export default function Pricing() {
       {/* ═══ TABLA DE FEATURES ═══ */}
       <div className="px-4 mt-12 max-w-5xl mx-auto">
         <h2 className="text-xl font-black text-gray-900 mb-2 text-center" style={{ fontFamily: "'Lora', serif" }}>¿Qué incluye cada plan?</h2>
-        <p className="text-sm text-gray-500 text-center mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>Features agrupadas por valor. Cada plan incluye todo lo del anterior.</p>
+        <p className="text-sm text-muted-foreground/70 text-center mb-8" style={{ fontFamily: "'Nunito', sans-serif" }}>Features agrupadas por valor. Cada plan incluye todo lo del anterior.</p>
 
         {/* Header columnas */}
         <div className="grid grid-cols-4 gap-2 mb-3 px-4">
@@ -217,7 +217,7 @@ export default function Pricing() {
               <button className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
                 onClick={() => setExpandedGroup(expandedGroup === group.label ? null : group.label)}>
                 <span className="text-sm font-black text-gray-800" style={{ fontFamily: "'Nunito', sans-serif" }}>{group.label}</span>
-                {expandedGroup === group.label ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                {expandedGroup === group.label ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
               </button>
               <AnimatePresence>
                 {expandedGroup === group.label && (
@@ -262,17 +262,17 @@ export default function Pricing() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#0EA5E9', boxShadow: '0 4px 12px rgba(14,165,233,0.4)' }}>
-                    <Truck size={18} className="text-white" />
+                    <Truck size={18} className="text-foreground" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-black text-white" style={{ fontFamily: "'Lora', serif" }}>Delivery OS</h3>
+                      <h3 className="text-lg font-black text-foreground" style={{ fontFamily: "'Lora', serif" }}>Delivery OS</h3>
                       <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(14,165,233,0.2)', color: '#38BDF8', border: '1px solid rgba(14,165,233,0.3)' }}>ADD-ON</span>
                     </div>
                     <p className="text-xs text-sky-400/70 mt-0.5">Compatible con cualquier plan</p>
                   </div>
                 </div>
-                <p className="text-sm text-white/70 mb-4 leading-relaxed" style={{ fontFamily: "'Nunito', sans-serif" }}>{DELIVERY_OS_META.description}</p>
+                <p className="text-sm text-foreground/70 mb-4 leading-relaxed" style={{ fontFamily: "'Nunito', sans-serif" }}>{DELIVERY_OS_META.description}</p>
                 <button onClick={() => setShowDeliveryDetails(!showDeliveryDetails)} className="flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors" style={{ fontFamily: "'Nunito', sans-serif" }}>
                   {showDeliveryDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   {showDeliveryDetails ? 'Ocultar' : 'Ver'} módulos incluidos
@@ -284,7 +284,7 @@ export default function Pricing() {
                         {DELIVERY_FEATURES.map((f, i) => (
                           <div key={i} className="flex items-center gap-2">
                             <Check size={13} className="text-sky-400 flex-shrink-0" strokeWidth={2.5} />
-                            <span className="text-xs text-white/70" style={{ fontFamily: "'Nunito', sans-serif" }}>{f}</span>
+                            <span className="text-xs text-foreground/70" style={{ fontFamily: "'Nunito', sans-serif" }}>{f}</span>
                           </div>
                         ))}
                       </div>
@@ -294,10 +294,10 @@ export default function Pricing() {
               </div>
               <div className="md:text-right flex-shrink-0">
                 <div className="mb-1">
-                  <span className="text-2xl font-black text-white" style={{ fontFamily: "'Nunito', sans-serif" }}>
+                  <span className="text-2xl font-black text-foreground" style={{ fontFamily: "'Nunito', sans-serif" }}>
                     {formatPlanPrice(isAnnual ? Math.round(DELIVERY_OS_META.annualPrice / 12) : DELIVERY_OS_META.monthlyPrice)}
                   </span>
-                  <span className="text-sm text-white/50">/mes</span>
+                  <span className="text-sm text-foreground/50">/mes</span>
                 </div>
                 {isAnnual && <p className="text-xs font-semibold mb-3" style={{ color: '#34D399' }}>Ahorrás {formatPlanPrice(DELIVERY_OS_META.annualSavings)} al año</p>}
                 <a href={buildWhatsAppUrl('Delivery OS', isAnnual)} target="_blank" rel="noopener noreferrer"
@@ -314,10 +314,10 @@ export default function Pricing() {
 
       {/* ═══ FOOTER NOTE ═══ */}
       <div className="px-4 mt-10 mb-12 max-w-2xl mx-auto text-center">
-        <p className="text-sm text-gray-500 mb-2" style={{ fontFamily: "'Nunito', sans-serif" }}>
+        <p className="text-sm text-muted-foreground/70 mb-2" style={{ fontFamily: "'Nunito', sans-serif" }}>
           Sin contratos. Cancelá cuando quieras. Soporte por WhatsApp incluido en todos los planes.
         </p>
-        <p className="text-xs text-gray-400" style={{ fontFamily: "'Nunito', sans-serif" }}>
+        <p className="text-xs text-muted-foreground" style={{ fontFamily: "'Nunito', sans-serif" }}>
           ¿Tenés dudas?{' '}
           <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer" className="font-bold underline" style={{ color: '#D97706' }}>
             Escribinos al WhatsApp

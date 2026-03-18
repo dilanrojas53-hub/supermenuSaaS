@@ -1399,7 +1399,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                               className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: opt.color }}
                             >
-                              <Check size={14} className="text-white" />
+                              <Check size={14} className="text-foreground" />
                             </div>
                           )}
                         </motion.button>
@@ -1528,7 +1528,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                           onClick={() => { setReceiptFile(null); setReceiptPreview(''); }}
                           className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
                         >
-                          <X size={14} className="text-white" />
+                          <X size={14} className="text-foreground" />
                         </button>
                       </div>
                     ) : (
@@ -1653,7 +1653,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <motion.button
                       onClick={handleWhatsApp}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-foreground transition-all"
                       style={{
                         backgroundColor: '#25D366',
                         boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',

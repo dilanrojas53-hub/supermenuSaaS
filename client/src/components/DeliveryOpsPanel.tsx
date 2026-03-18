@@ -131,14 +131,14 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity size={16} className="text-green-400" />
-          <h3 className="text-white font-bold text-sm">Operaciones del día</h3>
+          <h3 className="text-foreground font-bold text-sm">Operaciones del día</h3>
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-slate-500 text-xs">
+          <span className="text-muted-foreground/70 text-xs">
             Actualizado {lastRefresh.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          <button onClick={fetchRiders} className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors">
+          <button onClick={fetchRiders} className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
@@ -201,7 +201,7 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
               {kpi.icon}
               <p className="text-[10px] uppercase tracking-wide font-semibold">{kpi.label}</p>
             </div>
-            <p className="text-xl font-black text-white">{kpi.value}</p>
+            <p className="text-xl font-black text-foreground">{kpi.value}</p>
           </div>
         ))}
       </div>
@@ -209,13 +209,13 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Riders activos ──────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Users size={14} className="text-slate-400" />
-          <h4 className="text-slate-300 text-xs font-bold uppercase tracking-wide">
+          <Users size={14} className="text-muted-foreground" />
+          <h4 className="text-muted-foreground text-xs font-bold uppercase tracking-wide">
             Riders activos ({riders.length})
           </h4>
         </div>
         {riders.length === 0 ? (
-          <p className="text-slate-500 text-xs text-center py-4">Sin riders activos</p>
+          <p className="text-muted-foreground/70 text-xs text-center py-4">Sin riders activos</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {ridersWithOrder.map(rider => {
@@ -233,26 +233,26 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-base">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-base">
                         {VEHICLE_ICONS[rider.vehicle_type] || '🛵'}
                       </div>
                       <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${isOnline ? 'bg-green-400' : 'bg-slate-500'}`} />
                     </div>
                     <div>
-                      <p className="text-white text-xs font-bold">{rider.name}</p>
+                      <p className="text-foreground text-xs font-bold">{rider.name}</p>
                       {rider.currentOrder ? (
                         <p className="text-xs" style={{ color: statusInfo?.color || '#94a3b8' }}>
                           #{rider.currentOrder.order_number} · {statusInfo?.label}
                         </p>
                       ) : (
-                        <p className="text-slate-500 text-xs">Disponible</p>
+                        <p className="text-muted-foreground/70 text-xs">Disponible</p>
                       )}
                     </div>
                   </div>
                   {rider.currentOrder?.delivery_eta_minutes && (
                     <div className="text-right">
                       <p className="text-orange-400 text-xs font-bold">{rider.currentOrder.delivery_eta_minutes} min</p>
-                      <p className="text-slate-500 text-[10px]">ETA</p>
+                      <p className="text-muted-foreground/70 text-[10px]">ETA</p>
                     </div>
                   )}
                 </div>
@@ -265,13 +265,13 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Pedidos en curso ────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Bike size={14} className="text-slate-400" />
-          <h4 className="text-slate-300 text-xs font-bold uppercase tracking-wide">
+          <Bike size={14} className="text-muted-foreground" />
+          <h4 className="text-muted-foreground text-xs font-bold uppercase tracking-wide">
             Pedidos activos ({activeOrders.length})
           </h4>
         </div>
         {activeOrders.length === 0 ? (
-          <p className="text-slate-500 text-xs text-center py-4">Sin pedidos activos</p>
+          <p className="text-muted-foreground/70 text-xs text-center py-4">Sin pedidos activos</p>
         ) : (
           <div className="space-y-2">
             {activeOrders.map(order => {
@@ -289,9 +289,9 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-black text-sm">#{order.order_number}</span>
+                    <span className="text-foreground font-black text-sm">#{order.order_number}</span>
                     <div>
-                      <p className="text-slate-300 text-xs truncate max-w-[160px]">
+                      <p className="text-muted-foreground text-xs truncate max-w-[160px]">
                         {order.delivery_formatted_address || order.delivery_address}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -302,13 +302,13 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
                           {statusInfo.label}
                         </span>
                         {rider && (
-                          <span className="text-slate-500 text-[10px]">{rider.name}</span>
+                          <span className="text-muted-foreground/70 text-[10px]">{rider.name}</span>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-xs font-bold ${isLate ? 'text-red-400' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-bold ${isLate ? 'text-red-400' : 'text-muted-foreground'}`}>
                       {mins} min
                     </p>
                     {order.delivery_eta_minutes && (
@@ -330,7 +330,7 @@ export default function DeliveryOpsPanel({ tenant }: { tenant: Tenant }) {
         >
           <div className="flex items-center gap-2">
             <TrendingUp size={14} className="text-blue-400" />
-            <span className="text-slate-400 text-xs">Distancia total recorrida hoy</span>
+            <span className="text-muted-foreground text-xs">Distancia total recorrida hoy</span>
           </div>
           <span className="text-blue-400 font-bold text-sm">{totalDistKm.toFixed(1)} km</span>
         </div>
