@@ -639,7 +639,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setOrderId(orderData.id);
 
         // F7: Motor de orquestación — inicializar logistic_status para pedidos delivery
-        if (deliveryType === 'delivery' && tenant?.id) {
+        // SINPE: NO inicializar logística hasta que el admin valide el pago.
+        // El pedido queda en status='pendiente' hasta la validación manual.
+        if (deliveryType === 'delivery' && tenant?.id && method !== 'sinpe') {
           initOrderLogistics(orderData.id, tenant.id)
             .then(({ logisticStatus, availability }) => {
               console.info(

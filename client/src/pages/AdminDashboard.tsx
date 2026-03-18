@@ -35,6 +35,7 @@ import {
   Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp, ChevronRight, Menu as MenuIcon
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
+import { initOrderLogistics } from '@/lib/DeliveryCommitEngine';
 import { AdminSidebar } from '@/components/AdminSidebar';
 import { useUITheme } from '@/contexts/UIThemeContext';
 import { themes, type ThemeKey, RESTAURANT_THEMES, type RestaurantThemePreset, getThemeCategories, getThemePreset, applyRestaurantTheme, isColorDark } from '@/lib/themes';
@@ -1765,7 +1766,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('✅ Pago SINPE validado — pedido enviado a cocina');
     stopAlarm();
+    // Inicializar motor F7 para pedidos delivery SINPE (se omitió al crear el pedido)
     const order = orders.find(o => o.id === orderId);
+    if ((order as any)?.delivery_type === 'delivery') {
+      initOrderLogistics(orderId, tenant.id).catch(err =>
+        console.error('[DeliveryCommitEngine] initOrderLogistics post-SINPE error:', err)
+      );
+    }
     if (order) {
       const customerPhone = (order as any).delivery_phone || order.customer_phone;
       if (customerPhone) {
