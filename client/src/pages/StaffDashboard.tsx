@@ -105,8 +105,8 @@ function PinModal({ onConfirm, onCancel, adminPin }: { onConfirm: () => void; on
           <div className="w-14 h-14 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
             <Shield size={24} className="text-yellow-400" />
           </div>
-          <h3 className="text-base font-bold text-foreground">PIN de Administrador</h3>
-          <p className="text-xs text-muted-foreground mt-1">Ingresa el PIN para cancelar este pedido</p>
+          <h3 className="text-base font-bold text-[var(--text-primary)]">PIN de Administrador</h3>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">Ingresa el PIN para cancelar este pedido</p>
         </div>
         <input
           type="password"
@@ -116,11 +116,11 @@ function PinModal({ onConfirm, onCancel, adminPin }: { onConfirm: () => void; on
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
           placeholder="••••"
           autoFocus
-          className={`w-full px-4 py-3 bg-muted border rounded-xl text-center text-2xl font-bold text-foreground tracking-widest focus:outline-none mb-3 transition-colors ${error ? 'border-red-500 bg-red-500/10' : 'border-border focus:border-yellow-500'}`}
+          className={`w-full px-4 py-3 bg-[var(--bg-surface)] border rounded-xl text-center text-2xl font-bold text-[var(--text-primary)] tracking-widest focus:outline-none mb-3 transition-colors ${error ? 'border-red-500 bg-red-500/10' : 'border-[var(--border)] focus:border-yellow-500'}`}
         />
         {error && <p className="text-xs text-red-400 text-center mb-3">PIN incorrecto</p>}
         <div className="flex gap-2">
-          <button onClick={onCancel} className="flex-1 py-2.5 bg-muted text-muted-foreground rounded-xl text-sm font-bold hover:bg-slate-600 transition-colors">
+          <button onClick={onCancel} className="flex-1 py-2.5 bg-[var(--bg-surface)] text-[var(--text-secondary)] rounded-xl text-sm font-bold hover:bg-slate-600 transition-colors">
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={pin.length !== 4}
@@ -195,11 +195,11 @@ function QuickAddModal({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-card">
-        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-card">
+        <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
           <Zap size={16} className="text-amber-400" /> Quick Add
         </h2>
-        <button onClick={onClose} className="p-2 rounded-lg bg-muted text-muted-foreground hover:bg-slate-600">
+        <button onClick={onClose} className="p-2 rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-600">
           <X size={16} />
         </button>
       </div>
@@ -208,18 +208,18 @@ function QuickAddModal({
         {/* Left: categories + items */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Table / name inputs */}
-          <div className="flex gap-2 px-3 py-2 border-b border-border/30">
+          <div className="flex gap-2 px-3 py-2 border-b border-[var(--border)]">
             <input value={tableName} onChange={e => setTableName(e.target.value)} placeholder="Mesa #"
-              className="w-20 px-2 py-1.5 bg-muted border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-amber-500" />
+              className="w-20 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
             <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nombre cliente (opcional)"
-              className="flex-1 px-2 py-1.5 bg-muted border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-amber-500" />
+              className="flex-1 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
           </div>
 
           {/* Category tabs */}
-          <div className="flex overflow-x-auto gap-1 px-3 py-2 border-b border-border/30 scrollbar-hide">
+          <div className="flex overflow-x-auto gap-1 px-3 py-2 border-b border-[var(--border)] scrollbar-hide">
             {categories.map(cat => (
               <button key={cat.id} onClick={() => setSelectedCat(cat.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${selectedCat === cat.id ? 'bg-amber-500 text-black' : 'bg-muted text-muted-foreground'}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${selectedCat === cat.id ? 'bg-amber-500 text-black' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'}`}>
                 {cat.name}
               </button>
             ))}
@@ -229,49 +229,49 @@ function QuickAddModal({
           <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-2 content-start">
             {filteredItems.map(item => (
               <button key={item.id} onClick={() => addItem(item.id)}
-                className="relative p-3 bg-muted/60 border border-border/40 rounded-xl text-left hover:border-amber-500/40 transition-all active:scale-95">
+                className="relative p-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl text-left hover:border-amber-500/40 transition-all active:scale-95">
                 {cart[item.id] > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-5 h-5 bg-amber-500 text-black text-xs font-bold rounded-full flex items-center justify-center">
                     {cart[item.id]}
                   </span>
                 )}
-                <p className="text-xs font-bold text-foreground leading-tight pr-5">{item.name}</p>
+                <p className="text-xs font-bold text-[var(--text-primary)] leading-tight pr-5">{item.name}</p>
                 <p className="text-xs text-amber-400 font-bold mt-1">{formatPrice(item.price)}</p>
               </button>
             ))}
             {filteredItems.length === 0 && (
-              <p className="col-span-2 text-center text-muted-foreground/70 text-xs py-8">Sin productos disponibles</p>
+              <p className="col-span-2 text-center text-[var(--text-secondary)] text-xs py-8">Sin productos disponibles</p>
             )}
           </div>
         </div>
 
         {/* Right: cart */}
-        <div className="w-48 flex flex-col border-l border-border/40 bg-card/60">
-          <div className="px-3 py-2 border-b border-border/30">
-            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1"><ShoppingCart size={12} /> Carrito</p>
+        <div className="w-48 flex flex-col border-l border-[var(--border)] bg-card/60">
+          <div className="px-3 py-2 border-b border-[var(--border)]">
+            <p className="text-xs font-bold text-[var(--text-secondary)] flex items-center gap-1"><ShoppingCart size={12} /> Carrito</p>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {cartItems.length === 0 ? (
               <p className="text-center text-slate-600 text-xs py-6">Vacío</p>
             ) : cartItems.map(item => (
-              <div key={item.id} className="flex items-center gap-1 bg-muted/60 rounded-lg px-2 py-1.5">
+              <div key={item.id} className="flex items-center gap-1 bg-[var(--bg-surface)] rounded-lg px-2 py-1.5">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground truncate leading-tight">{item.name}</p>
+                  <p className="text-xs text-[var(--text-primary)] truncate leading-tight">{item.name}</p>
                   <p className="text-xs text-amber-400">{formatPrice(item.price * item.quantity)}</p>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <button onClick={() => removeItem(item.id)} className="w-5 h-5 bg-muted rounded text-foreground text-xs flex items-center justify-center hover:bg-red-500/40">
+                  <button onClick={() => removeItem(item.id)} className="w-5 h-5 bg-[var(--bg-surface)] rounded text-[var(--text-primary)] text-xs flex items-center justify-center hover:bg-red-500/40">
                     <Minus size={10} />
                   </button>
-                  <span className="text-xs text-foreground w-4 text-center">{item.quantity}</span>
-                  <button onClick={() => addItem(item.id)} className="w-5 h-5 bg-muted rounded text-foreground text-xs flex items-center justify-center hover:bg-green-500/40">
+                  <span className="text-xs text-[var(--text-primary)] w-4 text-center">{item.quantity}</span>
+                  <button onClick={() => addItem(item.id)} className="w-5 h-5 bg-[var(--bg-surface)] rounded text-[var(--text-primary)] text-xs flex items-center justify-center hover:bg-green-500/40">
                     <Plus size={10} />
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="p-2 border-t border-border/30">
+          <div className="p-2 border-t border-[var(--border)]">
             <p className="text-xs font-bold text-amber-400 mb-2">Total: {formatPrice(total)}</p>
             <button onClick={handlePlace} disabled={placing || cartItems.length === 0}
               className="w-full py-2.5 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors disabled:opacity-40">
@@ -317,39 +317,39 @@ function StaffLogin({ tenant, onLogin }: { tenant: Tenant; onLogin: (member: Sta
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <UtensilsCrossed size={28} className="text-foreground" />
+            <UtensilsCrossed size={28} className="text-[var(--text-primary)]" />
           </div>
-          <h1 className="text-xl font-bold text-foreground">{tenant.name}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Panel de Meseros</p>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">{tenant.name}</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Panel de Meseros</p>
         </div>
 
-        <div className="bg-card border border-border/40 rounded-3xl p-6 space-y-4">
+        <div className="bg-card border border-[var(--border)] rounded-3xl p-6 space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Usuario</label>
+            <label className="text-xs text-[var(--text-secondary)] mb-1 block">Usuario</label>
             <div className="relative">
-              <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" />
+              <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
               <input
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 placeholder="tu_usuario"
-                className="w-full pl-9 pr-3 py-3 bg-muted border border-border rounded-xl text-sm text-foreground focus:outline-none focus:border-amber-500"
+                className="w-full pl-9 pr-3 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Contraseña</label>
+            <label className="text-xs text-[var(--text-secondary)] mb-1 block">Contraseña</label>
             <div className="relative">
-              <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" />
+              <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
               <input
                 type={showPw ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 placeholder="••••••"
-                className="w-full pl-9 pr-10 py-3 bg-muted border border-border rounded-xl text-sm text-foreground focus:outline-none focus:border-amber-500"
+                className="w-full pl-9 pr-10 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500"
               />
-              <button onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground">
+              <button onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-secondary)]">
                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
@@ -652,18 +652,18 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       <header className="border-b border-white/[0.06] px-4 py-3 flex items-center justify-between sticky top-0 z-30" style={{ backgroundColor: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="min-w-0 flex-1 mr-2 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg">
-            <UtensilsCrossed size={15} className="text-foreground" />
+            <UtensilsCrossed size={15} className="text-[var(--text-primary)]" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-black text-foreground truncate leading-none">{tenant.name}</h1>
-            <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">👤 {staff.name}</p>
+            <h1 className="text-sm font-black text-[var(--text-primary)] truncate leading-none">{tenant.name}</h1>
+            <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5">👤 {staff.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {wakeLockActive && (
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_6px_rgba(74,222,128,0.6)]" title="App Activa" />
           )}
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground transition-all flex items-center justify-center border border-white/5">
+          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center border border-white/5">
             <RefreshCw size={14} />
           </button>
           <button onClick={() => setShowQuickAdd(true)}
@@ -671,7 +671,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
             style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
             <Plus size={13} /> <span>Agregar</span>
           </button>
-          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-muted/80 text-muted-foreground hover:bg-red-500/20 hover:text-red-400 transition-all flex items-center justify-center border border-white/5">
+          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-red-500/20 hover:text-red-400 transition-all flex items-center justify-center border border-white/5">
             <LogOut size={14} />
           </button>
         </div>
@@ -688,13 +688,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-black transition-all duration-200 ${
               paymentTab === tab.key
                 ? 'text-black shadow-lg'
-                : 'bg-muted/80 text-muted-foreground hover:bg-muted/80 hover:text-foreground/90'
+                : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]/90'
             }`}
             style={paymentTab === tab.key ? { background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 14px rgba(245,158,11,0.3)' } : {}}>
             <span>{tab.emoji}</span>
             <span className="hidden sm:inline">{tab.label}</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-              paymentTab === tab.key ? 'bg-black/20 text-black' : 'bg-muted text-muted-foreground'
+              paymentTab === tab.key ? 'bg-black/20 text-black' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
             }`}>{tab.count}</span>
           </button>
         ))}
@@ -713,19 +713,19 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
               ? orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid')
               : orders.filter(o => o.payment_status === 'paid');
             if (cobrarOrders.length === 0) return (
-              <p className="text-center text-muted-foreground/70 text-sm py-16">
+              <p className="text-center text-[var(--text-secondary)] text-sm py-16">
                 {paymentTab === 'cobrar' ? 'Sin cuentas pendientes 🎉' : 'Sin cobros registrados'}
               </p>
             );
             return cobrarOrders.map(order => (
               <div key={order.id} className="border rounded-2xl p-4 space-y-2.5 transition-all" style={{ backgroundColor: 'rgba(30,41,59,0.7)', borderColor: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)' }}>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-foreground">#{order.order_number} — {order.customer_name}</span>
-                  {order.customer_table && <span className="text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>}
+                  <span className="text-sm font-black text-[var(--text-primary)]">#{order.order_number} — {order.customer_name}</span>
+                  {order.customer_table && <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-black text-amber-400">{formatPrice(order.total)}</span>
-                  <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider bg-muted px-2 py-0.5 rounded-full">{order.payment_method}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">{order.payment_method}</span>
                 </div>
                 {order.payment_status === 'paid' ? (
                   <div className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 border border-green-500/25 rounded-xl">
@@ -768,18 +768,18 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       {/* Order header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-foreground">#{order.order_number}</span>
+                          <span className="text-base font-black text-[var(--text-primary)]">#{order.order_number}</span>
                           {order.customer_table && (
-                            <span className="text-[11px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>
+                            <span className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>
                           )}
                         </div>
                         <span className={`text-[11px] flex items-center gap-1 px-2 py-0.5 rounded-full font-bold ${
-                          isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-muted/60 text-muted-foreground'
+                          isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
                         }`}>
                           <Clock size={9} /> {elapsed}m
                         </span>
                       </div>
-                      {order.customer_name && <p className="text-sm text-foreground/90 font-bold">{order.customer_name}</p>}
+                      {order.customer_name && <p className="text-sm text-[var(--text-primary)]/90 font-bold">{order.customer_name}</p>}
                       {/* V26.0: Ownership badge */}
                       {order.claimed_by_name && (
                         <div className="flex items-center gap-1.5">
@@ -797,8 +797,8 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                         {((order.items || []) as OrderItem[]).map((item, i) => (
                           <div key={i}>
                             <div className="flex justify-between text-[13px]">
-                              <span className="text-foreground font-bold">{item.quantity}× {item.name}</span>
-                              <span className="text-muted-foreground flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
+                              <span className="text-[var(--text-primary)] font-bold">{item.quantity}× {item.name}</span>
+                              <span className="text-[var(--text-secondary)] flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
                             </div>
                             {item.selectedModifiers && item.selectedModifiers.length > 0 && (
                               <div className="pl-3 mt-0.5 space-y-0.5">
@@ -817,7 +817,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-black text-amber-400">{formatPrice(order.total)}</span>
                         {order.payment_method && (
-                          <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider bg-muted/80 px-2 py-0.5 rounded-full">{order.payment_method}</span>
+                          <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">{order.payment_method}</span>
                         )}
                       </div>
                       {/* Action buttons */}
@@ -898,10 +898,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                 </div>
               </div>
 
-              <h2 className="text-2xl font-black text-foreground mb-1" style={{ fontFamily: "'Lora', serif" }}>
+              <h2 className="text-2xl font-black text-[var(--text-primary)] mb-1" style={{ fontFamily: "'Lora', serif" }}>
                 🛎️ ¡Mesa {billAlert.tableNumber} pide la cuenta!
               </h2>
-              <p className="text-sm text-muted-foreground mb-5">Pedido #{billAlert.orderNumber}</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-5">Pedido #{billAlert.orderNumber}</p>
 
               {/* Payment method badge */}
               <div
@@ -937,11 +937,11 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
             style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}
           >
             <div className="p-6 text-center">
-              <h2 className="text-2xl font-black text-foreground mb-1" style={{ fontFamily: "'Lora', serif" }}>
+              <h2 className="text-2xl font-black text-[var(--text-primary)] mb-1" style={{ fontFamily: "'Lora', serif" }}>
                 🔔 Solicitud rápida de mesa
               </h2>
-              <p className="text-sm text-muted-foreground mb-1">Mesa {quickRequestAlert.tableNumber}</p>
-              <p className="text-sm text-muted-foreground mb-4">Pedido #{quickRequestAlert.orderNumber}</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-1">Mesa {quickRequestAlert.tableNumber}</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-4">Pedido #{quickRequestAlert.orderNumber}</p>
               <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm border"
                 style={{ backgroundColor: '#22c55e20', borderColor: '#22c55e55', color: '#86efac' }}>
                 {QUICK_REQUEST_LABELS[quickRequestAlert.requestType]}
@@ -1005,8 +1005,8 @@ export default function StaffDashboard() {
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
         <div className="text-center">
           <p className="text-4xl mb-4">🔍</p>
-          <h1 className="text-xl font-bold text-foreground mb-2">Restaurante no encontrado</h1>
-          <p className="text-sm text-muted-foreground">El slug "{slug}" no existe.</p>
+          <h1 className="text-xl font-bold text-[var(--text-primary)] mb-2">Restaurante no encontrado</h1>
+          <p className="text-sm text-[var(--text-secondary)]">El slug "{slug}" no existe.</p>
         </div>
       </div>
     );

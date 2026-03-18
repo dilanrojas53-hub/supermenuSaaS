@@ -219,43 +219,43 @@ export default function LiveTrackingMap({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-card rounded-2xl overflow-hidden shadow-2xl border border-border">
+      <div className="w-full max-w-2xl bg-card rounded-2xl overflow-hidden shadow-2xl border border-[var(--border)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-muted border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
               <Navigation size={16} className="text-blue-400" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">Tracking — Pedido #{orderNumber}</p>
-              <p className="text-xs text-muted-foreground truncate max-w-xs">{clientAddress}</p>
+              <p className="text-sm font-bold text-[var(--text-primary)]">Tracking — Pedido #{orderNumber}</p>
+              <p className="text-xs text-[var(--text-secondary)] truncate max-w-xs">{clientAddress}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-muted hover:bg-gray-600 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg bg-[var(--bg-surface)] hover:bg-gray-600 flex items-center justify-center transition-colors"
           >
-            <X size={16} className="text-muted-foreground" />
+            <X size={16} className="text-[var(--text-secondary)]" />
           </button>
         </div>
 
         {/* Stats bar */}
-        <div className="flex items-center gap-4 px-4 py-2 bg-gray-850 border-b border-border/50 bg-muted/50">
+        <div className="flex items-center gap-4 px-4 py-2 bg-gray-850 border-b border-[var(--border)] bg-[var(--bg-surface)]">
           <div className="flex items-center gap-1.5">
             <Clock size={13} className="text-purple-400" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-[var(--text-secondary)]">
               {eta !== null ? `ETA: ${eta} min` : 'Calculando…'}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <Bike size={13} className="text-blue-400" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-[var(--text-secondary)]">
               {riderPos ? `Actualizado ${formatLastUpdate(lastUpdate)}` : 'Sin posición del rider'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
             <div className={`w-2 h-2 rounded-full ${riderPos ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-            <span className="text-xs text-muted-foreground">{riderPos ? 'En vivo' : 'Sin señal'}</span>
+            <span className="text-xs text-[var(--text-secondary)]">{riderPos ? 'En vivo' : 'Sin señal'}</span>
           </div>
         </div>
 
@@ -266,7 +266,7 @@ export default function LiveTrackingMap({
             <div className="absolute inset-0 bg-card flex items-center justify-center">
               <div className="text-center">
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">Cargando mapa…</p>
+                <p className="text-xs text-[var(--text-secondary)]">Cargando mapa…</p>
               </div>
             </div>
           )}
@@ -278,22 +278,22 @@ export default function LiveTrackingMap({
         </div>
 
         {/* Leyenda */}
-        <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/50 border-t border-border/50">
+        <div className="flex items-center gap-4 px-4 py-2.5 bg-[var(--bg-surface)] border-t border-[var(--border)]">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-orange-500" />
-            <span className="text-[11px] text-muted-foreground">Restaurante</span>
+            <span className="text-[11px] text-[var(--text-secondary)]">Restaurante</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span className="text-[11px] text-muted-foreground">Rider</span>
+            <span className="text-[11px] text-[var(--text-secondary)]">Rider</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-[11px] text-muted-foreground">Cliente</span>
+            <span className="text-[11px] text-[var(--text-secondary)]">Cliente</span>
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
-            <MapPin size={11} className="text-muted-foreground/70" />
-            <span className="text-[11px] text-muted-foreground/70 truncate max-w-[180px]">{clientAddress}</span>
+            <MapPin size={11} className="text-[var(--text-secondary)]" />
+            <span className="text-[11px] text-[var(--text-secondary)] truncate max-w-[180px]">{clientAddress}</span>
           </div>
         </div>
       </div>

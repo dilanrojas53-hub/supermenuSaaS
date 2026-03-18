@@ -211,12 +211,12 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-foreground font-bold">Zonas de cobertura</h3>
-          <p className="text-muted-foreground text-xs mt-0.5">Define las áreas donde hacés delivery y la tarifa por zona</p>
+          <h3 className="text-[var(--text-primary)] font-bold">Zonas de cobertura</h3>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">Define las áreas donde hacés delivery y la tarifa por zona</p>
         </div>
         <button
           onClick={() => { setShowForm(true); setEditingId(null); setForm(DEFAULT_FORM); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-foreground transition-all"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[var(--text-primary)] transition-all"
           style={{ background: 'linear-gradient(135deg,#3B82F6,#2563EB)' }}
         >
           <Plus size={14} /> Nueva zona
@@ -249,8 +249,8 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid hsl(var(--border))' }}
           >
             <div className="flex items-center justify-between">
-              <h4 className="text-foreground font-bold text-sm">{editingId ? 'Editar zona' : 'Nueva zona'}</h4>
-              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-muted-foreground hover:text-foreground">
+              <h4 className="text-[var(--text-primary)] font-bold text-sm">{editingId ? 'Editar zona' : 'Nueva zona'}</h4>
+              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                 <X size={16} />
               </button>
             </div>
@@ -258,18 +258,18 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Nombre */}
               <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground mb-1 block">Nombre de la zona</label>
+                <label className="text-xs text-[var(--text-secondary)] mb-1 block">Nombre de la zona</label>
                 <input
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="Ej: Zona Centro, Zona Norte"
-                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                 />
               </div>
 
               {/* Tipo */}
               <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground mb-1 block">Tipo de zona</label>
+                <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tipo de zona</label>
                 <div className="flex gap-2">
                   {[
                     { key: 'circle', label: 'Círculo', icon: <Circle size={14} /> },
@@ -280,8 +280,8 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
                       onClick={() => setForm(f => ({ ...f, zone_type: t.key as 'circle' | 'polygon' }))}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                         form.zone_type === t.key
-                          ? 'bg-blue-500 text-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted'
+                          ? 'bg-blue-500 text-[var(--text-primary)]'
+                          : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
                       }`}
                     >
                       {t.icon} {t.label}
@@ -293,23 +293,23 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
               {form.zone_type === 'circle' && (
                 <>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Latitud del centro</label>
+                    <label className="text-xs text-[var(--text-secondary)] mb-1 block">Latitud del centro</label>
                     <input
                       value={form.center_lat}
                       onChange={e => setForm(f => ({ ...f, center_lat: e.target.value }))}
                       placeholder="9.9281"
                       type="number" step="any"
-                      className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Longitud del centro</label>
+                    <label className="text-xs text-[var(--text-secondary)] mb-1 block">Longitud del centro</label>
                     <input
                       value={form.center_lon}
                       onChange={e => setForm(f => ({ ...f, center_lon: e.target.value }))}
                       placeholder="-84.0907"
                       type="number" step="any"
-                      className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -321,13 +321,13 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
                     </button>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Radio (km)</label>
+                    <label className="text-xs text-[var(--text-secondary)] mb-1 block">Radio (km)</label>
                     <input
                       value={form.radius_km}
                       onChange={e => setForm(f => ({ ...f, radius_km: e.target.value }))}
                       placeholder="3"
                       type="number" step="0.5" min="0.5"
-                      className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                     />
                   </div>
                 </>
@@ -343,37 +343,37 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
 
               {/* Tarifa */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Tarifa de delivery (₡)</label>
+                <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tarifa de delivery (₡)</label>
                 <input
                   value={form.delivery_fee}
                   onChange={e => setForm(f => ({ ...f, delivery_fee: e.target.value }))}
                   placeholder="1500"
                   type="number" min="0"
-                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                 />
               </div>
 
               {/* Mínimo */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Pedido mínimo (₡)</label>
+                <label className="text-xs text-[var(--text-secondary)] mb-1 block">Pedido mínimo (₡)</label>
                 <input
                   value={form.min_order_amount}
                   onChange={e => setForm(f => ({ ...f, min_order_amount: e.target.value }))}
                   placeholder="0"
                   type="number" min="0"
-                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                 />
               </div>
 
               {/* ETA */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">ETA estimado (min)</label>
+                <label className="text-xs text-[var(--text-secondary)] mb-1 block">ETA estimado (min)</label>
                 <input
                   value={form.estimated_minutes}
                   onChange={e => setForm(f => ({ ...f, estimated_minutes: e.target.value }))}
                   placeholder="30"
                   type="number" min="5"
-                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-sm placeholder-slate-500 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm placeholder-slate-500 outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -382,7 +382,7 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-foreground disabled:opacity-50 transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[var(--text-primary)] disabled:opacity-50 transition-all"
                 style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)' }}
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -390,7 +390,7 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
               </button>
               <button
                 onClick={() => { setShowForm(false); setEditingId(null); }}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-muted-foreground bg-muted hover:bg-muted transition-colors"
+                className="px-4 py-2 rounded-xl text-sm font-bold text-[var(--text-secondary)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)] transition-colors"
               >
                 Cancelar
               </button>
@@ -405,7 +405,7 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
           <Loader2 size={20} className="text-blue-400 animate-spin" />
         </div>
       ) : zones.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground/70 text-sm">
+        <div className="text-center py-10 text-[var(--text-secondary)] text-sm">
           <MapPin size={32} className="mx-auto mb-3 opacity-30" />
           <p>Sin zonas configuradas</p>
           <p className="text-xs mt-1">Crea tu primera zona de cobertura</p>
@@ -427,17 +427,17 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
                   <div>
-                    <p className="text-foreground text-sm font-bold">{zone.name}</p>
+                    <p className="text-[var(--text-primary)] text-sm font-bold">{zone.name}</p>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-muted-foreground text-xs flex items-center gap-1">
+                      <span className="text-[var(--text-secondary)] text-xs flex items-center gap-1">
                         <MapPin size={10} />
                         {zone.zone_type === 'circle' ? `${zone.radius_km} km radio` : 'Polígono'}
                       </span>
-                      <span className="text-muted-foreground text-xs flex items-center gap-1">
+                      <span className="text-[var(--text-secondary)] text-xs flex items-center gap-1">
                         <DollarSign size={10} />
                         {formatPrice(zone.delivery_fee)}
                       </span>
-                      <span className="text-muted-foreground text-xs flex items-center gap-1">
+                      <span className="text-[var(--text-secondary)] text-xs flex items-center gap-1">
                         <Clock size={10} />
                         ~{zone.estimated_minutes} min
                       </span>
@@ -445,13 +445,13 @@ export default function DeliveryZonesPanel({ tenant }: { tenant: Tenant }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => handleToggle(zone)} className="text-muted-foreground/70 hover:text-foreground transition-colors">
+                  <button onClick={() => handleToggle(zone)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     {zone.is_active ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
                   </button>
-                  <button onClick={() => handleEdit(zone)} className="p-1.5 rounded text-muted-foreground/70 hover:text-blue-400 transition-colors">
+                  <button onClick={() => handleEdit(zone)} className="p-1.5 rounded text-[var(--text-secondary)] hover:text-blue-400 transition-colors">
                     <Edit2 size={13} />
                   </button>
-                  <button onClick={() => handleDelete(zone.id)} className="p-1.5 rounded text-muted-foreground/70 hover:text-red-400 transition-colors">
+                  <button onClick={() => handleDelete(zone.id)} className="p-1.5 rounded text-[var(--text-secondary)] hover:text-red-400 transition-colors">
                     <Trash2 size={13} />
                   </button>
                 </div>
