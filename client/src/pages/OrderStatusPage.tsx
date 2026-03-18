@@ -385,7 +385,7 @@ export default function OrderStatusPage() {
   useEffect(() => {
     if (!order) return;
     const paymentStatus = (order as any).payment_status || 'pending';
-    const isSinpePending = order.payment_method === 'sinpe' && paymentStatus !== 'paid';
+    const isSinpePending = order.payment_method === 'sinpe' && isDelivery && paymentStatus !== 'paid'; // GATING
     const isFullyDone =
       (order.status === 'entregado' && !isSinpePending) ||
       order.status === 'cancelado';
@@ -409,7 +409,8 @@ export default function OrderStatusPage() {
   const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
   const isDelivery = (order as any)?.delivery_type === 'delivery';
   // SINPE payment verification state
-  const isSinpe = order?.payment_method === 'sinpe';
+  // GATING: SINPE solo aplica en delivery (dine-in/takeout cobran externamente)
+  const isSinpe = order?.payment_method === 'sinpe' && isDelivery;
   const isPaymentVerified = (order as any)?.payment_verified === true;
   const isPaymentPending = isSinpe && !isPaymentVerified && order?.status === 'pendiente';
   const isTakeout = (order as any)?.delivery_type === 'takeout';
@@ -951,7 +952,8 @@ export default function OrderStatusPage() {
         )}
 
         {/* ─── V17.2: SINPE ASYNC DROPZONE ─── */}
-        {order.payment_method === 'sinpe' && !sinpeUploaded && (
+        {/* GATING: SINPE dropzone solo para delivery */}
+        {order.payment_method === 'sinpe' && isDelivery && !sinpeUploaded && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1042,7 +1044,8 @@ export default function OrderStatusPage() {
         )}
 
         {/* Comprobante ya enviado */}
-        {order.payment_method === 'sinpe' && sinpeUploaded && (
+        {/* GATING: Comprobante enviado solo para delivery */}
+        {order.payment_method === 'sinpe' && isDelivery && sinpeUploaded && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -1090,7 +1093,8 @@ export default function OrderStatusPage() {
               <p className="text-sm mt-1" style={{ color: 'var(--menu-muted)' }}>Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
             </div>
             {/* Recordatorio de pago contextual */}
-            {order.payment_method === 'sinpe' && (order as any).payment_status !== 'paid' && (
+            {/* GATING: nota SINPE solo para delivery */}
+            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status !== 'paid' && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1104,7 +1108,7 @@ export default function OrderStatusPage() {
                 </div>
               </motion.div>
             )}
-            {order.payment_method === 'sinpe' && (order as any).payment_status === 'paid' && (
+            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status === 'paid' && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}

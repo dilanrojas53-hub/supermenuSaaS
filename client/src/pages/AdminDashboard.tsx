@@ -1931,7 +1931,9 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
     const isUrgent = elapsed > 20;
     const hasNewItems = (order as any).has_new_items === true;
-    const isSinpe = order.payment_method === 'sinpe';
+    const isDeliveryOrder = (order as any).delivery_type === 'delivery';
+    // GATING: SINPE solo aplica en delivery (dine-in/takeout cobran con POS externo)
+    const isSinpe = order.payment_method === 'sinpe' && isDeliveryOrder;
     const isEfectivoOrTarjeta = order.payment_method === 'efectivo' || order.payment_method === 'tarjeta';
     const isSinpePending = isSinpe && (order.status === 'pendiente' || order.status === 'pago_en_revision');
     // V17.2: Timer de alerta para mesas entregadas sin pagar

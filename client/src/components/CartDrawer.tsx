@@ -9,6 +9,8 @@ import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, Ar
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { buildWhatsAppUrl } from '@/lib/phone';
+import { shouldShowPaymentUI, getDefaultPaymentMethodForChannel } from '@/lib/paymentGating';
+import type { OrderChannel } from '@/lib/paymentGating';
 
 // V11.0: Placeholder icon para items del carrito sin imagen
 const CART_DRINK_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
@@ -46,7 +48,7 @@ interface CartDrawerProps {
   allCategories?: Category[];
 }
 
-type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
+type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta' | 'pos_externo';
 type Step = 'cart' | 'order_type' | 'delivery_address' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
@@ -577,6 +579,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         sinpe: 'pendiente',
         efectivo: 'pendiente',
         tarjeta: 'pendiente',
+        pos_externo: 'pendiente', // dine-in/takeout: cobro externo, pedido entra directo a cocina
       };
 
       const { data: orderData, error: orderError } = await supabase
@@ -621,7 +624,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           delivery_eta_minutes: deliveryType === 'delivery' ? (deliveryCheckoutData?.etaMinutes ?? null) : null,
           delivery_destination_id: deliveryType === 'delivery' ? (deliveryCheckoutData?.destinationId ?? null) : null,
           // SINPE: pago no verificado hasta que el admin revise el comprobante
-          payment_verified: method !== 'sinpe',
+          payment_verified: method !== 'sinpe', // pos_externo = true (cobro externo, no requiere verificación)
         })
         .select('id, order_number')
         .single();
@@ -675,12 +678,19 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     await handleSubmitOrderWithMethod(paymentMethod);
   };
 
+  // PAYMENT GATING: dine-in/takeout skip payment selection, submit directly
+  const handleProceedDirect = useCallback(async (_allMenuItemsArg?: MenuItem[]) => {
+    const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
+    await handleSubmitOrderWithMethod(defaultMethod);
+  }, [deliveryType, customerName, openTab, items, totalPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const paymentMethodLabel = (method: PaymentMethod | null): string => {
     if (!method) return '';
     const labels: Record<PaymentMethod, Record<string, string>> = {
       sinpe: { es: 'SINPE Móvil', en: 'SINPE Mobile' },
       efectivo: { es: 'Efectivo', en: 'Cash' },
       tarjeta: { es: 'Tarjeta', en: 'Card' },
+      pos_externo: { es: 'POS Externo', en: 'External POS' },
     };
     return labels[method]?.[lang] || labels[method]?.es || '';
   };
@@ -765,9 +775,13 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     confirmation: t('confirm.title'),
   };
 
+  // PAYMENT GATING: dine-in/takeout saltan select_payment y van directo a confirmation
+  const _showPaymentUI = shouldShowPaymentUI(deliveryType as OrderChannel);
   const stepOrder: Step[] = deliveryType === 'delivery'
     ? ['order_type', 'delivery_address', 'customer_info', 'select_payment', 'payment', 'confirmation']
-    : ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation'];
+    : _showPaymentUI
+      ? ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation']
+      : ['order_type', 'customer_info', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
   // Payment method config
@@ -1313,8 +1327,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                   <motion.button
-                    onClick={() => handleProceedToPayment(allMenuItems)}
-                    disabled={!canProceedToPayment}
+                    onClick={() => _showPaymentUI ? handleProceedToPayment(allMenuItems) : handleProceedDirect(allMenuItems)}
+                    disabled={!canProceedToPayment || uploading}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
@@ -1323,7 +1337,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       color: 'var(--menu-accent-contrast)',
                     }}
                   >
-                    {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
+                    {uploading ? (
+                      <><Loader2 size={20} className="animate-spin" />{lang === 'es' ? 'Enviando...' : 'Sending...'}</>
+                    ) : _showPaymentUI
+                      ? (lang === 'es' ? 'Continuar al pago' : 'Continue to payment')
+                      : (lang === 'es' ? 'Enviar pedido' : 'Send order')
+                    }
                   </motion.button>
                 </div>
               </>
