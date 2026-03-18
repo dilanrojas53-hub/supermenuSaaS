@@ -878,6 +878,10 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
     // F9: Políticas de commit
     commit_buffer_pct: number;
     max_wait_minutes: number;
+    // Delivery pricing
+    base_km: number;
+    fee_variability_msg: string;
+    fee_presets: number[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -901,6 +905,9 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             min_order_amount: data.min_order_amount ?? 0,
             commit_buffer_pct: data.commit_buffer_pct ?? 80,
             max_wait_minutes: data.max_wait_minutes ?? 20,
+            base_km: data.base_km ?? 3,
+            fee_variability_msg: data.fee_variability_msg ?? '',
+            fee_presets: data.fee_presets ?? [1000, 1500, 2000, 2500, 3000],
           });
         } else {
           setSettings({
@@ -913,6 +920,9 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
             min_order_amount: 0,
             commit_buffer_pct: 80,
             max_wait_minutes: 20,
+            base_km: 3,
+            fee_variability_msg: '',
+            fee_presets: [1000, 1500, 2000, 2500, 3000],
           });
         }
         setLoading(false);
@@ -934,6 +944,10 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
       // F9: Políticas de commit
       commit_buffer_pct: settings.commit_buffer_pct,
       max_wait_minutes: settings.max_wait_minutes,
+      // Delivery pricing
+      base_km: settings.base_km,
+      fee_variability_msg: settings.fee_variability_msg || null,
+      fee_presets: settings.fee_presets,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase
@@ -1042,13 +1056,24 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
               />
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">💰 Tarifa delivery</label>
+              <label className="block text-xs text-muted-foreground mb-1">💰 Tarifa base delivery</label>
               <input
                 type="number" min={0} step={100}
                 value={settings.delivery_fee}
                 onChange={e => setSettings({ ...settings, delivery_fee: parseInt(e.target.value) || 0 })}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
               />
+              <p className="text-[10px] text-muted-foreground/70 mt-1">Tarifa fija para los primeros {settings.base_km} km</p>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">📍 Km incluidos en tarifa base</label>
+              <input
+                type="number" min={1} max={20} step={0.5}
+                value={settings.base_km}
+                onChange={e => setSettings({ ...settings, base_km: parseFloat(e.target.value) || 3 })}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+              <p className="text-[10px] text-muted-foreground/70 mt-1">Distancia cubierta por la tarifa base. Default: 3 km</p>
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">🛒 Mínimo pedido</label>
@@ -1058,6 +1083,39 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
                 onChange={e => setSettings({ ...settings, min_order_amount: parseInt(e.target.value) || 0 })}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Delivery pricing: mensaje de variabilidad y presets rápidos */}
+          <div className="mt-4 pt-4 border-t space-y-3" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-orange-400 text-xs">💬</span>
+              <h4 className="text-xs font-bold text-orange-300 uppercase tracking-wide">Mensaje de Variabilidad de Tarifa</h4>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Mensaje honesto para el cliente (opcional)</label>
+              <input
+                type="text"
+                placeholder="Ej: El costo de envío puede variar según la distancia exacta"
+                value={settings.fee_variability_msg}
+                onChange={e => setSettings({ ...settings, fee_variability_msg: e.target.value })}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+              <p className="text-[10px] text-muted-foreground/70 mt-1">Se muestra en el checkout junto a la tarifa estimada. Deja vacío para no mostrar.</p>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Presets rápidos de tarifa (separados por coma, en colones)</label>
+              <input
+                type="text"
+                placeholder="1000,1500,2000,2500,3000"
+                value={settings.fee_presets.join(',')}
+                onChange={e => {
+                  const vals = e.target.value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v) && v > 0);
+                  if (vals.length > 0) setSettings({ ...settings, fee_presets: vals });
+                }}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:ring-2 focus:ring-orange-500/50 focus:outline-none"
+              />
+              <p className="text-[10px] text-muted-foreground/70 mt-1">El rider puede seleccionar uno de estos valores al asignar el pedido.</p>
             </div>
           </div>
 

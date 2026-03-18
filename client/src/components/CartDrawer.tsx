@@ -144,6 +144,46 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   // ─── FASE 1: DELIVERY CHECKOUT DATA ───
   const [deliveryCheckoutData, setDeliveryCheckoutData] = useState<DeliveryCheckoutData | null>(null);
 
+  // ─── DELIVERY PRICING ───
+  const [deliveryPricing, setDeliveryPricing] = useState<{
+    delivery_fee: number;
+    base_km: number;
+    fee_variability_msg: string;
+    fee_presets: number[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (deliveryType !== 'delivery') return;
+    supabase
+      .from('delivery_settings')
+      .select('delivery_fee, base_km, fee_variability_msg, fee_presets')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setDeliveryPricing({
+            delivery_fee: data.delivery_fee ?? 0,
+            base_km: data.base_km ?? 3,
+            fee_variability_msg: data.fee_variability_msg ?? '',
+            fee_presets: data.fee_presets ?? [1000, 1500, 2000, 2500, 3000],
+          });
+        }
+      });
+  }, [deliveryType, tenant.id]);
+
+  // Tarifa estimada: tarifa base + extra por km adicional
+  const estimatedDeliveryFee = React.useMemo(() => {
+    if (!deliveryPricing || deliveryType !== 'delivery') return 0;
+    const distKm = deliveryCheckoutData?.distanceKm ?? 0;
+    const baseKm = deliveryPricing.base_km;
+    const baseFee = deliveryPricing.delivery_fee;
+    if (distKm <= baseKm || baseFee === 0) return baseFee;
+    // Extra: proporcional a la distancia adicional (fee/km adicional = baseFee/baseKm)
+    const extraKm = distKm - baseKm;
+    const ratePerKm = baseKm > 0 ? baseFee / baseKm : 0;
+    return Math.round(baseFee + extraKm * ratePerKm);
+  }, [deliveryPricing, deliveryCheckoutData, deliveryType]);
+
   const handleRequestGPS = () => {
     if (!navigator.geolocation) {
       setGpsError(lang === 'es'
@@ -988,12 +1028,41 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
                 {items.length > 0 && (
                   <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
+                    {/* Subtotal */}
                     <div className="flex justify-between items-center">
+                      <span className="text-sm" style={{ color: `${theme.text_color}80` }}>
+                        Subtotal
+                      </span>
+                      <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
+                        {formatPrice(totalPrice)}
+                      </span>
+                    </div>
+                    {/* Tarifa de delivery estimada */}
+                    {deliveryType === 'delivery' && deliveryPricing && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: `${theme.text_color}80` }}>
+                            🚴 Envío estimado
+                            {deliveryCheckoutData?.distanceKm ? ` (${deliveryCheckoutData.distanceKm.toFixed(1)} km)` : ''}
+                          </span>
+                          <span className="text-sm font-semibold" style={{ color: theme.primary_color }}>
+                            {estimatedDeliveryFee > 0 ? formatPrice(estimatedDeliveryFee) : 'Gratis'}
+                          </span>
+                        </div>
+                        {deliveryPricing.fee_variability_msg && (
+                          <p className="text-[11px] px-2 py-1 rounded-lg" style={{ backgroundColor: `${theme.primary_color}12`, color: `${theme.text_color}70` }}>
+                            ⚠️ {deliveryPricing.fee_variability_msg}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {/* Total final */}
+                    <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                       <span className="text-base font-semibold" style={{ color: theme.text_color }}>
                         {t('cart.total')}
                       </span>
                       <span className="text-xl font-bold" style={{ color: theme.primary_color }}>
-                        {formatPrice(totalPrice)}
+                        {formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}
                       </span>
                     </div>
                     {openTab && (
