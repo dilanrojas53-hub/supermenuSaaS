@@ -559,12 +559,13 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
 }
 
 // ─── Delivery Tab with History + Ops (Fases 2-5) ───
-function DeliveryTabWithHistory({ tenant }: { tenant: Tenant }) {
-  const [view, setView] = useState<'ops' | 'dispatch' | 'history'>('ops');
+function DeliveryTabWithHistory({ tenant, kanbanNode, pendingCount }: { tenant: Tenant; kanbanNode?: React.ReactNode; pendingCount?: number }) {
+  const [view, setView] = useState<'kanban' | 'dispatch' | 'ops' | 'history'>('kanban');
   const TABS = [
-    { key: 'ops' as const,      label: '🟢 Operaciones' },
-    { key: 'dispatch' as const, label: '🛵 Despacho' },
-    { key: 'history' as const,  label: '📋 Historial' },
+    { key: 'kanban'   as const, label: '📦 Pedidos',     badge: pendingCount },
+    { key: 'dispatch' as const, label: '🛵 Despacho',    badge: undefined },
+    { key: 'ops'      as const, label: '🟢 Operaciones', badge: undefined },
+    { key: 'history'  as const, label: '📋 Historial',   badge: undefined },
   ];
   return (
     <div className="space-y-4">
@@ -574,18 +575,24 @@ function DeliveryTabWithHistory({ tenant }: { tenant: Tenant }) {
           <button
             key={t.key}
             onClick={() => setView(t.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all ${
               view === t.key
                 ? 'bg-blue-500 text-white'
                 : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
             }`}
           >
             {t.label}
+            {t.badge != null && t.badge > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1 shadow-lg animate-pulse">
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
-      {view === 'ops'      && <DeliveryOpsPanel      tenant={tenant} />}
+      {view === 'kanban'   && (kanbanNode ?? <div className="text-center py-12 text-slate-500 text-sm">Sin pedidos delivery activos</div>)}
       {view === 'dispatch' && <DeliveryDispatchPanel  tenant={tenant} />}
+      {view === 'ops'      && <DeliveryOpsPanel      tenant={tenant} />}
       {view === 'history'  && <DeliveryHistoryPanel   tenant={tenant} />}
     </div>
   );
@@ -2358,8 +2365,36 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         <>
         {/* Kanban: columnas según sub-tab activa */}
         {activeSubTab === 'DELIVERY' ? (
-          /* Vista Delivery: Dispatch + Historial — Fases 2-4 */
-          <DeliveryTabWithHistory tenant={tenant} />
+          /* Vista Delivery: Kanban + Despacho + Operaciones + Historial */
+          <DeliveryTabWithHistory
+            tenant={tenant}
+            pendingCount={nuevos.length}
+            kanbanNode={
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <KanbanColumn
+                  title="Pendientes"
+                  icon={<AlertCircle size={14} />}
+                  color="#F59E0B"
+                  orders={nuevos}
+                  emptyMsg="Sin pedidos nuevos"
+                />
+                <KanbanColumn
+                  title="En Preparación"
+                  icon={<ChefHat size={14} />}
+                  color="#3B82F6"
+                  orders={enCocina}
+                  emptyMsg="Cocina libre"
+                />
+                <KanbanColumn
+                  title="Listos para Despacho"
+                  icon={<CheckCircle2 size={14} />}
+                  color="#10B981"
+                  orders={listos}
+                  emptyMsg="Sin pedidos listos"
+                />
+              </div>
+            }
+          />
         ) : (
           /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
