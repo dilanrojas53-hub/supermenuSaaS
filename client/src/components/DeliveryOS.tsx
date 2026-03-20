@@ -679,28 +679,26 @@ function TabTarifas({ config, setConfig, saving, onSave }: {
         )}
       </Section>
 
-      <Section title="Presets y Mensajes" icon={<DollarSign size={16} />} accent="#10B981">
+      <Section title="Mensajes al Cliente" icon={<DollarSign size={16} />} accent="#10B981">
+        {/* Nota: tarifas 100% automáticas */}
+        <div
+          className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs mb-3"
+          style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}
+        >
+          <CheckCircle2 size={13} className="text-green-400 mt-0.5 flex-shrink-0" />
+          <span style={{ color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--text-primary)' }}>Tarifas 100% automáticas.</strong>{' '}
+            El sistema calcula el costo según la distancia y los rangos configurados arriba. El rider nunca elige ni modifica la tarifa.
+          </span>
+        </div>
         <Field
-          label="Mensaje de variabilidad visible al cliente"
-          hint="Se muestra en el checkout para informar que el costo puede variar."
+          label="Mensaje cuando el costo está por confirmar"
+          hint="Se muestra al cliente cuando la distancia cae fuera de los rangos configurados."
         >
           <Input
             value={config.fee_variability_msg}
             onChange={v => update({ fee_variability_msg: v })}
-            placeholder="El costo de envío puede variar según la distancia exacta."
-          />
-        </Field>
-        <Field
-          label="Presets de tarifa para el rider (₡, separados por coma)"
-          hint="El rider puede seleccionar uno de estos valores al asignar el pedido."
-        >
-          <Input
-            value={(config.fee_presets || []).join(',')}
-            onChange={v => {
-              const vals = v.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x > 0);
-              if (vals.length > 0) update({ fee_presets: vals });
-            }}
-            placeholder="1000,1500,2000,2500,3000"
+            placeholder="El costo de envío será confirmado por el restaurante."
           />
         </Field>
       </Section>

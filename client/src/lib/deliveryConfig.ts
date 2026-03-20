@@ -177,7 +177,7 @@ export function getDeliveryFeeForDistance(
 
 /**
  * Retorna los métodos de pago disponibles para el cliente según la configuración del admin.
- * Siempre retorna al menos un método (si todos están desactivados, retorna efectivo como fallback).
+ * Si todos están desactivados retorna array vacío — el checkout debe bloquearse.
  */
 export function getAvailablePaymentMethods(
   config: Pick<DeliveryConfig, 'sinpe_enabled' | 'efectivo_enabled' | 'tarjeta_enabled'>
@@ -186,8 +186,7 @@ export function getAvailablePaymentMethods(
   if (config.sinpe_enabled) methods.push('sinpe');
   if (config.efectivo_enabled) methods.push('efectivo');
   if (config.tarjeta_enabled) methods.push('tarjeta');
-  // Fallback: si el admin desactivó todo, mostrar efectivo
-  if (methods.length === 0) methods.push('efectivo');
+  // NO hay fallback: si el admin desactivó todo, el checkout se bloquea
   return methods;
 }
 

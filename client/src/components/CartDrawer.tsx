@@ -189,6 +189,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     return getAvailablePaymentMethods(deliveryConfig);
   }, [deliveryConfig, deliveryType]);
 
+  // Auto-selección: si solo hay un método activo, seleccionarlo automáticamente
+  React.useEffect(() => {
+    if (deliveryType === 'delivery' && availableDeliveryPaymentMethods.length === 1 && !paymentMethod) {
+      setPaymentMethod(availableDeliveryPaymentMethods[0] as PaymentMethod);
+    }
+  }, [availableDeliveryPaymentMethods, deliveryType, paymentMethod]);
+
+  // Bloqueo de checkout: ningún método activo para delivery
+  const noPaymentMethodsAvailable = deliveryType === 'delivery' && deliveryConfig !== null && availableDeliveryPaymentMethods.length === 0;
+
   // ¿El restaurante acepta pedidos ahora?
   const ordersAccepted = React.useMemo(() => {
     if (!deliveryConfig) return true;
@@ -863,8 +873,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       bg: '#E5393515',
     },
   ];
-  // Filter by admin config for delivery; show all for dine-in/takeout
-  const paymentOptions = deliveryType === 'delivery'
+  // Filter by admin config: delivery y takeout respetan la config; dine-in muestra todos
+  const paymentOptions = (deliveryType === 'delivery' || deliveryType === 'takeout') && deliveryConfig
     ? allPaymentOptions.filter(opt => availableDeliveryPaymentMethods.includes(opt.method as any))
     : allPaymentOptions;
 
@@ -1481,21 +1491,44 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     </span>
                   </div>
 
-                  {/* V17.2: Nota de pago diferido */}
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
-                    style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
-                  >
-                    <span className="text-lg">🍽️</span>
-                    <span style={{ opacity: 0.85 }}>
-                      {lang === 'es'
-                        ? 'Nota: El pago se realiza al finalizar tu comida.'
-                        : 'Note: Payment is made at the end of your meal.'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
-                    {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
-                  </p>
+                  {/* Nota de pago diferido: solo para dine-in */}
+                  {deliveryType === 'dine_in' && (
+                    <div
+                      className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
+                      style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
+                    >
+                      <span className="text-lg">🍽️</span>
+                      <span style={{ opacity: 0.85 }}>
+                        {lang === 'es'
+                          ? 'Nota: El pago se realiza al finalizar tu comida.'
+                          : 'Note: Payment is made at the end of your meal.'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Bloqueo: ningún método activo para delivery */}
+                  {noPaymentMethodsAvailable ? (
+                    <div
+                      className="flex items-start gap-3 px-4 py-4 rounded-2xl"
+                      style={{ backgroundColor: '#EF444415', border: '1px solid #EF444440' }}
+                    >
+                      <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: '#EF4444' }}>
+                          {lang === 'es' ? 'Pagos no disponibles' : 'Payments unavailable'}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: theme.text_color, opacity: 0.7 }}>
+                          {lang === 'es'
+                            ? 'El restaurante no tiene métodos de pago activos para delivery. Contáctanos para más información.'
+                            : 'The restaurant has no active payment methods for delivery. Contact us for more information.'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
+                      {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
+                    </p>
+                  )}
 
                   {/* BUG 1 FIX: Payment method buttons with visual selection state */}
                   <div className="space-y-3">
@@ -1566,8 +1599,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   )}
                 </div>
 
-                {/* V17.2: Confirm button shown for ALL methods (including SINPE — no receipt required now) */}
-                {paymentMethod && (
+                {/* Confirm button: solo si hay método seleccionado Y hay métodos activos */}
+                {paymentMethod && !noPaymentMethodsAvailable && (
                   <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                     <motion.button
                       onClick={handleSubmitOrder}
