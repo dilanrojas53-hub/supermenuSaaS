@@ -66,6 +66,15 @@ export const DELIVERY_OS_CAPABILITIES: Capability[] = [
 
 // ── Plan → Capability matrix ──────────────────────────────────────────────────
 
+// Capabilities de Delivery OS incluidas en plan premium (no requieren add-on separado)
+const DELIVERY_BASE_CAPABILITIES: Capability[] = [
+  'delivery_checkout',
+  'delivery_dispatch',
+  'delivery_coverage',
+  'delivery_eta',
+  'delivery_history',
+];
+
 export const PLAN_CAPABILITIES: Record<PlanTier, Capability[]> = {
   basic: [
     ...CORE_CAPABILITIES,
@@ -78,6 +87,7 @@ export const PLAN_CAPABILITIES: Record<PlanTier, Capability[]> = {
     ...CORE_CAPABILITIES,
     ...OPERATIONS_CAPABILITIES,
     ...GROWTH_CAPABILITIES,
+    ...DELIVERY_BASE_CAPABILITIES,
   ],
 };
 
