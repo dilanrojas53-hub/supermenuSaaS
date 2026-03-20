@@ -22,6 +22,7 @@ import DeliveryHistoryPanel from '@/components/DeliveryHistoryPanel';
 import DeliveryZonesPanel from '@/components/DeliveryZonesPanel';
 import DeliveryOpsPanel from '@/components/DeliveryOpsPanel';
 import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
+import { DeliveryOS } from '@/components/DeliveryOS';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -4081,6 +4082,7 @@ export default function AdminDashboard() {
           {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
           {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
           {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
+          {activeTab === 'delivery' && <DeliveryOS tenant={tenant} />}
         </main>
       </div>
     </div>

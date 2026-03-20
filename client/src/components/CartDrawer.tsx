@@ -10,6 +10,7 @@ import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import { shouldShowPaymentUI, getDefaultPaymentMethodForChannel } from '@/lib/paymentGating';
+import { getDeliveryFeeForDistance, getAvailablePaymentMethods, canAcceptOrdersNow, type DeliveryConfig } from '@/lib/deliveryConfig';
 import type { OrderChannel } from '@/lib/paymentGating';
 
 // V11.0: Placeholder icon para items del carrito sin imagen
@@ -144,45 +145,56 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   // ─── FASE 1: DELIVERY CHECKOUT DATA ───
   const [deliveryCheckoutData, setDeliveryCheckoutData] = useState<DeliveryCheckoutData | null>(null);
 
-  // ─── DELIVERY PRICING ───
-  const [deliveryPricing, setDeliveryPricing] = useState<{
-    delivery_fee: number;
-    base_km: number;
-    fee_variability_msg: string;
-    fee_presets: number[];
-  } | null>(null);
+  // ─── DELIVERY CONFIG (pricing + payment methods + kitchen switch) ───
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null);
+  // Legacy alias for backward compat
+  const deliveryPricing = deliveryConfig ? {
+    delivery_fee: deliveryConfig.delivery_fee,
+    base_km: deliveryConfig.base_km,
+    fee_variability_msg: deliveryConfig.fee_variability_msg,
+    fee_presets: deliveryConfig.fee_presets,
+  } : null;
 
   useEffect(() => {
-    if (deliveryType !== 'delivery') return;
     supabase
       .from('delivery_settings')
-      .select('delivery_fee, base_km, fee_variability_msg, fee_presets')
+      .select('*')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setDeliveryPricing({
-            delivery_fee: data.delivery_fee ?? 0,
-            base_km: data.base_km ?? 3,
-            fee_variability_msg: data.fee_variability_msg ?? '',
-            fee_presets: data.fee_presets ?? [1000, 1500, 2000, 2500, 3000],
-          });
-        }
+        if (data) setDeliveryConfig(data as DeliveryConfig);
       });
-  }, [deliveryType, tenant.id]);
+  }, [tenant.id]);
 
-  // Tarifa estimada: tarifa base + extra por km adicional
+  // Tarifa estimada: usa rangos escalonados si existen, si no tarifa base
   const estimatedDeliveryFee = React.useMemo(() => {
-    if (!deliveryPricing || deliveryType !== 'delivery') return 0;
+    if (!deliveryConfig || deliveryType !== 'delivery') return 0;
     const distKm = deliveryCheckoutData?.distanceKm ?? 0;
-    const baseKm = deliveryPricing.base_km;
-    const baseFee = deliveryPricing.delivery_fee;
-    if (distKm <= baseKm || baseFee === 0) return baseFee;
-    // Extra: proporcional a la distancia adicional (fee/km adicional = baseFee/baseKm)
-    const extraKm = distKm - baseKm;
-    const ratePerKm = baseKm > 0 ? baseFee / baseKm : 0;
-    return Math.round(baseFee + extraKm * ratePerKm);
-  }, [deliveryPricing, deliveryCheckoutData, deliveryType]);
+    const result = getDeliveryFeeForDistance(distKm, deliveryConfig);
+    if (result.mode === 'manual' || result.mode === 'out_of_range') return 0;
+    return result.fee ?? 0;
+  }, [deliveryConfig, deliveryCheckoutData, deliveryType]);
+
+  // ¿El costo está por confirmar?
+  const deliveryFeeIsPending = React.useMemo(() => {
+    if (!deliveryConfig || deliveryType !== 'delivery') return false;
+    const distKm = deliveryCheckoutData?.distanceKm ?? 0;
+    const result = getDeliveryFeeForDistance(distKm, deliveryConfig);
+    return result.mode === 'manual';
+  }, [deliveryConfig, deliveryCheckoutData, deliveryType]);
+
+  // Métodos de pago disponibles para delivery (filtrados por config del admin)
+  const availableDeliveryPaymentMethods = React.useMemo(() => {
+    if (deliveryType !== 'delivery' || !deliveryConfig) return ['sinpe', 'efectivo', 'tarjeta'] as Array<'sinpe' | 'efectivo' | 'tarjeta'>;
+    return getAvailablePaymentMethods(deliveryConfig);
+  }, [deliveryConfig, deliveryType]);
+
+  // ¿El restaurante acepta pedidos ahora?
+  const ordersAccepted = React.useMemo(() => {
+    if (!deliveryConfig) return true;
+    const channel = deliveryType === 'delivery' ? 'delivery' : deliveryType === 'takeout' ? 'takeout' : 'dine_in';
+    return canAcceptOrdersNow(deliveryConfig, channel);
+  }, [deliveryConfig, deliveryType]);
 
   const handleRequestGPS = () => {
     if (!navigator.geolocation) {
@@ -824,8 +836,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       : ['order_type', 'customer_info', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
-  // Payment method config
-  const paymentOptions: { method: PaymentMethod; icon: React.ReactNode; label: string; desc: string; color: string; bg: string }[] = [
+  // Payment method config — all options
+  const allPaymentOptions: { method: PaymentMethod; icon: React.ReactNode; label: string; desc: string; color: string; bg: string }[] = [
     {
       method: 'sinpe',
       icon: <Smartphone size={28} style={{ color: '#6C63FF' }} />,
@@ -851,6 +863,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       bg: '#E5393515',
     },
   ];
+  // Filter by admin config for delivery; show all for dine-in/takeout
+  const paymentOptions = deliveryType === 'delivery'
+    ? allPaymentOptions.filter(opt => availableDeliveryPaymentMethods.includes(opt.method as any))
+    : allPaymentOptions;
 
   return (
     <AnimatePresence>
@@ -1045,8 +1061,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             🚴 Envío estimado
                             {deliveryCheckoutData?.distanceKm ? ` (${deliveryCheckoutData.distanceKm.toFixed(1)} km)` : ''}
                           </span>
-                          <span className="text-sm font-semibold" style={{ color: theme.primary_color }}>
-                            {estimatedDeliveryFee > 0 ? formatPrice(estimatedDeliveryFee) : 'Gratis'}
+                          <span className="text-sm font-semibold" style={{ color: deliveryFeeIsPending ? '#F59E0B' : theme.primary_color }}>
+                            {deliveryFeeIsPending
+                              ? 'Por confirmar'
+                              : estimatedDeliveryFee > 0 ? formatPrice(estimatedDeliveryFee) : 'Gratis'}
                           </span>
                         </div>
                         {deliveryPricing.fee_variability_msg && (
@@ -1073,10 +1091,39 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </span>
                       </div>
                     )}
+                    {/* Kitchen closed banner */}
+                    {deliveryConfig && !deliveryConfig.orders_enabled && (
+                      <div
+                        className="flex items-start gap-2 px-3 py-3 rounded-xl text-sm"
+                        style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}
+                      >
+                        <span className="text-lg">🔒</span>
+                        <div>
+                          <p className="font-bold text-red-400 text-xs mb-0.5">No aceptamos pedidos en este momento</p>
+                          <p className="text-xs" style={{ color: `${theme.text_color}80` }}>
+                            {deliveryConfig.closed_message || 'Por el momento no estamos recibiendo pedidos desde el menú.'}
+                          </p>
+                          {tenant.whatsapp_number && (
+                            <a
+                              href={`https://wa.me/${tenant.whatsapp_number.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-green-400"
+                            >
+                              📱 Contactar por WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <motion.button
-                      onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('order_type')}
+                      onClick={() => {
+                        if (deliveryConfig && !deliveryConfig.orders_enabled) return;
+                        openTab ? handleProceedToPayment(allMenuItems) : setStep('order_type');
+                      }}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                      disabled={!!(deliveryConfig && !deliveryConfig.orders_enabled)}
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
                         backgroundColor: openTab ? '#F59E0B' : theme.primary_color,
                         boxShadow: openTab ? '0 4px 16px rgba(245,158,11,0.3)' : `0 4px 16px ${theme.primary_color}40`,
