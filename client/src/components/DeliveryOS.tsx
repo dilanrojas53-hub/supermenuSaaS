@@ -259,14 +259,58 @@ function useDeliveryConfig(tenantId: string) {
 
   const save = async (partial?: Partial<DeliveryConfig>) => {
     if (!config) return;
-    const toSave = partial ? { ...config, ...partial } : config;
+    const merged = partial ? { ...config, ...partial } : config;
     setSaving(true);
+    // Solo enviamos las columnas que existen en la tabla delivery_settings
+    const dbPayload = {
+      tenant_id: merged.tenant_id,
+      // Disponibilidad
+      delivery_enabled: merged.delivery_enabled,
+      orders_enabled: merged.orders_enabled,
+      dine_in_orders_enabled: merged.dine_in_orders_enabled,
+      takeout_orders_enabled: merged.takeout_orders_enabled,
+      delivery_orders_enabled: merged.delivery_orders_enabled,
+      closed_message: merged.closed_message,
+      // Cobertura
+      restaurant_lat: merged.restaurant_lat,
+      restaurant_lon: merged.restaurant_lon,
+      coverage_radius_km: merged.coverage_radius_km,
+      // Tarifas
+      delivery_fee: merged.delivery_fee,
+      base_km: merged.base_km,
+      distance_ranges: merged.distance_ranges,
+      allow_manual_fee: merged.allow_manual_fee,
+      manual_fee_message: merged.manual_fee_message,
+      fee_variability_msg: merged.fee_variability_msg,
+      fee_presets: merged.fee_presets,
+      // Pagos
+      sinpe_enabled: merged.sinpe_enabled,
+      efectivo_enabled: merged.efectivo_enabled,
+      tarjeta_enabled: merged.tarjeta_enabled,
+      sinpe_block_mode: merged.sinpe_block_mode,
+      // Reglas operativas
+      requires_payment_before_kitchen: merged.requires_payment_before_kitchen,
+      requires_manual_approval: merged.requires_manual_approval,
+      rider_dispatch_trigger: merged.rider_dispatch_trigger,
+      rider_dispatch_minutes_before: merged.rider_dispatch_minutes_before,
+      completion_mode: merged.completion_mode,
+      // Tiempos
+      base_eta_minutes: merged.base_eta_minutes,
+      base_prep_minutes: merged.base_prep_minutes,
+      extra_prep_minutes: merged.extra_prep_minutes,
+      min_pickup_minutes: merged.min_pickup_minutes,
+      commit_buffer_pct: merged.commit_buffer_pct,
+      max_wait_minutes: merged.max_wait_minutes,
+      min_order_amount: merged.min_order_amount,
+      updated_at: new Date().toISOString(),
+    };
     const { error } = await supabase
       .from('delivery_settings')
-      .upsert({ ...toSave, updated_at: new Date().toISOString() }, { onConflict: 'tenant_id' });
+      .upsert(dbPayload, { onConflict: 'tenant_id' });
     setSaving(false);
     if (error) {
       toast.error('Error al guardar: ' + error.message);
+      console.error('[DeliveryOS] upsert error:', error);
     } else {
       toast.success('Configuración guardada ✅');
       if (partial) setConfig(prev => prev ? { ...prev, ...partial } : prev);
