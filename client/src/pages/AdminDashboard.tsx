@@ -23,6 +23,7 @@ import DeliveryZonesPanel from '@/components/DeliveryZonesPanel';
 import DeliveryOpsPanel from '@/components/DeliveryOpsPanel';
 import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
 import { DeliveryOS } from '@/components/DeliveryOS';
+import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -1747,6 +1748,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
   const prevActiveIdsRef = useRef<Set<string>>(new Set());
   const { playBell, stopAlarm, isAlarming } = useKitchenBell();
+  // sinpe_block_mode: cargado de delivery_settings para respetar la config del admin
+  const [sinpeBlockMode, setSinpeBlockMode] = useState<'always' | 'delivery_only' | 'never'>('always');
+  useEffect(() => {
+    supabase.from('delivery_settings').select('sinpe_block_mode').eq('tenant_id', tenant.id).maybeSingle()
+      .then(({ data }) => { if (data?.sinpe_block_mode) setSinpeBlockMode(data.sinpe_block_mode as any); });
+  }, [tenant.id]);
 
   const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
     water_ice: '💧 Agua / Hielo',
@@ -2254,6 +2261,15 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             <span className="text-[10px] text-[var(--text-secondary)] uppercase">{order.payment_method}</span>
           </div>
         </div>
+        {/* ── Costo de envío: ajuste manual por pedido ── */}
+        {isDelivery && (
+          <DeliveryFeeAdjuster
+            orderId={order.id}
+            orderNumber={order.order_number}
+            currentFee={(order as any).delivery_fee_final ?? null}
+            feePending={(order as any).delivery_fee_pending ?? false}
+          />
+        )}
         <div className="flex flex-col gap-2">
           {/* V17.2: Botón Marcar como Pagado — visible en Por Cobrar */}
           {showPayBtn && !isPaid && (
@@ -2267,10 +2283,16 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           )}
           <div className="flex gap-2">
             {actions
-              // SINPE sin verificar: ocultar botón "A Cocina" — el admin debe usar "Validar Pago SINPE"
+              // SINPE sin verificar: ocultar botón "A Cocina" según sinpe_block_mode
               .filter((action: any) => {
-                if (isSinpe && !(order as any).payment_verified && action.nextStatus === 'en_cocina') return false;
-                return true;
+                if (action.nextStatus !== 'en_cocina') return true;
+                if (!isSinpe || (order as any).payment_verified) return true;
+                // 'never': no bloquear — el pedido avanza aunque no esté verificado
+                if (sinpeBlockMode === 'never') return true;
+                // 'delivery_only': solo bloquear en delivery
+                if (sinpeBlockMode === 'delivery_only' && !isDeliveryOrder) return true;
+                // 'always' o 'delivery_only' en delivery: ocultar botón
+                return false;
               })
               .map((action: any) => (
               <button key={action.nextStatus}

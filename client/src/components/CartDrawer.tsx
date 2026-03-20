@@ -1723,9 +1723,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                     style={{
-                      backgroundColor: '#25D366',
+                      backgroundColor: receiptFile ? '#25D366' : theme.primary_color,
                       color: '#fff',
-                      boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
+                      boxShadow: receiptFile ? '0 4px 16px rgba(37, 211, 102, 0.3)' : `0 4px 16px ${theme.primary_color}40`,
                     }}
                   >
                     {uploading ? (
@@ -1733,13 +1733,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         <Loader2 size={20} className="animate-spin" />
                         {t('payment.processing')}
                       </>
+                    ) : receiptFile ? (
+                      <>
+                        <Check size={20} />
+                        {lang === 'es' ? 'Confirmar con comprobante' : 'Confirm with receipt'}
+                      </>
                     ) : (
                       <>
                         <ShoppingBag size={20} />
-                        {t('payment.confirm')}
+                        {lang === 'es' ? 'Ya hice el SINPE → Confirmar' : 'SINPE sent → Confirm'}
                       </>
                     )}
                   </motion.button>
+                  {!receiptFile && (
+                    <p className="text-center text-xs opacity-50" style={{ color: theme.text_color }}>
+                      {lang === 'es'
+                        ? 'Puedes subir el comprobante ahora o desde \"Ver estado de mi pedido\" después.'
+                        : 'You can upload the receipt now or from \"Track my order\" later.'}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -1757,9 +1769,37 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Lora', serif", color: theme.text_color }}>
                       {t('confirm.order_number')} #{orderNumber}
                     </h3>
-                    <p className="text-sm opacity-60 mb-6" style={{ color: theme.text_color }}>
+                    <p className="text-sm opacity-60 mb-4" style={{ color: theme.text_color }}>
                       {lang === 'es' ? 'Tu pedido fue registrado exitosamente' : 'Your order was registered successfully'}
                     </p>
+
+                    {/* ── Mensaje contextual por tipo de pedido ── */}
+                    {deliveryType === 'takeout' && (
+                      <div
+                        className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs mb-4 text-left"
+                        style={{ backgroundColor: '#10B98115', border: '1px solid #10B98140', color: theme.text_color }}
+                      >
+                        <span className="text-base flex-shrink-0">🏪</span>
+                        <span style={{ opacity: 0.9 }}>
+                          {lang === 'es'
+                            ? 'Tu pedido estará listo para retiro en el local. Te avisaremos cuando esté preparado.'
+                            : 'Your order will be ready for pickup at the restaurant. We will notify you when it is ready.'}
+                        </span>
+                      </div>
+                    )}
+                    {deliveryType === 'delivery' && paymentMethod === 'sinpe' && (
+                      <div
+                        className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs mb-4 text-left"
+                        style={{ backgroundColor: '#8B5CF615', border: '1px solid #8B5CF640', color: theme.text_color }}
+                      >
+                        <span className="text-base flex-shrink-0">⏳</span>
+                        <span style={{ opacity: 0.9 }}>
+                          {lang === 'es'
+                            ? 'Tu pedido está en espera. Sube tu comprobante de SINPE desde \"Ver estado de mi pedido\" para que el restaurante lo verifique.'
+                            : 'Your order is on hold. Upload your SINPE receipt from \"Track my order\" so the restaurant can verify it.'}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Order summary */}
                     <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>

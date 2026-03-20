@@ -21,6 +21,7 @@ import {
   generateRangeId,
   COMPLETION_MODE_LABELS,
   DISPATCH_TRIGGER_LABELS,
+  SINPE_BLOCK_MODE_LABELS,
 } from '@/lib/deliveryConfig';
 import DeliveryDispatchPanel from './DeliveryDispatchPanel';
 import DeliveryOpsPanel from './DeliveryOpsPanel';
@@ -777,6 +778,40 @@ function TabPagos({ config, setConfig, saving, onSave }: {
           </div>
         )}
       </Section>
+      {/* ─── Bloqueo SINPE ─────────────────────────────────────────────── */}
+      {config.sinpe_enabled && (
+        <Section title="Comportamiento SINPE" icon={<Settings2 size={16} />} accent="#8B5CF6">
+          <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Controla qué pasa con el pedido mientras el pago SINPE no ha sido verificado por el admin.
+          </p>
+          <div className="space-y-2">
+            {(Object.entries(SINPE_BLOCK_MODE_LABELS) as [DeliveryConfig['sinpe_block_mode'], string][]).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex items-start gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all"
+                style={{
+                  backgroundColor: (config.sinpe_block_mode ?? 'always') === key ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${(config.sinpe_block_mode ?? 'always') === key ? 'rgba(139,92,246,0.4)' : 'var(--border)'}`,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="sinpe_block_mode"
+                  checked={(config.sinpe_block_mode ?? 'always') === key}
+                  onChange={() => setConfig(prev => prev ? { ...prev, sinpe_block_mode: key } : prev)}
+                  className="mt-0.5 accent-purple-500"
+                />
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                  {key === 'always' && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>El pedido queda en espera hasta que el admin valide el comprobante.</p>}
+                  {key === 'delivery_only' && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Solo delivery queda bloqueado; dine-in y takeout avanzan sin verificar.</p>}
+                  {key === 'never' && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>El pedido entra a cocina de inmediato; el admin verifica el pago después.</p>}
+                </div>
+              </label>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <div className="flex justify-end">
         <SaveButton

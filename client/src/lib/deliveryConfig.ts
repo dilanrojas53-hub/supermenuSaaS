@@ -82,6 +82,13 @@ export interface DeliveryConfig {
   sinpe_enabled: boolean;
   efectivo_enabled: boolean;
   tarjeta_enabled: boolean;
+  /**
+   * Modo de bloqueo SINPE:
+   * - 'always': bloquea cocina Y despacho hasta verificar (cualquier canal)
+   * - 'delivery_only': solo bloquea en pedidos delivery
+   * - 'never': no bloquea — el admin verifica pero el pedido avanza igual
+   */
+  sinpe_block_mode: 'always' | 'delivery_only' | 'never';
   // Reglas operativas
   requires_payment_before_kitchen: boolean;
   requires_manual_approval: boolean;
@@ -120,6 +127,7 @@ export const DEFAULT_DELIVERY_CONFIG: Omit<DeliveryConfig, 'tenant_id'> = {
   sinpe_enabled: true,
   efectivo_enabled: true,
   tarjeta_enabled: false,
+  sinpe_block_mode: 'always',
   requires_payment_before_kitchen: false,
   requires_manual_approval: false,
   rider_dispatch_trigger: 'kitchen_ready',
@@ -296,8 +304,8 @@ export function validateDistanceRanges(
 
 /** Etiquetas legibles para los modos de completado */
 export const COMPLETION_MODE_LABELS: Record<DeliveryConfig['completion_mode'], string> = {
-  on_pickup: 'Cuando el rider recoge el pedido',
-  on_delivery: 'Cuando el rider marca entregado',
+  on_pickup: 'Cuando el rider recoge el pedido (al recoger)',
+  on_delivery: 'Cuando el rider marca entregado (al entregar)',
 };
 
 /** Etiquetas legibles para los triggers de despacho */
@@ -306,3 +314,25 @@ export const DISPATCH_TRIGGER_LABELS: Record<DeliveryConfig['rider_dispatch_trig
   manual: 'Manualmente por el admin',
   x_minutes_before: 'X minutos antes de terminar preparación',
 };
+
+/** Etiquetas legibles para el modo de bloqueo SINPE */
+export const SINPE_BLOCK_MODE_LABELS: Record<DeliveryConfig['sinpe_block_mode'], string> = {
+  always: 'Siempre bloquear hasta verificar (cualquier canal)',
+  delivery_only: 'Solo bloquear en pedidos delivery',
+  never: 'No bloquear — el admin verifica pero el pedido avanza',
+};
+
+/**
+ * Determina si un pedido SINPE debe bloquear el avance a cocina/despacho.
+ */
+export function isSinpeBlocked(
+  order: { payment_method: string; payment_verified?: boolean; delivery_type?: string },
+  config: Pick<DeliveryConfig, 'sinpe_block_mode'>
+): boolean {
+  if (order.payment_method !== 'sinpe') return false;
+  if (order.payment_verified) return false;
+  const mode = config.sinpe_block_mode ?? 'always';
+  if (mode === 'never') return false;
+  if (mode === 'delivery_only') return order.delivery_type === 'delivery';
+  return true; // 'always'
+}

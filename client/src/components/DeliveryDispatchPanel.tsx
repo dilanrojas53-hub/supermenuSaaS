@@ -103,7 +103,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   // Form de nuevo rider
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
   const [savingRider, setSavingRider] = useState(false);
-  const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number } | null>(null);
+  const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number; completion_mode?: string; sinpe_block_mode?: string } | null>(null);
 
   // F6-B: Push Notifications — admin usa sendPush para notificar riders y clientes
   const { sendPush } = usePushNotifications({
@@ -136,7 +136,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
 
   useEffect(() => {
     // Cargar coordenadas del restaurante para el mapa
-    supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon').eq('tenant_id', tenant.id).single()
+    supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon, completion_mode, sinpe_block_mode').eq('tenant_id', tenant.id).single()
       .then(({ data }) => { if (data) setDeliverySettings(data as any); });
     Promise.all([fetchRiders(), fetchOrders()]).finally(() => setLoading(false));
     // Cargar disponibilidad inicial + cola priorizada F9
@@ -266,14 +266,22 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   // Soft-reserve: disponibilidad confirmada, pendiente de commit manual
   const softReserveOrders = orders.filter(o => o.logistic_status === 'soft_reserve');
   // REGLA PRINCIPAL: solo pedidos en estado 'listo' (cocina terminó) pueden asignarse al rider
-  // REGLA SINPE: pedidos SINPE solo aparecen si payment_verified=true (pago validado por admin)
+  // REGLA SINPE: respetar sinpe_block_mode configurado en delivery_settings
+  const sinpeBlockMode = deliverySettings?.sinpe_block_mode ?? 'always';
+  const isSinpeBlockedForDispatch = (o: DeliveryOrder & { payment_method?: string; payment_verified?: boolean }) => {
+    if ((o as any).payment_method !== 'sinpe') return false;
+    if ((o as any).payment_verified) return false;
+    if (sinpeBlockMode === 'never') return false;
+    // 'always' o 'delivery_only' — en DeliveryDispatchPanel todos son delivery, así que ambos bloquean
+    return true;
+  };
   const committedUnassigned = orders.filter(o =>
     (o as any).status === 'listo' &&
     o.kitchen_committed_at != null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment') &&
     o.logistic_status !== 'waitlist' &&
     o.logistic_status !== 'soft_reserve' &&
-    ((o as any).payment_method !== 'sinpe' || (o as any).payment_verified === true)
+    !isSinpeBlockedForDispatch(o as any)
   );
   // Fallback legacy: pedidos 'listo' sin logistic_status (compatibilidad hacia atrás)
   const legacyUnassigned = orders.filter(o =>
@@ -814,6 +822,29 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
             {assigned.map(order => {
               const rider = riders.find(r => r.id === order.rider_id);
               const statusInfo = STATUS_LABELS[order.delivery_status || 'assigned'];
+              // completion_mode: 'on_pickup' → completar cuando el rider recoge; 'on_delivery' → cuando entrega
+              const completionMode = deliverySettings?.completion_mode ?? 'on_delivery';
+              const canCompleteNow =
+                completionMode === 'on_pickup'
+                  ? order.delivery_status === 'assigned' || order.delivery_status === 'accepted'
+                  : order.delivery_status === 'picked_up';
+              const completionLabel = completionMode === 'on_pickup' ? 'Rider recogió' : 'Marcar entregado';
+              const completionNextStatus = completionMode === 'on_pickup' ? 'picked_up' : 'delivered';
+              const handleComplete = async () => {
+                const { error } = await supabase
+                  .from('orders')
+                  .update({
+                    delivery_status: completionNextStatus,
+                    ...(completionNextStatus === 'delivered' ? { status: 'entregado', logistic_status: 'delivered' } : { logistic_status: 'picked_up' }),
+                  })
+                  .eq('id', order.id);
+                if (!error) {
+                  toast.success(`Pedido #${order.order_number} ${completionMode === 'on_pickup' ? 'recogido por rider' : 'entregado'} ✅`);
+                  fetchOrders();
+                } else {
+                  toast.error('Error al actualizar el estado');
+                }
+              };
               return (
                 <div
                   key={order.id}
@@ -852,6 +883,16 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                     >
                       {statusInfo?.label}
                     </span>
+                    {canCompleteNow && (
+                      <button
+                        onClick={handleComplete}
+                        className="px-2 py-1 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.3)' }}
+                        title={completionLabel}
+                      >
+                        <CheckCircle2 size={12} className="inline mr-1" />{completionLabel}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
