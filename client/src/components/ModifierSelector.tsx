@@ -218,7 +218,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
         onClick={onCancel}
       >
         <motion.div
-          className="w-full sm:max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl overflow-hidden"
+          className="w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl overflow-hidden"
           style={{ maxHeight: '92vh', border: `1px solid ${theme.primary_color}30` }}
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -229,11 +229,11 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <div>
-              <h2 className="text-base font-black text-white">{tr('title', lang)}</h2>
-              <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[230px]">{item.name}</p>
+              <h2 className="text-base font-black text-[var(--text-primary)]">{tr('title', lang)}</h2>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate max-w-[230px]">{item.name}</p>
             </div>
             <button onClick={onCancel}
-              className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              className="w-8 h-8 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
               <X size={16} />
             </button>
           </div>
@@ -250,24 +250,24 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                     {/* Group header */}
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">{group.name}</span>
+                        <span className="text-sm font-bold text-[var(--text-primary)]">{group.name}</span>
                         {group.min_selections > 0 && !isComplete ? (
                           <span className="text-[10px] px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded-full font-bold">
                             {tr('required', lang)}
                           </span>
                         ) : group.min_selections === 0 ? (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded-full">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-[var(--bg-surface)] text-[var(--text-secondary)] rounded-full">
                             {tr('optional', lang)}
                           </span>
                         ) : (
                           <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full font-bold">✓</span>
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-500 tabular-nums">
+                      <span className="text-[11px] text-[var(--text-secondary)] tabular-nums">
                         {selectedIds.length}/{group.max_selections}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mb-2.5">
+                    <p className="text-[11px] text-[var(--text-secondary)] mb-2.5">
                       {group.min_selections === group.max_selections && group.min_selections > 0
                         ? `${tr('choose_exact', lang)} ${group.max_selections}`
                         : `${tr('choose_up_to', lang)} ${group.max_selections}`}
@@ -299,7 +299,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                                 border: `2px solid ${isSelected ? theme.primary_color : '#475569'}`,
                               }}
                             >
-                              {isSelected && <Check size={11} className="text-white" />}
+                              {isSelected && <Check size={11} className="text-[var(--text-primary)]" />}
                             </div>
 
                             {/* Option name */}

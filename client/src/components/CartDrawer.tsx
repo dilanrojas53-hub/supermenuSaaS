@@ -9,6 +9,9 @@ import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, Ar
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { buildWhatsAppUrl } from '@/lib/phone';
+import { shouldShowPaymentUI, getDefaultPaymentMethodForChannel } from '@/lib/paymentGating';
+import { getDeliveryFeeForDistance, getAvailablePaymentMethods, canAcceptOrdersNow, type DeliveryConfig } from '@/lib/deliveryConfig';
+import type { OrderChannel } from '@/lib/paymentGating';
 
 // V11.0: Placeholder icon para items del carrito sin imagen
 const CART_DRINK_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
@@ -46,7 +49,7 @@ interface CartDrawerProps {
   allCategories?: Category[];
 }
 
-type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta';
+type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta' | 'pos_externo';
 type Step = 'cart' | 'order_type' | 'delivery_address' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
@@ -123,6 +126,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [orderId, setOrderId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
+  const receiptCameraInputRef = useRef<HTMLInputElement>(null);
 
   // ─── DELIVERY / LOGISTICA ───
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('dine_in');
@@ -140,6 +144,67 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
   // ─── FASE 1: DELIVERY CHECKOUT DATA ───
   const [deliveryCheckoutData, setDeliveryCheckoutData] = useState<DeliveryCheckoutData | null>(null);
+
+  // ─── DELIVERY CONFIG (pricing + payment methods + kitchen switch) ───
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null);
+  // Legacy alias for backward compat
+  const deliveryPricing = deliveryConfig ? {
+    delivery_fee: deliveryConfig.delivery_fee,
+    base_km: deliveryConfig.base_km,
+    fee_variability_msg: deliveryConfig.fee_variability_msg,
+    fee_presets: deliveryConfig.fee_presets,
+  } : null;
+
+  useEffect(() => {
+    supabase
+      .from('delivery_settings')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setDeliveryConfig(data as DeliveryConfig);
+      });
+  }, [tenant.id]);
+
+  // Tarifa estimada: usa rangos escalonados si existen, si no tarifa base
+  const estimatedDeliveryFee = React.useMemo(() => {
+    if (!deliveryConfig || deliveryType !== 'delivery') return 0;
+    const distKm = deliveryCheckoutData?.distanceKm ?? 0;
+    const result = getDeliveryFeeForDistance(distKm, deliveryConfig);
+    if (result.mode === 'manual' || result.mode === 'out_of_range') return 0;
+    return result.fee ?? 0;
+  }, [deliveryConfig, deliveryCheckoutData, deliveryType]);
+
+  // ¿El costo está por confirmar?
+  const deliveryFeeIsPending = React.useMemo(() => {
+    if (!deliveryConfig || deliveryType !== 'delivery') return false;
+    const distKm = deliveryCheckoutData?.distanceKm ?? 0;
+    const result = getDeliveryFeeForDistance(distKm, deliveryConfig);
+    return result.mode === 'manual';
+  }, [deliveryConfig, deliveryCheckoutData, deliveryType]);
+
+  // Métodos de pago disponibles para delivery (filtrados por config del admin)
+  const availableDeliveryPaymentMethods = React.useMemo(() => {
+    if (deliveryType !== 'delivery' || !deliveryConfig) return ['sinpe', 'efectivo', 'tarjeta'] as Array<'sinpe' | 'efectivo' | 'tarjeta'>;
+    return getAvailablePaymentMethods(deliveryConfig);
+  }, [deliveryConfig, deliveryType]);
+
+  // Auto-selección: si solo hay un método activo, seleccionarlo automáticamente
+  React.useEffect(() => {
+    if (deliveryType === 'delivery' && availableDeliveryPaymentMethods.length === 1 && !paymentMethod) {
+      setPaymentMethod(availableDeliveryPaymentMethods[0] as PaymentMethod);
+    }
+  }, [availableDeliveryPaymentMethods, deliveryType, paymentMethod]);
+
+  // Bloqueo de checkout: ningún método activo para delivery
+  const noPaymentMethodsAvailable = deliveryType === 'delivery' && deliveryConfig !== null && availableDeliveryPaymentMethods.length === 0;
+
+  // ¿El restaurante acepta pedidos ahora?
+  const ordersAccepted = React.useMemo(() => {
+    if (!deliveryConfig) return true;
+    const channel = deliveryType === 'delivery' ? 'delivery' : deliveryType === 'takeout' ? 'takeout' : 'dine_in';
+    return canAcceptOrdersNow(deliveryConfig, channel);
+  }, [deliveryConfig, deliveryType]);
 
   const handleRequestGPS = () => {
     if (!navigator.geolocation) {
@@ -576,6 +641,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         sinpe: 'pendiente',
         efectivo: 'pendiente',
         tarjeta: 'pendiente',
+        pos_externo: 'pendiente', // dine-in/takeout: cobro externo, pedido entra directo a cocina
       };
 
       const { data: orderData, error: orderError } = await supabase
@@ -619,6 +685,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           delivery_distance_km: deliveryType === 'delivery' ? (deliveryCheckoutData?.distanceKm ?? null) : null,
           delivery_eta_minutes: deliveryType === 'delivery' ? (deliveryCheckoutData?.etaMinutes ?? null) : null,
           delivery_destination_id: deliveryType === 'delivery' ? (deliveryCheckoutData?.destinationId ?? null) : null,
+          // SINPE: pago no verificado hasta que el admin revise el comprobante
+          payment_verified: method !== 'sinpe', // pos_externo = true (cobro externo, no requiere verificación)
         })
         .select('id, order_number')
         .single();
@@ -636,7 +704,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setOrderId(orderData.id);
 
         // F7: Motor de orquestación — inicializar logistic_status para pedidos delivery
-        if (deliveryType === 'delivery' && tenant?.id) {
+        // SINPE: NO inicializar logística hasta que el admin valide el pago.
+        // El pedido queda en status='pendiente' hasta la validación manual.
+        if (deliveryType === 'delivery' && tenant?.id && method !== 'sinpe') {
           initOrderLogistics(orderData.id, tenant.id)
             .then(({ logisticStatus, availability }) => {
               console.info(
@@ -670,12 +740,19 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     await handleSubmitOrderWithMethod(paymentMethod);
   };
 
+  // PAYMENT GATING: dine-in/takeout skip payment selection, submit directly
+  const handleProceedDirect = useCallback(async (_allMenuItemsArg?: MenuItem[]) => {
+    const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
+    await handleSubmitOrderWithMethod(defaultMethod);
+  }, [deliveryType, customerName, openTab, items, totalPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const paymentMethodLabel = (method: PaymentMethod | null): string => {
     if (!method) return '';
     const labels: Record<PaymentMethod, Record<string, string>> = {
       sinpe: { es: 'SINPE Móvil', en: 'SINPE Mobile' },
       efectivo: { es: 'Efectivo', en: 'Cash' },
       tarjeta: { es: 'Tarjeta', en: 'Card' },
+      pos_externo: { es: 'POS Externo', en: 'External POS' },
     };
     return labels[method]?.[lang] || labels[method]?.es || '';
   };
@@ -760,13 +837,17 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     confirmation: t('confirm.title'),
   };
 
+  // PAYMENT GATING: dine-in/takeout saltan select_payment y van directo a confirmation
+  const _showPaymentUI = shouldShowPaymentUI(deliveryType as OrderChannel);
   const stepOrder: Step[] = deliveryType === 'delivery'
     ? ['order_type', 'delivery_address', 'customer_info', 'select_payment', 'payment', 'confirmation']
-    : ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation'];
+    : _showPaymentUI
+      ? ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation']
+      : ['order_type', 'customer_info', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
-  // Payment method config
-  const paymentOptions: { method: PaymentMethod; icon: React.ReactNode; label: string; desc: string; color: string; bg: string }[] = [
+  // Payment method config — all options
+  const allPaymentOptions: { method: PaymentMethod; icon: React.ReactNode; label: string; desc: string; color: string; bg: string }[] = [
     {
       method: 'sinpe',
       icon: <Smartphone size={28} style={{ color: '#6C63FF' }} />,
@@ -792,6 +873,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       bg: '#E5393515',
     },
   ];
+  // Filter by admin config: delivery y takeout respetan la config; dine-in muestra todos
+  const paymentOptions = (deliveryType === 'delivery' || deliveryType === 'takeout') && deliveryConfig
+    ? allPaymentOptions.filter(opt => availableDeliveryPaymentMethods.includes(opt.method as any))
+    : allPaymentOptions;
 
   return (
     <AnimatePresence>
@@ -969,12 +1054,43 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
                 {items.length > 0 && (
                   <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
+                    {/* Subtotal */}
                     <div className="flex justify-between items-center">
+                      <span className="text-sm" style={{ color: `${theme.text_color}80` }}>
+                        Subtotal
+                      </span>
+                      <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
+                        {formatPrice(totalPrice)}
+                      </span>
+                    </div>
+                    {/* Tarifa de delivery estimada */}
+                    {deliveryType === 'delivery' && deliveryPricing && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: `${theme.text_color}80` }}>
+                            🚴 Envío estimado
+                            {deliveryCheckoutData?.distanceKm ? ` (${deliveryCheckoutData.distanceKm.toFixed(1)} km)` : ''}
+                          </span>
+                          <span className="text-sm font-semibold" style={{ color: deliveryFeeIsPending ? '#F59E0B' : theme.primary_color }}>
+                            {deliveryFeeIsPending
+                              ? 'Por confirmar'
+                              : estimatedDeliveryFee > 0 ? formatPrice(estimatedDeliveryFee) : 'Gratis'}
+                          </span>
+                        </div>
+                        {deliveryPricing.fee_variability_msg && (
+                          <p className="text-[11px] px-2 py-1 rounded-lg" style={{ backgroundColor: `${theme.primary_color}12`, color: `${theme.text_color}70` }}>
+                            ⚠️ {deliveryPricing.fee_variability_msg}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {/* Total final */}
+                    <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                       <span className="text-base font-semibold" style={{ color: theme.text_color }}>
                         {t('cart.total')}
                       </span>
                       <span className="text-xl font-bold" style={{ color: theme.primary_color }}>
-                        {formatPrice(totalPrice)}
+                        {formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}
                       </span>
                     </div>
                     {openTab && (
@@ -985,10 +1101,39 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </span>
                       </div>
                     )}
+                    {/* Kitchen closed banner */}
+                    {deliveryConfig && !deliveryConfig.orders_enabled && (
+                      <div
+                        className="flex items-start gap-2 px-3 py-3 rounded-xl text-sm"
+                        style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}
+                      >
+                        <span className="text-lg">🔒</span>
+                        <div>
+                          <p className="font-bold text-red-400 text-xs mb-0.5">No aceptamos pedidos en este momento</p>
+                          <p className="text-xs" style={{ color: `${theme.text_color}80` }}>
+                            {deliveryConfig.closed_message || 'Por el momento no estamos recibiendo pedidos desde el menú.'}
+                          </p>
+                          {tenant.whatsapp_number && (
+                            <a
+                              href={`https://wa.me/${tenant.whatsapp_number.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-green-400"
+                            >
+                              📱 Contactar por WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <motion.button
-                      onClick={() => openTab ? handleProceedToPayment(allMenuItems) : setStep('order_type')}
+                      onClick={() => {
+                        if (deliveryConfig && !deliveryConfig.orders_enabled) return;
+                        openTab ? handleProceedToPayment(allMenuItems) : setStep('order_type');
+                      }}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                      disabled={!!(deliveryConfig && !deliveryConfig.orders_enabled)}
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
                         backgroundColor: openTab ? '#F59E0B' : theme.primary_color,
                         boxShadow: openTab ? '0 4px 16px rgba(245,158,11,0.3)' : `0 4px 16px ${theme.primary_color}40`,
@@ -1308,8 +1453,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                   <motion.button
-                    onClick={() => handleProceedToPayment(allMenuItems)}
-                    disabled={!canProceedToPayment}
+                    onClick={() => _showPaymentUI ? handleProceedToPayment(allMenuItems) : handleProceedDirect(allMenuItems)}
+                    disabled={!canProceedToPayment || uploading}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
@@ -1318,7 +1463,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       color: 'var(--menu-accent-contrast)',
                     }}
                   >
-                    {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
+                    {uploading ? (
+                      <><Loader2 size={20} className="animate-spin" />{lang === 'es' ? 'Enviando...' : 'Sending...'}</>
+                    ) : _showPaymentUI
+                      ? (lang === 'es' ? 'Continuar al pago' : 'Continue to payment')
+                      : (lang === 'es' ? 'Enviar pedido' : 'Send order')
+                    }
                   </motion.button>
                 </div>
               </>
@@ -1341,21 +1491,44 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     </span>
                   </div>
 
-                  {/* V17.2: Nota de pago diferido */}
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
-                    style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
-                  >
-                    <span className="text-lg">🍽️</span>
-                    <span style={{ opacity: 0.85 }}>
-                      {lang === 'es'
-                        ? 'Nota: El pago se realiza al finalizar tu comida.'
-                        : 'Note: Payment is made at the end of your meal.'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
-                    {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
-                  </p>
+                  {/* Nota de pago diferido: solo para dine-in */}
+                  {deliveryType === 'dine_in' && (
+                    <div
+                      className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
+                      style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
+                    >
+                      <span className="text-lg">🍽️</span>
+                      <span style={{ opacity: 0.85 }}>
+                        {lang === 'es'
+                          ? 'Nota: El pago se realiza al finalizar tu comida.'
+                          : 'Note: Payment is made at the end of your meal.'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Bloqueo: ningún método activo para delivery */}
+                  {noPaymentMethodsAvailable ? (
+                    <div
+                      className="flex items-start gap-3 px-4 py-4 rounded-2xl"
+                      style={{ backgroundColor: '#EF444415', border: '1px solid #EF444440' }}
+                    >
+                      <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: '#EF4444' }}>
+                          {lang === 'es' ? 'Pagos no disponibles' : 'Payments unavailable'}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: theme.text_color, opacity: 0.7 }}>
+                          {lang === 'es'
+                            ? 'El restaurante no tiene métodos de pago activos para delivery. Contáctanos para más información.'
+                            : 'The restaurant has no active payment methods for delivery. Contact us for more information.'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-center opacity-60" style={{ color: theme.text_color }}>
+                      {lang === 'es' ? 'Selecciona tu método de pago' : 'Select your payment method'}
+                    </p>
+                  )}
 
                   {/* BUG 1 FIX: Payment method buttons with visual selection state */}
                   <div className="space-y-3">
@@ -1394,13 +1567,28 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                               className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: opt.color }}
                             >
-                              <Check size={14} className="text-white" />
+                              <Check size={14} className="text-foreground" />
                             </div>
                           )}
                         </motion.button>
                       );
                     })}
                   </div>
+
+                  {/* Nota informativa SINPE: el pedido queda en espera hasta verificación */}
+                  {paymentMethod === 'sinpe' && (
+                    <div
+                      className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs"
+                      style={{ backgroundColor: '#8B5CF615', border: '1px solid #8B5CF640', color: theme.text_color }}
+                    >
+                      <span className="text-base flex-shrink-0">⏳</span>
+                      <span style={{ opacity: 0.85 }}>
+                        {lang === 'es'
+                          ? 'Tu pedido quedará en espera hasta que el restaurante verifique tu pago SINPE. Podrás subir el comprobante desde el estado del pedido.'
+                          : 'Your order will be on hold until the restaurant verifies your SINPE payment. You can upload the receipt from the order status page.'}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Error message */}
                   {errorMsg && (
@@ -1411,8 +1599,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   )}
                 </div>
 
-                {/* V17.2: Confirm button shown for ALL methods (including SINPE — no receipt required now) */}
-                {paymentMethod && (
+                {/* Confirm button: solo si hay método seleccionado Y hay métodos activos */}
+                {paymentMethod && !noPaymentMethodsAvailable && (
                   <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                     <motion.button
                       onClick={handleSubmitOrder}
@@ -1508,23 +1696,45 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                           onClick={() => { setReceiptFile(null); setReceiptPreview(''); }}
                           className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
                         >
-                          <X size={14} className="text-white" />
+                          <X size={14} className="text-foreground" />
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => receiptInputRef.current?.click()}
-                        className="w-full py-6 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
-                        style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
-                      >
-                        <Camera size={24} />
-                        <span className="text-sm font-medium">{t('payment.take_photo')}</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Botón cámara */}
+                        <button
+                          onClick={() => receiptCameraInputRef.current?.click()}
+                          className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
+                          style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
+                        >
+                          <Camera size={22} />
+                          <span className="text-xs font-semibold">{lang === 'es' ? 'Tomar foto' : 'Take photo'}</span>
+                        </button>
+                        {/* Botón galería */}
+                        <button
+                          onClick={() => receiptInputRef.current?.click()}
+                          className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all hover:opacity-80"
+                          style={{ borderColor: `${theme.primary_color}30`, color: theme.primary_color }}
+                        >
+                          <span className="text-2xl">🖼️</span>
+                          <span className="text-xs font-semibold">{lang === 'es' ? 'Desde galería' : 'From gallery'}</span>
+                        </button>
+                      </div>
                     )}
+                    {/* Input galería (sin capture) */}
                     <input
                       ref={receiptInputRef}
                       type="file"
                       accept="image/*"
+                      onChange={handleReceiptSelect}
+                      className="hidden"
+                    />
+                    {/* Input cámara (con capture) */}
+                    <input
+                      ref={receiptCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
                       onChange={handleReceiptSelect}
                       className="hidden"
                     />
@@ -1546,9 +1756,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                     style={{
-                      backgroundColor: '#25D366',
+                      backgroundColor: receiptFile ? '#25D366' : theme.primary_color,
                       color: '#fff',
-                      boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',
+                      boxShadow: receiptFile ? '0 4px 16px rgba(37, 211, 102, 0.3)' : `0 4px 16px ${theme.primary_color}40`,
                     }}
                   >
                     {uploading ? (
@@ -1556,13 +1766,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         <Loader2 size={20} className="animate-spin" />
                         {t('payment.processing')}
                       </>
+                    ) : receiptFile ? (
+                      <>
+                        <Check size={20} />
+                        {lang === 'es' ? 'Confirmar con comprobante' : 'Confirm with receipt'}
+                      </>
                     ) : (
                       <>
                         <ShoppingBag size={20} />
-                        {t('payment.confirm')}
+                        {lang === 'es' ? 'Ya hice el SINPE → Confirmar' : 'SINPE sent → Confirm'}
                       </>
                     )}
                   </motion.button>
+                  {!receiptFile && (
+                    <p className="text-center text-xs opacity-50" style={{ color: theme.text_color }}>
+                      {lang === 'es'
+                        ? 'Puedes subir el comprobante ahora o desde \"Ver estado de mi pedido\" después.'
+                        : 'You can upload the receipt now or from \"Track my order\" later.'}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -1580,9 +1802,37 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <h3 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Lora', serif", color: theme.text_color }}>
                       {t('confirm.order_number')} #{orderNumber}
                     </h3>
-                    <p className="text-sm opacity-60 mb-6" style={{ color: theme.text_color }}>
+                    <p className="text-sm opacity-60 mb-4" style={{ color: theme.text_color }}>
                       {lang === 'es' ? 'Tu pedido fue registrado exitosamente' : 'Your order was registered successfully'}
                     </p>
+
+                    {/* ── Mensaje contextual por tipo de pedido ── */}
+                    {deliveryType === 'takeout' && (
+                      <div
+                        className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs mb-4 text-left"
+                        style={{ backgroundColor: '#10B98115', border: '1px solid #10B98140', color: theme.text_color }}
+                      >
+                        <span className="text-base flex-shrink-0">🏪</span>
+                        <span style={{ opacity: 0.9 }}>
+                          {lang === 'es'
+                            ? 'Tu pedido estará listo para retiro en el local. Te avisaremos cuando esté preparado.'
+                            : 'Your order will be ready for pickup at the restaurant. We will notify you when it is ready.'}
+                        </span>
+                      </div>
+                    )}
+                    {deliveryType === 'delivery' && paymentMethod === 'sinpe' && (
+                      <div
+                        className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs mb-4 text-left"
+                        style={{ backgroundColor: '#8B5CF615', border: '1px solid #8B5CF640', color: theme.text_color }}
+                      >
+                        <span className="text-base flex-shrink-0">⏳</span>
+                        <span style={{ opacity: 0.9 }}>
+                          {lang === 'es'
+                            ? 'Tu pedido está en espera. Sube tu comprobante de SINPE desde \"Ver estado de mi pedido\" para que el restaurante lo verifique.'
+                            : 'Your order is on hold. Upload your SINPE receipt from \"Track my order\" so the restaurant can verify it.'}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Order summary */}
                     <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
@@ -1611,7 +1861,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     <motion.button
                       onClick={handleWhatsApp}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-white transition-all"
+                      className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 text-foreground transition-all"
                       style={{
                         backgroundColor: '#25D366',
                         boxShadow: '0 4px 16px rgba(37, 211, 102, 0.3)',

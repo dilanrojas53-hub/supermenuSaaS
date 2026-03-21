@@ -103,7 +103,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   // Form de nuevo rider
   const [newRider, setNewRider] = useState({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
   const [savingRider, setSavingRider] = useState(false);
-  const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number } | null>(null);
+  const [deliverySettings, setDeliverySettings] = useState<{ restaurant_lat: number; restaurant_lon: number; completion_mode?: string; sinpe_block_mode?: string } | null>(null);
 
   // F6-B: Push Notifications — admin usa sendPush para notificar riders y clientes
   const { sendPush } = usePushNotifications({
@@ -126,17 +126,17 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const fetchOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items')
+      .select('id, order_number, delivery_address, delivery_phone, delivery_lat, delivery_lon, delivery_formatted_address, delivery_eta_minutes, delivery_distance_km, delivery_status, logistic_status, waitlisted_at, kitchen_committed_at, rider_id, total, created_at, items, payment_verified, payment_method, status')
       .eq('tenant_id', tenant.id)
       .eq('delivery_type', 'delivery')
-      .not('delivery_status', 'in', '(delivered,cancelled)')
+      .or('delivery_status.is.null,delivery_status.not.in.(delivered,cancelled)')
       .order('created_at', { ascending: false });
     if (data) setOrders(data);
   }, [tenant.id]);
 
   useEffect(() => {
     // Cargar coordenadas del restaurante para el mapa
-    supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon').eq('tenant_id', tenant.id).single()
+    supabase.from('delivery_settings').select('restaurant_lat, restaurant_lon, completion_mode, sinpe_block_mode').eq('tenant_id', tenant.id).single()
       .then(({ data }) => { if (data) setDeliverySettings(data as any); });
     Promise.all([fetchRiders(), fetchOrders()]).finally(() => setLoading(false));
     // Cargar disponibilidad inicial + cola priorizada F9
@@ -265,21 +265,33 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
   const waitlistOrders = orders.filter(o => o.logistic_status === 'waitlist');
   // Soft-reserve: disponibilidad confirmada, pendiente de commit manual
   const softReserveOrders = orders.filter(o => o.logistic_status === 'soft_reserve');
-  // Comprometidos con cocina pero sin rider asignado
+  // REGLA PRINCIPAL: solo pedidos en estado 'listo' (cocina terminó) pueden asignarse al rider
+  // REGLA SINPE: respetar sinpe_block_mode configurado en delivery_settings
+  const sinpeBlockMode = deliverySettings?.sinpe_block_mode ?? 'always';
+  const isSinpeBlockedForDispatch = (o: DeliveryOrder & { payment_method?: string; payment_verified?: boolean }) => {
+    if ((o as any).payment_method !== 'sinpe') return false;
+    if ((o as any).payment_verified) return false;
+    if (sinpeBlockMode === 'never') return false;
+    // 'always' o 'delivery_only' — en DeliveryDispatchPanel todos son delivery, así que ambos bloquean
+    return true;
+  };
   const committedUnassigned = orders.filter(o =>
+    (o as any).status === 'listo' &&
     o.kitchen_committed_at != null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment') &&
     o.logistic_status !== 'waitlist' &&
-    o.logistic_status !== 'soft_reserve'
+    o.logistic_status !== 'soft_reserve' &&
+    !isSinpeBlockedForDispatch(o as any)
   );
-  // Fallback: pedidos sin logistic_status (legacy) sin asignar
+  // Fallback legacy: pedidos 'listo' sin logistic_status (compatibilidad hacia atrás)
   const legacyUnassigned = orders.filter(o =>
+    (o as any).status === 'listo' &&
     o.logistic_status == null &&
     (!o.rider_id || o.delivery_status === 'pending_assignment')
   );
   // Todos sin asignar (para la sección de dispatch)
   const unassigned = [...committedUnassigned, ...legacyUnassigned];
-  const assigned   = orders.filter(o => o.rider_id && o.delivery_status !== 'pending_assignment');
+  const assigned   = orders.filter(o => o.rider_id && o.delivery_status !== 'pending_assignment' && o.delivery_status !== 'delivered');
 
   // ─── Commit manual a cocina ──────────────────────────────────────────────
   const handleCommitToKitchen = async (orderId: string) => {
@@ -339,11 +351,11 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-white font-bold text-base flex items-center gap-2">
+          <h3 className="text-[#f1f5f9] font-bold text-base flex items-center gap-2">
             <Bike size={16} className="text-blue-400" />
             Dispatch de Delivery
           </h3>
-          <p className="text-slate-400 text-xs mt-0.5">
+          <p className="text-[#94a3b8] text-xs mt-0.5">
             {unassigned.length} sin asignar · {assigned.length} en curso · {riders.filter(r => r.is_active).length} riders activos
             {waitlistOrders.length > 0 && <span className="text-amber-400 ml-1">· {waitlistOrders.length} en espera</span>}
           </p>
@@ -351,7 +363,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => Promise.all([fetchRiders(), fetchOrders()])}
-            className="p-2 rounded-lg text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg text-[#94a3b8] hover:text-[#f1f5f9] transition-colors"
           >
             <RefreshCw size={14} />
           </button>
@@ -386,23 +398,23 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
             </div>
             <button
               onClick={() => evaluateAvailability(tenant.id).then(setAvailability)}
-              className="text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-[#64748b] hover:text-[#94a3b8] transition-colors"
             >
               <RefreshCw size={11} />
             </button>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-white font-black text-sm">{availability.availableRiders}</p>
-              <p className="text-slate-500 text-[10px]">Riders libres</p>
+              <p className="text-[#f1f5f9] font-black text-sm">{availability.availableRiders}</p>
+              <p className="text-[#64748b] text-[10px]">Riders libres</p>
             </div>
             <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-white font-black text-sm">{availability.totalActiveDeliveries}/{availability.maxConcurrent}</p>
-              <p className="text-slate-500 text-[10px]">Entregas activas</p>
+              <p className="text-[#f1f5f9] font-black text-sm">{availability.totalActiveDeliveries}/{availability.maxConcurrent}</p>
+              <p className="text-[#64748b] text-[10px]">Entregas activas</p>
             </div>
             <div className="rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-white font-black text-sm">{availability.capacityUsedPct}%</p>
-              <p className="text-slate-500 text-[10px]">Capacidad</p>
+              <p className="text-[#f1f5f9] font-black text-sm">{availability.capacityUsedPct}%</p>
+              <p className="text-[#64748b] text-[10px]">Capacidad</p>
             </div>
           </div>
           {/* F9: Razón de bloqueo explicable */}
@@ -424,12 +436,12 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                  'Capacidad'}
               </span>
             )}
-            <p className="text-slate-500 text-[10px] leading-tight">{availability.reason}</p>
+            <p className="text-[#64748b] text-[10px] leading-tight">{availability.reason}</p>
           </div>
           {/* F9: Indicador de buffer */}
           {availability.commitBufferPct && (
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 rounded-full bg-slate-700 overflow-hidden">
+              <div className="flex-1 h-1 rounded-full bg-[#1e293b] overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
@@ -465,12 +477,12 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                 style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)' }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-white font-black">#{order.order_number}</span>
+                  <span className="text-[#f1f5f9] font-black">#{order.order_number}</span>
                   <div>
-                    <p className="text-slate-300 text-xs leading-tight">
+                    <p className="text-[#94a3b8] text-xs leading-tight">
                       {order.delivery_formatted_address || order.delivery_address}
                     </p>
-                    <p className="text-slate-500 text-[10px]">
+                    <p className="text-[#64748b] text-[10px]">
                       {formatPrice(order.total)}
                       {order.delivery_distance_km && ` · ${order.delivery_distance_km.toFixed(1)} km`}
                     </p>
@@ -579,18 +591,18 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-white font-bold text-sm">#{orderNum}</p>
+                        <p className="text-[#f1f5f9] font-bold text-sm">#{orderNum}</p>
                         {isOverThreshold && (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/15 text-red-400">
                             Urgente
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-400 text-xs leading-tight">
+                      <p className="text-[#94a3b8] text-xs leading-tight">
                         {order?.delivery_formatted_address || order?.delivery_address || '—'}
                       </p>
                       {/* F9: Razón de prioridad */}
-                      <p className="text-slate-500 text-[10px]">
+                      <p className="text-[#64748b] text-[10px]">
                         {priorityReason || (order?.waitlisted_at
                           ? `En espera desde ${new Date(order.waitlisted_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
                           : '')}
@@ -624,17 +636,17 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       >
         <div>
           <p className="text-blue-300 font-semibold">App para Repartidores</p>
-          <p className="text-slate-500 mt-0.5 font-mono">{riderAppUrl}</p>
+          <p className="text-[#64748b] mt-0.5 font-mono">{riderAppUrl}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => { navigator.clipboard.writeText(riderAppUrl); toast.success('URL copiada'); }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg text-[#94a3b8] hover:text-[#f1f5f9] transition-colors"
           >
             <Copy size={13} />
           </button>
           <a href={riderAppUrl} target="_blank" rel="noopener noreferrer"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 transition-colors">
+            className="p-1.5 rounded-lg text-[#94a3b8] hover:text-blue-400 transition-colors">
             <ExternalLink size={13} />
           </a>
         </div>
@@ -642,9 +654,9 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
 
       {/* ─── Riders ─────────────────────────────────────────────────────────── */}
       <div>
-        <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">Repartidores</h4>
+        <h4 className="text-[#94a3b8] text-xs font-bold uppercase tracking-wide mb-3">Repartidores</h4>
         {riders.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 text-sm">
+          <div className="text-center py-8 text-[#64748b] text-sm">
             No hay riders registrados. Agrega uno arriba.
           </div>
         ) : (
@@ -676,14 +688,14 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                         )}
                       </div>
                       <div>
-                        <p className="text-white text-sm font-bold">{rider.name}</p>
-                        <p className="text-slate-500 text-xs">{rider.vehicle_type} · {rider.phone || 'Sin teléfono'}</p>
+                        <p className="text-[#f1f5f9] text-sm font-bold">{rider.name}</p>
+                        <p className="text-[#64748b] text-xs">{rider.vehicle_type} · {rider.phone || 'Sin teléfono'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setShowPins(p => ({ ...p, [rider.id]: !p[rider.id] }))}
-                        className="p-1.5 rounded text-slate-500 hover:text-white transition-colors"
+                        className="p-1.5 rounded text-[#64748b] hover:text-[#f1f5f9] transition-colors"
                         title="Ver PIN"
                       >
                         {showPins[rider.id] ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -721,7 +733,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Pedidos sin asignar ─────────────────────────────────────────────── */}
       {unassigned.length > 0 && (
         <div>
-          <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h4 className="text-[#94a3b8] text-xs font-bold uppercase tracking-wide mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
             Sin asignar ({unassigned.length})
           </h4>
@@ -735,10 +747,10 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                 <div className="px-4 py-3 flex items-center justify-between border-b border-yellow-500/10">
                   <div className="flex items-center gap-2">
                     <AlertCircle size={14} className="text-yellow-400" />
-                    <span className="text-white font-black">#{order.order_number}</span>
-                    <span className="text-slate-400 text-sm">{formatPrice(order.total)}</span>
+                    <span className="text-[#f1f5f9] font-black">#{order.order_number}</span>
+                    <span className="text-[#94a3b8] text-sm">{formatPrice(order.total)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-[#64748b]">
                     <Clock size={11} />
                     {new Date(order.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                   </div>
@@ -747,25 +759,25 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                 <div className="px-4 py-3 space-y-2">
                   <div className="flex items-start gap-2">
                     <MapPin size={13} className="text-yellow-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-slate-300 text-xs leading-snug">
+                    <p className="text-[#94a3b8] text-xs leading-snug">
                       {order.delivery_formatted_address || order.delivery_address}
                       {order.delivery_distance_km && (
-                        <span className="text-slate-500 ml-1">· {order.delivery_distance_km.toFixed(1)} km</span>
+                        <span className="text-[#64748b] ml-1">· {order.delivery_distance_km.toFixed(1)} km</span>
                       )}
                     </p>
                   </div>
 
                   {order.delivery_phone && (
                     <div className="flex items-center gap-2">
-                      <Phone size={11} className="text-slate-500" />
-                      <span className="text-slate-400 text-xs">{order.delivery_phone}</span>
+                      <Phone size={11} className="text-[#64748b]" />
+                      <span className="text-[#94a3b8] text-xs">{order.delivery_phone}</span>
                     </div>
                   )}
 
                   {/* Selector de rider */}
                   {riders.filter(r => r.is_active).length > 0 ? (
                     <div>
-                      <p className="text-slate-500 text-xs mb-2">Asignar a:</p>
+                      <p className="text-[#64748b] text-xs mb-2">Asignar a:</p>
                       <div className="flex flex-wrap gap-2">
                         {riders.filter(r => r.is_active).map(rider => {
                           const isBusy = assigned.some(o => o.rider_id === rider.id && o.delivery_status === 'picked_up');
@@ -793,7 +805,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-slate-500 text-xs">No hay riders activos. Agrega uno primero.</p>
+                    <p className="text-[#64748b] text-xs">No hay riders activos. Agrega uno primero.</p>
                   )}
                 </div>
               </div>
@@ -805,11 +817,34 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Pedidos en curso ────────────────────────────────────────────────── */}
       {assigned.length > 0 && (
         <div>
-          <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wide mb-3">En curso ({assigned.length})</h4>
+          <h4 className="text-[#94a3b8] text-xs font-bold uppercase tracking-wide mb-3">En curso ({assigned.length})</h4>
           <div className="space-y-2">
             {assigned.map(order => {
               const rider = riders.find(r => r.id === order.rider_id);
               const statusInfo = STATUS_LABELS[order.delivery_status || 'assigned'];
+              // completion_mode: 'on_pickup' → completar cuando el rider recoge; 'on_delivery' → cuando entrega
+              const completionMode = deliverySettings?.completion_mode ?? 'on_delivery';
+              const canCompleteNow =
+                completionMode === 'on_pickup'
+                  ? order.delivery_status === 'assigned' || order.delivery_status === 'accepted'
+                  : order.delivery_status === 'picked_up';
+              const completionLabel = completionMode === 'on_pickup' ? 'Rider recogió' : 'Marcar entregado';
+              const completionNextStatus = completionMode === 'on_pickup' ? 'picked_up' : 'delivered';
+              const handleComplete = async () => {
+                const { error } = await supabase
+                  .from('orders')
+                  .update({
+                    delivery_status: completionNextStatus,
+                    ...(completionNextStatus === 'delivered' ? { status: 'entregado', logistic_status: 'delivered' } : { logistic_status: 'picked_up' }),
+                  })
+                  .eq('id', order.id);
+                if (!error) {
+                  toast.success(`Pedido #${order.order_number} ${completionMode === 'on_pickup' ? 'recogido por rider' : 'entregado'} ✅`);
+                  fetchOrders();
+                } else {
+                  toast.error('Error al actualizar el estado');
+                }
+              };
               return (
                 <div
                   key={order.id}
@@ -817,10 +852,10 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                   style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-black text-sm">#{order.order_number}</span>
+                    <span className="text-[#f1f5f9] font-black text-sm">#{order.order_number}</span>
                     <div>
-                      <p className="text-slate-300 text-xs">{rider?.name || 'Rider'}</p>
-                      <p className="text-slate-500 text-xs">{order.delivery_distance_km?.toFixed(1)} km</p>
+                      <p className="text-[#94a3b8] text-xs">{rider?.name || 'Rider'}</p>
+                      <p className="text-[#64748b] text-xs">{order.delivery_distance_km?.toFixed(1)} km</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -828,7 +863,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                       <>
                         <button
                           onClick={() => setTrackingOrder(order)}
-                          className="p-1.5 rounded text-slate-500 hover:text-blue-400 transition-colors"
+                          className="p-1.5 rounded text-[#64748b] hover:text-blue-400 transition-colors"
                           title="Ver en mapa"
                         >
                           <Navigation size={12} />
@@ -836,7 +871,7 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                         <a
                           href={buildDirectionsLink(0, 0, order.delivery_lat, order.delivery_lon)}
                           target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                          className="p-1.5 rounded text-[#64748b] hover:text-[#94a3b8] transition-colors"
                         >
                           <ExternalLink size={12} />
                         </a>
@@ -848,6 +883,16 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                     >
                       {statusInfo?.label}
                     </span>
+                    {canCompleteNow && (
+                      <button
+                        onClick={handleComplete}
+                        className="px-2 py-1 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.3)' }}
+                        title={completionLabel}
+                      >
+                        <CheckCircle2 size={12} className="inline mr-1" />{completionLabel}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -872,11 +917,11 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
               exit={{ y: 40, opacity: 0 }}
               onClick={e => e.stopPropagation()}
               className="w-full max-w-sm rounded-2xl p-6 space-y-4"
-              style={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ background: '#1a1f2e', border: '1px solid hsl(var(--border))' }}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-white font-bold">Nuevo Repartidor</h3>
-                <button onClick={() => setShowAddRider(false)} className="text-slate-400 hover:text-white">
+                <h3 className="text-[#f1f5f9] font-bold">Nuevo Repartidor</h3>
+                <button onClick={() => setShowAddRider(false)} className="text-[#94a3b8] hover:text-[#f1f5f9]">
                   <X size={16} />
                 </button>
               </div>
@@ -887,16 +932,16 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                   placeholder="Nombre del repartidor"
                   value={newRider.name}
                   onChange={e => setNewRider(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder-slate-500 outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm text-[#f1f5f9] placeholder-slate-500 outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid hsl(var(--border))' }}
                 />
                 <input
                   type="tel"
                   placeholder="Teléfono (opcional)"
                   value={newRider.phone}
                   onChange={e => setNewRider(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder-slate-500 outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm text-[#f1f5f9] placeholder-slate-500 outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid hsl(var(--border))' }}
                 />
                 <input
                   type="text"
@@ -904,14 +949,14 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                   value={newRider.pin}
                   maxLength={4}
                   onChange={e => setNewRider(p => ({ ...p, pin: e.target.value.replace(/\D/g, '') }))}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder-slate-500 outline-none font-mono tracking-widest"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm text-[#f1f5f9] placeholder-slate-500 outline-none font-mono tracking-widest"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid hsl(var(--border))' }}
                 />
                 <select
                   value={newRider.vehicle_type}
                   onChange={e => setNewRider(p => ({ ...p, vehicle_type: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm text-[#f1f5f9] outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid hsl(var(--border))' }}
                 >
                   <option value="moto">🛵 Moto</option>
                   <option value="bicicleta">🚲 Bicicleta</option>

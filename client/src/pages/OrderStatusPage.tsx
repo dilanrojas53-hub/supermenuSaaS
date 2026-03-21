@@ -8,14 +8,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useActiveOrder } from '@/hooks/useActiveOrder';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check, ShieldCheck } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import { buildMapsLink } from '@/lib/maps';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { formatPrice, ORDER_STATUS_CONFIG } from '@/lib/types';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
-import { applyTheme, getStoredTheme } from '@/lib/themes';
+import { applyRestaurantTheme } from '@/lib/themes';
 import { toast } from 'sonner';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -94,16 +94,16 @@ function SinpeTenantNumber({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/25">
+    <div className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ backgroundColor: 'var(--menu-bg)', borderColor: 'var(--menu-accent)' }}>
       <div>
-        <p className="text-xs text-slate-400 mb-0.5">Número SINPE del local</p>
-        <p className="text-lg font-black text-purple-200 tracking-wider">{sinpeNumber}</p>
-        {sinpeOwner && <p className="text-xs text-slate-500">A nombre de: {sinpeOwner}</p>}
+        <p className="text-xs mb-0.5" style={{ color: 'var(--menu-muted)' }}>Número SINPE del local</p>
+        <p className="text-lg font-black tracking-wider" style={{ color: 'var(--menu-accent)' }}>{sinpeNumber}</p>
+        {sinpeOwner && <p className="text-xs" style={{ color: 'var(--menu-muted)' }}>A nombre de: {sinpeOwner}</p>}
       </div>
       <button
         onClick={handleCopy}
         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-        style={{ backgroundColor: copied ? '#38A16920' : '#6C63FF20', color: copied ? '#38A169' : '#A78BFA' }}
+        style={{ backgroundColor: copied ? 'rgba(34,197,94,0.15)' : 'var(--menu-accent)' + '20', color: copied ? '#22C55E' : 'var(--menu-accent)' }}
       >
         {copied ? <Check size={14} /> : <Camera size={14} />}
         {copied ? 'Copiado' : 'Copiar'}
@@ -180,8 +180,8 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
   const currentIdx = DELIVERY_STEPS.findIndex(s => s.status === deliveryStatus);
 
   return (
-    <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-4">
-      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+    <div className="rounded-2xl p-5 border space-y-4" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
+      <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--menu-muted)' }}>
         <Bike size={14} className="text-orange-400" />
         Seguimiento del Delivery
       </h2>
@@ -196,7 +196,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">⏳</span>
               <div>
                 <p className="text-amber-300 text-sm font-bold">Tu pedido está en lista de espera</p>
-                <p className="text-slate-400 text-xs">Te notificaremos cuando haya disponibilidad</p>
+                <p className="text-muted-foreground text-xs">Te notificaremos cuando haya disponibilidad</p>
               </div>
             </div>
           )}
@@ -205,7 +205,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">✔️</span>
               <div>
                 <p className="text-blue-300 text-sm font-bold">Disponibilidad confirmada</p>
-                <p className="text-slate-400 text-xs">Tu pedido está siendo procesado</p>
+                <p className="text-muted-foreground text-xs">Tu pedido está siendo procesado</p>
               </div>
             </div>
           )}
@@ -214,7 +214,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">👨‍🍳</span>
               <div>
                 <p className="text-purple-300 text-sm font-bold">Cocina preparando tu pedido</p>
-                <p className="text-slate-400 text-xs">Pronto asignaremos un repartidor</p>
+                <p className="text-muted-foreground text-xs">Pronto asignaremos un repartidor</p>
               </div>
             </div>
           )}
@@ -223,7 +223,7 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
               <span className="text-lg">📦</span>
               <div>
                 <p className="text-yellow-300 text-sm font-bold">¡Pedido listo!</p>
-                <p className="text-slate-400 text-xs">Esperando que el repartidor lo recoja</p>
+                <p className="text-muted-foreground text-xs">Esperando que el repartidor lo recoja</p>
               </div>
             </div>
           )}
@@ -237,13 +237,13 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
                     style={{
-                      background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
+                      background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'var(--menu-border)',
                       border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
                     }}
                   >
                     {isDone ? '✓' : step.icon}
                   </div>
-                  <span className="text-sm" style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}>
+                  <span className="text-sm" style={{ color: isDone ? '#22C55E' : isActive ? step.color : 'var(--menu-muted)' }}>
                     {step.label}
                   </span>
                   {isActive && <div className="w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: step.color }} />}
@@ -263,15 +263,15 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all"
                   style={{
-                    background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'rgba(255,255,255,0.04)',
-                    border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'rgba(255,255,255,0.08)'}`,
+                    background: isDone ? 'rgba(34,197,94,0.2)' : isActive ? `${step.color}25` : 'var(--menu-border)',
+                    border: `1.5px solid ${isDone ? '#22C55E' : isActive ? step.color : 'var(--menu-border)'}`,
                   }}
                 >
                   {isDone ? '✓' : step.icon}
                 </div>
                 <span
                   className="text-sm font-semibold transition-all"
-                  style={{ color: isDone ? '#22C55E' : isActive ? step.color : '#475569' }}
+                  style={{ color: isDone ? '#22C55E' : isActive ? step.color : 'var(--menu-muted)' }}
                 >
                   {step.label}
                 </span>
@@ -286,17 +286,17 @@ function DeliveryTrackingBlock({ orderId, order }: { orderId: string; order: any
 
       {/* Info de dirección */}
       {order.delivery_formatted_address && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-slate-800/50">
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-muted/50">
           <MapPin size={13} className="text-orange-400 mt-0.5 flex-shrink-0" />
-          <p className="text-slate-300 text-xs leading-snug">{order.delivery_formatted_address}</p>
+          <p className="text-muted-foreground text-xs leading-snug">{order.delivery_formatted_address}</p>
         </div>
       )}
 
       {/* ETA */}
       {order.delivery_eta_minutes && deliveryStatus !== 'delivered' && (
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock size={12} />
-          <span>ETA estimado: <strong className="text-white">{order.delivery_eta_minutes} min</strong></span>
+          <span>ETA estimado: <strong className="text-foreground">{order.delivery_eta_minutes} min</strong></span>
         </div>
       )}
 
@@ -350,22 +350,24 @@ export default function OrderStatusPage() {
     }
   }, [order?.id, order?.delivery_type, order?.tenant_id]);
 
-  // FASE 3 V4.0: Aplicar tema B2B desde localStorage al cargar el trackingg
-  useEffect(() => {
-    applyTheme(getStoredTheme());
-  }, []);
-
-  // Push animation config to global context
+  // V19.0: Cargar tema del restaurante desde Supabase (igual que MenuPage)
   const { setAnimationConfig } = useAnimationConfig();
   useEffect(() => {
-    if (!order) return;
+    if (!order?.tenant_id) return;
     (async () => {
       const { data: themeData } = await supabase
         .from('theme_settings')
-        .select('primary_color, secondary_color, background_color, theme_animation')
+        .select('primary_color, secondary_color, background_color, surface_color, text_color, theme_animation')
         .eq('tenant_id', order.tenant_id)
         .single();
       if (themeData) {
+        // Aplicar colores del restaurante como CSS vars del menú público
+        applyRestaurantTheme({
+          background: themeData.background_color || '#0a0a0a',
+          surface:    (themeData as any).surface_color    || '#161616',
+          text:       (themeData as any).text_color       || '#f5f5f5',
+          primary:    themeData.primary_color    || '#c6a75e',
+        });
         setAnimationConfig({
           animation: themeData.theme_animation,
           primaryColor: themeData.primary_color,
@@ -383,7 +385,7 @@ export default function OrderStatusPage() {
   useEffect(() => {
     if (!order) return;
     const paymentStatus = (order as any).payment_status || 'pending';
-    const isSinpePending = order.payment_method === 'sinpe' && paymentStatus !== 'paid';
+    const isSinpePending = order.payment_method === 'sinpe' && isDelivery && paymentStatus !== 'paid'; // GATING
     const isFullyDone =
       (order.status === 'entregado' && !isSinpePending) ||
       order.status === 'cancelado';
@@ -406,11 +408,18 @@ export default function OrderStatusPage() {
   const isCompleted = order?.status === 'entregado';
   const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
   const isDelivery = (order as any)?.delivery_type === 'delivery';
+  // SINPE payment verification state
+  // GATING: SINPE solo aplica en delivery (dine-in/takeout cobran externamente)
+  const isSinpe = order?.payment_method === 'sinpe' && isDelivery;
+  const isPaymentVerified = (order as any)?.payment_verified === true;
+  const isPaymentPending = isSinpe && !isPaymentVerified && order?.status === 'pendiente';
   const isTakeout = (order as any)?.delivery_type === 'takeout';
   const scheduledDate = (order as any)?.scheduled_date;
   const scheduledTime = (order as any)?.scheduled_time;
   const deliveryAddress = (order as any)?.delivery_address;
   const deliveryPhone = (order as any)?.delivery_phone;
+  const deliveryLat = (order as any)?.delivery_lat;
+  const deliveryLon = (order as any)?.delivery_lon;
 
   // ── V21.0: Smart Bill ──
   const [billRequested, setBillRequested] = useState(false);
@@ -481,6 +490,7 @@ export default function OrderStatusPage() {
   const [sinpeUploading, setSinpeUploading] = useState(false);
   const [sinpeUploaded, setSinpeUploaded] = useState(false);
   const sinpeInputRef = useRef<HTMLInputElement>(null);
+  const sinpeCameraInputRef = useRef<HTMLInputElement>(null);
 
   // Detectar si ya tenía comprobante subido al cargar
   useEffect(() => {
@@ -592,11 +602,12 @@ export default function OrderStatusPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-          className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full"
+          className="w-10 h-10 rounded-full"
+          style={{ border: '3px solid var(--menu-accent)', borderTopColor: 'transparent' }}
         />
       </div>
     );
@@ -604,13 +615,14 @@ export default function OrderStatusPage() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ backgroundColor: 'var(--menu-bg)', color: 'var(--menu-text)' }}>
         <XCircle size={48} className="text-red-400 mb-4" />
         <h2 className="text-xl font-bold mb-2">Orden no encontrada</h2>
-        <p className="text-sm text-slate-400 mb-6">{error || 'La orden no existe o fue eliminada.'}</p>
+        <p className="text-sm mb-6" style={{ color: 'var(--menu-muted)' }}>{error || 'La orden no existe o fue eliminada.'}</p>
         <button
           onClick={() => window.history.back()}
-          className="px-6 py-3 rounded-full bg-amber-500 text-black font-bold text-sm"
+          className="px-6 py-3 rounded-full font-bold text-sm"
+          style={{ backgroundColor: 'var(--menu-accent)', color: 'var(--menu-accent-contrast, #000)' }}
         >
           Volver
         </button>
@@ -619,21 +631,22 @@ export default function OrderStatusPage() {
   }
 
   return (
-    <div className="min-h-screen text-white" style={{ backgroundColor: 'transparent' }}>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--menu-bg)', color: 'var(--menu-text)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-black/60 backdrop-blur-md border-b border-slate-800/50">
+      <div className="sticky top-0 z-10 backdrop-blur-md border-b" style={{ backgroundColor: 'var(--menu-bg)', borderColor: 'var(--menu-border)' }}>
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center"
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'var(--menu-surface)', color: 'var(--menu-muted)' }}
           >
-            <ArrowLeft size={18} className="text-slate-400" />
+            <ArrowLeft size={18} />
           </button>
           <div className="flex-1">
-            <h1 className="text-base font-bold" style={{ fontFamily: "'Lora', serif" }}>
+            <h1 className="text-base font-bold" style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}>
               Pedido #{order.order_number}
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs" style={{ color: 'var(--menu-muted)' }}>
               {new Date(order.created_at).toLocaleString('es-CR', {
                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
               })}
@@ -653,8 +666,8 @@ export default function OrderStatusPage() {
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* ─── STATUS TRACKER ─── */}
-        <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5">Estado del pedido</h2>
+        <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
+          <h2 className="text-sm font-bold uppercase tracking-wider mb-5" style={{ color: 'var(--menu-muted)' }}>Estado del pedido</h2>
 
           {isCancelled ? (
             <motion.div
@@ -664,12 +677,50 @@ export default function OrderStatusPage() {
             >
               <XCircle size={48} className="text-red-400 mx-auto mb-3" />
               <p className="text-lg font-bold text-red-400">Pedido cancelado</p>
-              <p className="text-sm text-slate-500 mt-1">Este pedido fue cancelado por el restaurante.</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Este pedido fue cancelado por el restaurante.</p>
             </motion.div>
           ) : (
             <div className="relative">
               {/* Vertical line */}
-              <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-slate-800" />
+              <div className="absolute left-5 top-5 bottom-5 w-0.5" style={{ backgroundColor: 'var(--menu-border)' }} />
+
+              {/* ── Paso especial: Verificación de pago SINPE ── */}
+              {isSinpe && (
+                <div className="relative flex items-start gap-4 mb-6">
+                  <motion.div
+                    animate={isPaymentPending ? { scale: [1, 1.15, 1] } : {}}
+                    transition={isPaymentPending ? { duration: 1.5, repeat: Infinity } : {}}
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all"
+                    style={{
+                      backgroundColor: isPaymentVerified ? '#10B98120' : isPaymentPending ? '#8B5CF620' : '#1e293b',
+                      color: isPaymentVerified ? '#10B981' : isPaymentPending ? '#A78BFA' : '#475569',
+                    }}
+                  >
+                    {isPaymentVerified
+                      ? <CheckCircle2 size={20} className="text-emerald-500" />
+                      : <ShieldCheck size={20} className={isPaymentPending ? 'animate-pulse' : ''} />
+                    }
+                  </motion.div>
+                  <div className="pt-2">
+                    <p className={`text-sm font-bold ${
+                      isPaymentVerified ? 'text-emerald-400' :
+                      isPaymentPending ? 'text-purple-300' : 'text-slate-600'
+                    }`}>
+                      {isPaymentVerified ? 'Pago SINPE confirmado ✅' : 'Verificando pago SINPE...'}
+                    </p>
+                    {isPaymentPending && (
+                      <p className="text-xs text-purple-400/70 mt-0.5 animate-pulse">
+                        ⏳ El restaurante está revisando tu comprobante
+                      </p>
+                    )}
+                    {isPaymentVerified && (
+                      <p className="text-xs text-emerald-400/60 mt-0.5">
+                        Tu pago fue verificado por el restaurante
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {STATUS_STEPS.map((step, idx) => {
                 const isActive = idx === currentStepIdx;
@@ -684,12 +735,12 @@ export default function OrderStatusPage() {
                       transition={isActive ? { duration: 1.5, repeat: Infinity } : {}}
                       className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all ${
                         isDone ? 'bg-emerald-500/20' :
-                        isActive ? 'ring-2 ring-offset-2 ring-offset-slate-900' :
-                        'bg-slate-800'
+                        isActive ? 'ring-2 ring-offset-2' :
+                        ''
                       }`}
                       style={{
-                        backgroundColor: isDone ? '#10B98120' : isActive ? `${step.color}20` : undefined,
-                        color: isDone ? '#10B981' : isActive ? step.color : '#475569',
+                        backgroundColor: isDone ? '#10B98120' : isActive ? `${step.color}20` : 'var(--menu-border)',
+                        color: isDone ? '#10B981' : isActive ? step.color : 'var(--menu-muted)',
                         // @ts-ignore ring color via Tailwind
                         '--tw-ring-color': isActive ? step.color : undefined,
                       } as React.CSSProperties}
@@ -703,7 +754,7 @@ export default function OrderStatusPage() {
 
                     {/* Text */}
                     <div className={`pt-2 ${isFuture ? 'opacity-30' : ''}`}>
-                      <p className={`text-sm font-bold ${isActive ? 'text-white' : isDone ? 'text-slate-400' : 'text-slate-600'}`}>
+                      <p className="text-sm font-bold" style={{ color: isActive ? 'var(--menu-text)' : isDone ? 'var(--menu-muted)' : 'var(--menu-muted)' }}>
                         {step.label}
                       </p>
                       {isActive && step.key === 'pendiente' && (
@@ -739,24 +790,24 @@ export default function OrderStatusPage() {
         {isDelivery && <DeliveryTrackingBlock orderId={order.id} order={order as any} />}
 
         {/* ─── ORDER DETAILS ─── */}
-        <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Detalle del pedido</h2>
+        <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
+          <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--menu-muted)' }}>Detalle del pedido</h2>
           <div className="space-y-1.5">
-            {(order.items as any[]).map((item: any, i: number) => (
+            {((order.items as any[]) || []).map((item: any, i: number) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-slate-300">
+                <span style={{ color: 'var(--menu-text)' }}>
                   {item.quantity}× {item.name}
                 </span>
-                <span className="text-slate-500">{formatPrice(item.price * item.quantity)}</span>
+                <span style={{ color: 'var(--menu-muted)' }}>{formatPrice(item.price * item.quantity)}</span>
               </div>
             ))}
           </div>
-          <div className="flex justify-between pt-3 mt-3 border-t border-slate-800 font-bold">
-            <span className="text-amber-400">Total</span>
-            <span className="text-amber-400">{formatPrice(order.total)}</span>
+          <div className="flex justify-between pt-3 mt-3 border-t font-bold" style={{ borderColor: 'var(--menu-border)' }}>
+            <span style={{ color: 'var(--menu-accent)' }}>Total</span>
+            <span style={{ color: 'var(--menu-accent)' }}>{formatPrice(order.total)}</span>
           </div>
           {order.customer_name && (
-            <div className="mt-3 pt-3 border-t border-slate-800/50 text-xs text-slate-500 space-y-0.5">
+            <div className="mt-3 pt-3 border-t text-xs space-y-0.5" style={{ borderColor: 'var(--menu-border)', color: 'var(--menu-muted)' }}>
               <p>👤 {order.customer_name}</p>
               {order.customer_table && <p>🪑 Mesa: {order.customer_table}</p>}
               {order.payment_method && <p>💳 {order.payment_method.toUpperCase()}</p>}
@@ -764,10 +815,10 @@ export default function OrderStatusPage() {
           )}
         </div>
 
-        {/* ─── TABLE QUICK REQUESTS ─── */}
-        {order.customer_table && order.status !== 'cancelado' && (
-          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">¿Necesitas algo en la mesa?</h2>
+        {/* ─── TABLE QUICK REQUESTS — solo dine_in ─── */}
+        {order.customer_table && order.status !== 'cancelado' && !isDelivery && !isTakeout && (
+          <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
+            <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--menu-muted)' }}>¿Necesitas algo en la mesa?</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {TABLE_QUICK_REQUESTS.map((request) => {
                 const isActive = activeQuickRequest === request.type;
@@ -779,9 +830,9 @@ export default function OrderStatusPage() {
                     disabled={!!quickRequestLoading}
                     className="rounded-xl px-3 py-3 text-sm font-bold border transition-all disabled:opacity-60"
                     style={{
-                      backgroundColor: isActive ? '#F59E0B20' : '#0f172a',
-                      borderColor: isActive ? '#F59E0B70' : '#334155',
-                      color: isActive ? '#FCD34D' : '#CBD5E1',
+                      backgroundColor: isActive ? 'var(--menu-accent)' + '20' : 'var(--menu-bg)',
+                      borderColor: isActive ? 'var(--menu-accent)' : 'var(--menu-border)',
+                      color: isActive ? 'var(--menu-accent)' : 'var(--menu-text)',
                     }}
                   >
                     {isSending ? 'Enviando…' : `${request.emoji} ${request.label}`}
@@ -789,7 +840,7 @@ export default function OrderStatusPage() {
                 );
               })}
             </div>
-            <p className="text-[11px] text-slate-500 mt-3">
+            <p className="text-[11px] text-muted-foreground/70 mt-3">
               Estas solicitudes avisan al staff en tiempo real y al admin con alerta visual.
             </p>
           </div>
@@ -797,14 +848,14 @@ export default function OrderStatusPage() {
 
         {/* ─── DELIVERY INFO CARD ─── */}
         {(isDelivery || isTakeout) && (
-          <div className="bg-slate-900/60 rounded-2xl p-5 border border-slate-800/50 space-y-3">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+          <div className="rounded-2xl p-5 border space-y-3" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
+            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--menu-muted)' }}>
               {isDelivery ? '🛕 Información de Delivery' : '🥡 Información de Takeout'}
             </h2>
             {scheduledDate && (
               <div className="flex items-center gap-2 text-sm">
                 <Clock size={14} className="text-amber-400" />
-                <span className="text-slate-300">
+                <span className="text-muted-foreground">
                   {scheduledDate === 'tomorrow' ? (
                     <span className="font-bold text-orange-400">⏰ Mañana</span>
                   ) : 'Hoy'}
@@ -815,7 +866,30 @@ export default function OrderStatusPage() {
             {deliveryAddress && (
               <div className="flex items-start gap-2 text-sm">
                 <MapPin size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                <span className="text-slate-300">{deliveryAddress}</span>
+                <span style={{ color: 'var(--menu-muted)' }}>{deliveryAddress}</span>
+              </div>
+            )}
+            {/* Mapa de la ubicación de entrega */}
+            {isDelivery && deliveryLat && deliveryLon && (
+              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--menu-border)' }}>
+                <iframe
+                  title="Mapa de entrega"
+                  width="100%"
+                  height="160"
+                  style={{ border: 0, display: 'block' }}
+                  loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(deliveryLon)-0.005},${Number(deliveryLat)-0.005},${Number(deliveryLon)+0.005},${Number(deliveryLat)+0.005}&layer=mapnik&marker=${deliveryLat},${deliveryLon}`}
+                />
+                <a
+                  href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 transition-colors"
+                  style={{ backgroundColor: 'var(--menu-bg)' }}
+                >
+                  <MapPin size={12} className="text-blue-400" />
+                  <span className="text-xs text-blue-400 font-semibold">Ver en Google Maps</span>
+                </a>
               </div>
             )}
             {isDelivery && deliveryPhone && (
@@ -841,11 +915,11 @@ export default function OrderStatusPage() {
                     <MapPin size={14} className="text-green-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-green-400">Ubicación GPS capturada ✅</p>
-                      <p className="text-[10px] text-slate-500 truncate">Se adjuntará al mensaje de WhatsApp</p>
+                      <p className="text-[10px] text-muted-foreground/70 truncate">Se adjuntará al mensaje de WhatsApp</p>
                     </div>
                     <button
                       onClick={() => setGpsLink(null)}
-                      className="text-slate-500 hover:text-slate-300 transition-colors text-xs"
+                      className="text-muted-foreground/70 hover:text-muted-foreground transition-colors text-xs"
                     >
                       ✕
                     </button>
@@ -868,7 +942,7 @@ export default function OrderStatusPage() {
                 </button>
 
                 {!gpsLink && (
-                  <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                  <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed px-1">
                     ℹ️ Usa el botón GPS para compartir tu ubicación exacta automáticamente.
                   </p>
                 )}
@@ -878,19 +952,21 @@ export default function OrderStatusPage() {
         )}
 
         {/* ─── V17.2: SINPE ASYNC DROPZONE ─── */}
-        {order.payment_method === 'sinpe' && !sinpeUploaded && (
+        {/* GATING: SINPE dropzone solo para delivery */}
+        {order.payment_method === 'sinpe' && isDelivery && !sinpeUploaded && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-900/60 rounded-2xl p-5 border-2 border-purple-500/40 space-y-4"
+            className="rounded-2xl p-5 border-2 space-y-4"
+            style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-accent)' }}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--menu-accent)' + '20' }}>
                 <span className="text-xl">📸</span>
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white">Comprobante SINPE</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Puedes subir la foto ahora o después de comer</p>
+                <h2 className="text-sm font-bold" style={{ color: 'var(--menu-text)' }}>Comprobante SINPE</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--menu-muted)' }}>Puedes subir la foto ahora o después de comer</p>
               </div>
             </div>
 
@@ -907,20 +983,42 @@ export default function OrderStatusPage() {
                   onClick={() => { setSinpeFile(null); setSinpePreview(''); }}
                   className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
                 >
-                  <XCircle size={14} className="text-white" />
+                  <XCircle size={14} className="text-foreground" />
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => sinpeInputRef.current?.click()}
-                className="w-full py-6 rounded-xl border-2 border-dashed border-purple-500/40 flex flex-col items-center gap-2 text-purple-300 hover:bg-purple-500/10 transition-all"
-              >
-                <Camera size={24} />
-                <span className="text-sm font-medium">Tomar foto o subir comprobante</span>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Botón cámara */}
+                <button
+                  onClick={() => sinpeCameraInputRef.current?.click()}
+                  className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all"
+                  style={{ borderColor: 'var(--menu-accent)', color: 'var(--menu-accent)' }}
+                >
+                  <Camera size={22} />
+                  <span className="text-xs font-semibold">Tomar foto</span>
+                </button>
+                {/* Botón galería */}
+                <button
+                  onClick={() => sinpeInputRef.current?.click()}
+                  className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all"
+                  style={{ borderColor: 'var(--menu-accent)', color: 'var(--menu-accent)' }}
+                >
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-xs font-semibold">Desde galería</span>
+                </button>
+              </div>
             )}
+            {/* Input galería (sin capture) */}
             <input
               ref={sinpeInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleSinpeFileSelect}
+              className="hidden"
+            />
+            {/* Input cámara (con capture) */}
+            <input
+              ref={sinpeCameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
@@ -933,7 +1031,7 @@ export default function OrderStatusPage() {
                 onClick={handleSinpeUpload}
                 disabled={sinpeUploading}
                 className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                style={{ backgroundColor: '#6C63FF', color: '#fff', boxShadow: '0 4px 16px rgba(108,99,255,0.35)' }}
+                style={{ backgroundColor: 'var(--menu-accent)', color: 'var(--menu-accent-contrast, #fff)', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}
               >
                 {sinpeUploading ? (
                   <><Loader2 size={18} className="animate-spin" /> Enviando comprobante...</>
@@ -946,16 +1044,18 @@ export default function OrderStatusPage() {
         )}
 
         {/* Comprobante ya enviado */}
-        {order.payment_method === 'sinpe' && sinpeUploaded && (
+        {/* GATING: Comprobante enviado solo para delivery */}
+        {order.payment_method === 'sinpe' && isDelivery && sinpeUploaded && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500/15 border border-purple-500/40"
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+            style={{ backgroundColor: 'var(--menu-accent)' + '15', borderColor: 'var(--menu-accent)' }}
           >
-            <Check size={18} className="text-purple-300 flex-shrink-0" />
+            <Check size={18} style={{ color: 'var(--menu-accent)' }} className="flex-shrink-0" />
             <div>
-              <p className="text-sm font-bold text-purple-200">Comprobante enviado ✅</p>
-              <p className="text-xs text-slate-400">El restaurante verificará tu pago SINPE.</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--menu-accent)' }}>Comprobante enviado ✅</p>
+              <p className="text-xs" style={{ color: 'var(--menu-muted)' }}>El restaurante verificará tu pago SINPE.</p>
             </div>
           </motion.div>
         )}
@@ -969,9 +1069,9 @@ export default function OrderStatusPage() {
             whileTap={{ scale: 0.97 }}
             className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
             style={{
-              backgroundColor: '#F59E0B',
-              color: '#000',
-              boxShadow: '0 4px 20px rgba(245, 158, 11, 0.3)',
+              backgroundColor: 'var(--menu-accent)',
+              color: 'var(--menu-accent-contrast, #000)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
             }}
           >
             <Plus size={20} />
@@ -990,10 +1090,11 @@ export default function OrderStatusPage() {
             <div className="text-center py-4">
               <p className="text-6xl mb-3">🍽️</p>
               <p className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>¡Buen provecho!</p>
-              <p className="text-sm text-slate-400 mt-1">Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--menu-muted)' }}>Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
             </div>
             {/* Recordatorio de pago contextual */}
-            {order.payment_method === 'sinpe' && (order as any).payment_status !== 'paid' && (
+            {/* GATING: nota SINPE solo para delivery */}
+            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status !== 'paid' && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1003,11 +1104,11 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">📱</span>
                 <div>
                   <p className="text-sm font-bold text-purple-200">Recuerda tu pago por SINPE</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
                 </div>
               </motion.div>
             )}
-            {order.payment_method === 'sinpe' && (order as any).payment_status === 'paid' && (
+            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status === 'paid' && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1028,7 +1129,7 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">💵</span>
                 <div>
                   <p className="text-sm font-bold text-amber-200">Pago en efectivo</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
                 </div>
               </motion.div>
             )}
@@ -1042,7 +1143,7 @@ export default function OrderStatusPage() {
                 <span className="text-xl flex-shrink-0">💳</span>
                 <div>
                   <p className="text-sm font-bold text-blue-200">Pago con tarjeta</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
                 </div>
               </motion.div>
             )}
@@ -1051,12 +1152,12 @@ export default function OrderStatusPage() {
       </div>
 
       {/* ─── V21.0: SMART BILL — Sticky Footer ─── */}
-      {/* Mostrar si el pedido fue entregado y el pago está pendiente */}
-      {isCompleted && (order as any).payment_status !== 'paid' && (
+      {/* Solo para dine_in: no tiene sentido pedir la cuenta a un mesero en delivery/takeout */}
+      {isCompleted && (order as any).payment_status !== 'paid' && !isDelivery && !isTakeout && (
         <div
           className="fixed bottom-0 left-0 right-0 z-50 p-4"
           style={{
-            background: 'linear-gradient(to top, rgba(2,6,23,0.98) 60%, transparent)',
+            background: `linear-gradient(to top, var(--menu-bg) 60%, transparent)`,
           }}
         >
           <div className="max-w-lg mx-auto">
@@ -1069,11 +1170,11 @@ export default function OrderStatusPage() {
               transition={{ delay: 0.5 }}
               className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all"
               style={{
-                backgroundColor: billRequested ? '#1e293b' : '#F59E0B',
-                color: billRequested ? '#94a3b8' : '#000',
-                boxShadow: billRequested ? 'none' : '0 4px 24px rgba(245,158,11,0.45)',
+                backgroundColor: billRequested ? 'var(--menu-surface)' : 'var(--menu-accent)',
+                color: billRequested ? 'var(--menu-muted)' : 'var(--menu-accent-contrast, #000)',
+                boxShadow: billRequested ? 'none' : '0 4px 24px rgba(0,0,0,0.4)',
                 cursor: billRequested ? 'default' : 'pointer',
-                border: billRequested ? '1px solid #334155' : 'none',
+                border: billRequested ? `1px solid var(--menu-border)` : 'none',
               }}
             >
               {billLoading ? (

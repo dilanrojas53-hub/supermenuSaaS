@@ -215,6 +215,18 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  // Paleta fija oscura — independiente del tema B2B activo
+  const C = {
+    bg:      '#111827',
+    surface: '#1e293b',
+    surface2:'#0f172a',
+    border:  'rgba(255,255,255,0.08)',
+    border2: 'rgba(255,255,255,0.05)',
+    text:    '#f1f5f9',
+    muted:   '#94a3b8',
+    muted2:  '#64748b',
+  };
+
   return (
     <div className="space-y-4">
       {/* ─── Stats principales ──────────────────────────────────────────────── */}
@@ -225,8 +237,8 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           { label: 'Ingresos', value: formatPrice(stats.totalRevenue), color: '#F59E0B' },
           { label: 'Dist. promedio', value: stats.avgDist ? `${stats.avgDist.toFixed(1)} km` : '—', color: '#F97316' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold mb-1">{s.label}</p>
+          <div key={s.label} className="rounded-xl p-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: C.muted }}>{s.label}</p>
             <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
           </div>
         ))}
@@ -240,10 +252,10 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           { label: 'T. espera prom.', value: fmtMin(stats.avgWaitlistTime), icon: <Timer size={11} />, color: '#F97316', hint: 'Tiempo promedio en waitlist' },
           { label: 'Ciclo prom.', value: fmtMin(stats.avgCycleTime), icon: <Clock size={11} />, color: '#06B6D4', hint: 'Creación → dispatch' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }} title={s.hint}>
+          <div key={s.label} className="rounded-xl p-3" style={{ background: C.surface2, border: `1px solid ${C.border}` }} title={s.hint}>
             <div className="flex items-center gap-1 mb-1" style={{ color: s.color }}>
               {s.icon}
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">{s.label}</p>
+              <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: C.muted }}>{s.label}</p>
             </div>
             <p className="text-lg font-black" style={{ color: s.color }}>{s.value}</p>
           </div>
@@ -253,14 +265,16 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
       {/* ─── Filtros ────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 items-center">
         {/* Fecha */}
-        <div className="flex rounded-xl overflow-hidden border border-slate-700">
+        <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
           {(Object.keys(DATE_LABELS) as DateFilter[]).map(f => (
             <button
               key={f}
               onClick={() => setDateFilter(f)}
-              className={`px-3 py-1.5 text-xs font-bold transition-all ${
-                dateFilter === f ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
+              className="px-3 py-1.5 text-xs font-bold transition-all"
+              style={{
+                background: dateFilter === f ? '#3B82F6' : C.surface,
+                color: dateFilter === f ? '#fff' : C.muted,
+              }}
             >
               {DATE_LABELS[f]}
             </button>
@@ -271,7 +285,8 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={riderFilter}
           onChange={e => setRiderFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium outline-none"
+          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}
         >
           <option value="all">Todos los riders</option>
           {riders.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -281,7 +296,8 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium outline-none"
+          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}
         >
           <option value="all">Todos los estados</option>
           <option value="delivered">Entregados</option>
@@ -292,7 +308,8 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         <select
           value={logisticFilter}
           onChange={e => setLogisticFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300"
+          className="px-3 py-1.5 rounded-xl text-xs font-medium outline-none"
+          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}
         >
           <option value="all">Todos (directo + waitlist)</option>
           <option value="direct">Solo directo (sin waitlist)</option>
@@ -300,25 +317,31 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
         </select>
 
         {/* Búsqueda */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 flex-1 min-w-[160px]">
-          <Search size={12} className="text-slate-500 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl flex-1 min-w-[160px]" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <Search size={12} style={{ color: C.muted2 }} className="shrink-0" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar dirección o #pedido…"
-            className="bg-transparent text-xs text-slate-300 placeholder-slate-500 outline-none w-full"
+            className="bg-transparent text-xs outline-none w-full"
+            style={{ color: C.text }}
           />
         </div>
 
         {/* Export */}
         <button
           onClick={exportCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
+          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}
         >
           <Download size={12} /> CSV
         </button>
 
-        <button onClick={fetchData} className="p-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors">
+        <button
+          onClick={fetchData}
+          className="p-1.5 rounded-xl transition-colors"
+          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}
+        >
           <Loader2 size={14} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
@@ -329,7 +352,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
           <Loader2 size={24} className="text-blue-400 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-500 text-sm">
+        <div className="text-center py-12 text-sm" style={{ color: C.muted2 }}>
           Sin pedidos delivery en este período
         </div>
       ) : (
@@ -351,7 +374,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
               <div
                 key={order.id}
                 className="rounded-xl overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                style={{ background: C.surface, border: `1px solid ${C.border}` }}
               >
                 <button
                   className="w-full flex items-center justify-between px-4 py-3 text-left"
@@ -364,7 +387,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                     }
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-white text-sm font-bold">#{order.order_number}</p>
+                        <p className="text-sm font-bold" style={{ color: C.text }}>#{order.order_number}</p>
                         {/* F10: badge logístico */}
                         {passedWaitlist && (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -377,54 +400,57 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-400 text-xs truncate max-w-[200px]">
+                      <p className="text-xs truncate max-w-[200px]" style={{ color: C.muted }}>
                         {order.delivery_formatted_address || order.delivery_address}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right hidden sm:block">
-                      <p className="text-white text-sm font-bold">{formatPrice(order.total)}</p>
-                      <p className="text-slate-500 text-xs">
+                      <p className="text-sm font-bold" style={{ color: C.text }}>{formatPrice(order.total)}</p>
+                      <p className="text-xs" style={{ color: C.muted2 }}>
                         {new Date(order.created_at).toLocaleDateString('es-CR', { day: '2-digit', month: 'short' })}
                       </p>
                     </div>
-                    {isExpanded ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+                    {isExpanded
+                      ? <ChevronUp size={14} style={{ color: C.muted2 }} />
+                      : <ChevronDown size={14} style={{ color: C.muted2 }} />
+                    }
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-1 border-t border-slate-700/50 space-y-3">
+                  <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop: `1px solid ${C.border2}` }}>
                     {/* Fila 1: datos básicos */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Rider</p>
+                        <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: C.muted2 }}>Rider</p>
                         <div className="flex items-center gap-1.5">
                           <Bike size={12} className="text-blue-400" />
-                          <p className="text-xs text-slate-300">{rider?.name || 'Sin asignar'}</p>
+                          <p className="text-xs" style={{ color: C.muted }}>{rider?.name || 'Sin asignar'}</p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Distancia</p>
+                        <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: C.muted2 }}>Distancia</p>
                         <div className="flex items-center gap-1.5">
                           <MapPin size={12} className="text-orange-400" />
-                          <p className="text-xs text-slate-300">
+                          <p className="text-xs" style={{ color: C.muted }}>
                             {order.delivery_distance_km ? `${order.delivery_distance_km.toFixed(1)} km` : '—'}
                           </p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">ETA estimado</p>
+                        <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: C.muted2 }}>ETA estimado</p>
                         <div className="flex items-center gap-1.5">
                           <Clock size={12} className="text-purple-400" />
-                          <p className="text-xs text-slate-300">
+                          <p className="text-xs" style={{ color: C.muted }}>
                             {order.delivery_eta_minutes ? `${order.delivery_eta_minutes} min` : '—'}
                           </p>
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Creado</p>
-                        <p className="text-xs text-slate-300">
+                        <p className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: C.muted2 }}>Creado</p>
+                        <p className="text-xs" style={{ color: C.muted }}>
                           {new Date(order.created_at).toLocaleString('es-CR', {
                             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
@@ -435,34 +461,34 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                     {/* F10: Fila 2 — tiempos de ciclo */}
                     <div
                       className="rounded-lg px-3 py-2.5 space-y-1.5"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                      style={{ background: C.surface2, border: `1px solid ${C.border2}` }}
                     >
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold mb-2 flex items-center gap-1.5">
+                      <p className="text-[10px] uppercase tracking-wide font-semibold mb-2 flex items-center gap-1.5" style={{ color: C.muted2 }}>
                         <Timer size={10} /> Tiempos de ciclo (F10)
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Creación → Commit</p>
+                          <p className="text-[9px] mb-0.5" style={{ color: C.muted2 }}>Creación → Commit</p>
                           <p className="text-xs font-bold" style={{ color: commitTime !== null ? '#22C55E' : '#64748B' }}>
                             {fmtMin(commitTime)}
                           </p>
                         </div>
                         {passedWaitlist && (
                           <div>
-                            <p className="text-[9px] text-slate-500 mb-0.5">Tiempo en waitlist</p>
+                            <p className="text-[9px] mb-0.5" style={{ color: C.muted2 }}>Tiempo en waitlist</p>
                             <p className="text-xs font-bold" style={{ color: waitlistTime !== null ? '#F59E0B' : '#64748B' }}>
                               {fmtMin(waitlistTime)}
                             </p>
                           </div>
                         )}
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Commit → Dispatch</p>
+                          <p className="text-[9px] mb-0.5" style={{ color: C.muted2 }}>Commit → Dispatch</p>
                           <p className="text-xs font-bold" style={{ color: dispatchTime !== null ? '#8B5CF6' : '#64748B' }}>
                             {fmtMin(dispatchTime)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[9px] text-slate-500 mb-0.5">Ciclo total</p>
+                          <p className="text-[9px] mb-0.5" style={{ color: C.muted2 }}>Ciclo total</p>
                           <p className="text-xs font-bold" style={{ color: cycleTime !== null ? '#06B6D4' : '#64748B' }}>
                             {fmtMin(cycleTime)}
                           </p>
@@ -470,7 +496,7 @@ export default function DeliveryHistoryPanel({ tenant }: { tenant: Tenant }) {
                       </div>
                       {/* Nota sobre datos históricos */}
                       {(!order.kitchen_committed_at && !order.dispatched_at) && (
-                        <p className="text-[9px] text-slate-600 mt-1.5 italic">
+                        <p className="text-[9px] mt-1.5 italic" style={{ color: C.muted2 }}>
                           Pedido anterior a F7/F10 — timestamps de ciclo no disponibles
                         </p>
                       )}

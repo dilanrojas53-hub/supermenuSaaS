@@ -138,12 +138,12 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
 
   if (stats.total === 0) {
     return (
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5">
         <div className="flex items-center gap-2 mb-3">
           <Bike size={16} className="text-blue-400" />
-          <h3 className="text-sm font-bold text-white">Delivery</h3>
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Delivery</h3>
         </div>
-        <p className="text-xs text-slate-500 text-center py-4">Sin pedidos delivery en este período</p>
+        <p className="text-xs text-[var(--text-secondary)] text-center py-4">Sin pedidos delivery en este período</p>
       </div>
     );
   }
@@ -154,7 +154,7 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bike size={16} className="text-blue-400" />
-          <h3 className="text-sm font-bold text-white">Delivery</h3>
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">Delivery</h3>
         </div>
         {stats.successRate !== null && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">
@@ -165,43 +165,43 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
 
       {/* KPIs principales */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-slate-800/60 p-3">
+        <div className="rounded-xl bg-[var(--bg-surface)] p-3">
           <div className="flex items-center gap-1.5 mb-1">
             <Package size={12} className="text-blue-400" />
-            <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Total pedidos</span>
+            <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide font-semibold">Total pedidos</span>
           </div>
-          <p className="text-2xl font-black text-white tabular-nums">{stats.total}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-2xl font-black text-[var(--text-primary)] tabular-nums">{stats.total}</p>
+          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
             {stats.delivered} entregados · {stats.active} activos
           </p>
         </div>
 
-        <div className="rounded-xl bg-slate-800/60 p-3">
+        <div className="rounded-xl bg-[var(--bg-surface)] p-3">
           <div className="flex items-center gap-1.5 mb-1">
             <TrendingUp size={12} className="text-green-400" />
-            <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Ingresos</span>
+            <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide font-semibold">Ingresos</span>
           </div>
           <p className="text-lg font-black text-green-400 tabular-nums">{formatPrice(stats.totalRevenue)}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">de pedidos entregados</p>
+          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">de pedidos entregados</p>
         </div>
 
         {stats.avgDistance !== null && (
-          <div className="rounded-xl bg-slate-800/60 p-3">
+          <div className="rounded-xl bg-[var(--bg-surface)] p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <MapPin size={12} className="text-orange-400" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Dist. promedio</span>
+              <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide font-semibold">Dist. promedio</span>
             </div>
-            <p className="text-2xl font-black text-white tabular-nums">{stats.avgDistance.toFixed(1)}<span className="text-sm font-normal text-slate-400"> km</span></p>
+            <p className="text-2xl font-black text-[var(--text-primary)] tabular-nums">{stats.avgDistance.toFixed(1)}<span className="text-sm font-normal text-[var(--text-secondary)]"> km</span></p>
           </div>
         )}
 
         {stats.avgEta !== null && (
-          <div className="rounded-xl bg-slate-800/60 p-3">
+          <div className="rounded-xl bg-[var(--bg-surface)] p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <Clock size={12} className="text-purple-400" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">ETA promedio</span>
+              <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide font-semibold">ETA promedio</span>
             </div>
-            <p className="text-2xl font-black text-white tabular-nums">{Math.round(stats.avgEta)}<span className="text-sm font-normal text-slate-400"> min</span></p>
+            <p className="text-2xl font-black text-[var(--text-primary)] tabular-nums">{Math.round(stats.avgEta)}<span className="text-sm font-normal text-[var(--text-secondary)]"> min</span></p>
           </div>
         )}
       </div>
@@ -209,11 +209,11 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
       {/* Barra de tasa de entrega */}
       {stats.total > 0 && (
         <div>
-          <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
+          <div className="flex justify-between text-[10px] text-[var(--text-secondary)] mb-1.5">
             <span>Tasa de entrega</span>
             <span>{stats.delivered}/{stats.total}</span>
           </div>
-          <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+          <div className="h-2 rounded-full bg-[var(--bg-surface)] overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
               style={{ width: `${(stats.delivered / stats.total) * 100}%` }}
@@ -231,40 +231,40 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
           <Zap size={10} /> Orquestación (F7/F9)
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-slate-800/50 p-2.5">
+          <div className="rounded-lg bg-[var(--bg-surface)] p-2.5">
             <div className="flex items-center gap-1 mb-1">
               <AlertCircle size={10} className="text-amber-400" />
-              <span className="text-[9px] text-slate-400 uppercase tracking-wide">En waitlist</span>
+              <span className="text-[9px] text-[var(--text-secondary)] uppercase tracking-wide">En waitlist</span>
             </div>
             <p className="text-lg font-black text-amber-400 tabular-nums">{stats.waitlistCount}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">{stats.promotedCount} promovidos</p>
+            <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">{stats.promotedCount} promovidos</p>
           </div>
 
-          <div className="rounded-lg bg-slate-800/50 p-2.5">
+          <div className="rounded-lg bg-[var(--bg-surface)] p-2.5">
             <div className="flex items-center gap-1 mb-1">
               <Timer size={10} className="text-amber-400" />
-              <span className="text-[9px] text-slate-400 uppercase tracking-wide">T. espera prom.</span>
+              <span className="text-[9px] text-[var(--text-secondary)] uppercase tracking-wide">T. espera prom.</span>
             </div>
             <p className="text-lg font-black text-amber-400 tabular-nums">{fmtMin(stats.avgWaitlistTime)}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">en waitlist</p>
+            <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">en waitlist</p>
           </div>
 
-          <div className="rounded-lg bg-slate-800/50 p-2.5">
+          <div className="rounded-lg bg-[var(--bg-surface)] p-2.5">
             <div className="flex items-center gap-1 mb-1">
               <Clock size={10} className="text-cyan-400" />
-              <span className="text-[9px] text-slate-400 uppercase tracking-wide">Ciclo prom.</span>
+              <span className="text-[9px] text-[var(--text-secondary)] uppercase tracking-wide">Ciclo prom.</span>
             </div>
             <p className="text-lg font-black text-cyan-400 tabular-nums">{fmtMin(stats.avgCycleTime)}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">creación → dispatch</p>
+            <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">creación → dispatch</p>
           </div>
 
-          <div className="rounded-lg bg-slate-800/50 p-2.5">
+          <div className="rounded-lg bg-[var(--bg-surface)] p-2.5">
             <div className="flex items-center gap-1 mb-1">
               <Zap size={10} className="text-green-400" />
-              <span className="text-[9px] text-slate-400 uppercase tracking-wide">T. commit prom.</span>
+              <span className="text-[9px] text-[var(--text-secondary)] uppercase tracking-wide">T. commit prom.</span>
             </div>
             <p className="text-lg font-black text-green-400 tabular-nums">{fmtMin(stats.avgCommitTime)}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">creación → cocina</p>
+            <p className="text-[9px] text-[var(--text-secondary)] mt-0.5">creación → cocina</p>
           </div>
         </div>
 
@@ -279,16 +279,16 @@ export function DeliveryAnalyticsCard({ orders, filter }: DeliveryAnalyticsCardP
       {/* Top riders */}
       {stats.topRiders.length > 0 && (
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold mb-2">Top riders</p>
+          <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wide font-semibold mb-2">Top riders</p>
           <div className="space-y-1.5">
             {stats.topRiders.map(([riderId, count], i) => (
               <div key={riderId} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-500 w-4">#{i + 1}</span>
+                  <span className="text-[10px] font-black text-[var(--text-secondary)] w-4">#{i + 1}</span>
                   <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
                     <Bike size={10} className="text-blue-400" />
                   </div>
-                  <span className="text-xs text-slate-300 font-mono">{riderId.slice(0, 8)}…</span>
+                  <span className="text-xs text-[var(--text-secondary)] font-mono">{riderId.slice(0, 8)}…</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <CheckCircle2 size={10} className="text-green-400" />

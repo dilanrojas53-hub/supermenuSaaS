@@ -82,10 +82,10 @@ const VALID_TRANSITIONS: Partial<Record<LogisticStatus, LogisticStatus[]>> = {
   quote:            ['waitlist', 'soft_reserve', 'kitchen_commit', 'cancelled'],
   waitlist:         ['kitchen_commit', 'soft_reserve', 'cancelled'],
   soft_reserve:     ['kitchen_commit', 'waitlist', 'cancelled'],
-  kitchen_commit:   ['preparing', 'ready_for_pickup', 'assigned', 'cancelled'],
-  preparing:        ['ready_for_pickup', 'cancelled'],
-  ready_for_pickup: ['assigned', 'cancelled'],
-  assigned:         ['picked_up', 'cancelled'],
+  kitchen_commit:   ['preparing', 'ready_for_pickup', 'assigned', 'delivered', 'cancelled'],
+  preparing:        ['ready_for_pickup', 'assigned', 'delivered', 'cancelled'],
+  ready_for_pickup: ['assigned', 'delivered', 'cancelled'],
+  assigned:         ['picked_up', 'delivered', 'cancelled'],
   picked_up:        ['delivering', 'delivered', 'cancelled'],
   delivering:       ['delivered', 'cancelled'],
   delivered:        [],
@@ -130,6 +130,17 @@ async function setLogisticStatus(
 
   if (targetStatus === 'kitchen_commit') {
     update.kitchen_committed_at = new Date().toISOString();
+  }
+
+  // Sincronizar status general del pedido con el estado logístico
+  if (targetStatus === 'delivered') {
+    update.status = 'entregado';
+  } else if (targetStatus === 'cancelled') {
+    update.status = 'cancelado';
+  } else if (targetStatus === 'kitchen_commit' || targetStatus === 'preparing') {
+    update.status = 'en_cocina';
+  } else if (targetStatus === 'ready_for_pickup') {
+    update.status = 'listo';
   }
 
   // Log en delivery_ops_log
