@@ -340,18 +340,18 @@ export default function RiderApp() {
   // ─── Render: Loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 size={32} className="text-orange-400 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#030712' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: '#FB923C' }} />
       </div>
     );
   }
 
   if (!tenantId) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#030712' }}>
         <div className="text-center">
-          <AlertCircle size={48} className="text-red-400 mx-auto mb-3" />
-          <p className="text-white font-bold">Restaurante no encontrado</p>
+          <AlertCircle size={48} style={{ color: '#F87171', margin: '0 auto 12px' }} />
+          <p className="font-bold" style={{ color: '#ffffff' }}>Restaurante no encontrado</p>
         </div>
       </div>
     );
@@ -360,7 +360,10 @@ export default function RiderApp() {
   // ─── Render: Login (2 pasos) ─────────────────────────────────────────────────
   if (!rider) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-6"
+        style={{ backgroundColor: '#030712', colorScheme: 'dark' }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -368,24 +371,33 @@ export default function RiderApp() {
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
-              <Bike size={32} className="text-orange-400" />
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: 'rgba(249,115,22,0.2)' }}
+            >
+              <Bike size={32} style={{ color: '#FB923C' }} />
             </div>
-            <h1 className="text-2xl font-black text-white">SmartMenu Rider</h1>
-            <p className="text-gray-400 text-sm mt-1">{tenantName}</p>
+            <h1 className="text-2xl font-black" style={{ color: '#ffffff' }}>SmartMenu Rider</h1>
+            <p className="text-sm mt-1" style={{ color: '#9CA3AF' }}>{tenantName}</p>
           </div>
 
           {loginStep === 'select' ? (
             /* Paso 1: Seleccionar rider */
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <label className="block text-xs text-gray-400 mb-4 font-semibold uppercase tracking-wide">
+            <div
+              className="rounded-2xl p-6"
+              style={{ backgroundColor: '#111827', border: '1px solid #1F2937' }}
+            >
+              <label
+                className="block text-xs mb-4 font-semibold uppercase tracking-wide"
+                style={{ color: '#9CA3AF' }}
+              >
                 ¿Quién eres?
               </label>
               {availableRiders.length === 0 ? (
                 <div className="text-center py-6">
-                  <User size={32} className="text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-400 text-sm">No hay repartidores activos</p>
-                  <p className="text-gray-600 text-xs mt-1">Pide al admin que te agregue</p>
+                  <User size={32} style={{ color: '#4B5563', margin: '0 auto 8px' }} />
+                  <p className="text-sm" style={{ color: '#9CA3AF' }}>No hay repartidores activos</p>
+                  <p className="text-xs mt-1" style={{ color: '#4B5563' }}>Pide al admin que te agregue</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -399,17 +411,20 @@ export default function RiderApp() {
                         setPinInput('');
                         setPinError('');
                       }}
-                      className="flex items-center gap-3 p-4 rounded-xl text-left transition-all active:scale-98"
-                      style={{ backgroundColor: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}
+                      className="flex items-center gap-3 p-4 rounded-xl text-left transition-all"
+                      style={{ backgroundColor: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)' }}
                     >
-                      <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                        <span className="text-orange-400 font-black text-lg">{r.name.charAt(0).toUpperCase()}</span>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: 'rgba(249,115,22,0.25)' }}
+                      >
+                        <span className="font-black text-lg" style={{ color: '#FB923C' }}>{r.name.charAt(0).toUpperCase()}</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold">{r.name}</p>
-                        <p className="text-gray-400 text-xs capitalize">{r.vehicle_type}</p>
+                        <p className="font-bold" style={{ color: '#ffffff' }}>{r.name}</p>
+                        <p className="text-xs capitalize" style={{ color: '#9CA3AF' }}>{r.vehicle_type}</p>
                       </div>
-                      <ChevronRight size={16} className="text-gray-500 ml-auto" />
+                      <ChevronRight size={16} style={{ color: '#6B7280', marginLeft: 'auto' }} />
                     </button>
                   ))}
                 </div>
@@ -417,25 +432,38 @@ export default function RiderApp() {
             </div>
           ) : (
             /* Paso 2: Ingresar PIN */
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div
+              className="rounded-2xl p-6"
+              style={{ backgroundColor: '#111827', border: '1px solid #1F2937' }}
+            >
               {/* Rider seleccionado */}
-              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-800">
-                <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                  <span className="text-orange-400 font-black text-lg">{selectedRiderName.charAt(0).toUpperCase()}</span>
+              <div
+                className="flex items-center gap-3 mb-5 pb-4"
+                style={{ borderBottom: '1px solid #1F2937' }}
+              >
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(249,115,22,0.25)' }}
+                >
+                  <span className="font-black text-lg" style={{ color: '#FB923C' }}>{selectedRiderName.charAt(0).toUpperCase()}</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-bold">{selectedRiderName}</p>
-                  <p className="text-gray-400 text-xs">Ingresa tu PIN de 4 dígitos</p>
+                  <p className="font-bold" style={{ color: '#ffffff' }}>{selectedRiderName}</p>
+                  <p className="text-xs" style={{ color: '#9CA3AF' }}>Ingresa tu PIN de 4 dígitos</p>
                 </div>
                 <button
                   onClick={() => { setLoginStep('select'); setPinInput(''); setPinError(''); }}
-                  className="text-gray-500 hover:text-gray-300 text-xs"
+                  className="text-xs"
+                  style={{ color: '#6B7280' }}
                 >
                   Cambiar
                 </button>
               </div>
 
-              <label className="block text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">
+              <label
+                className="block text-xs mb-3 font-semibold uppercase tracking-wide"
+                style={{ color: '#9CA3AF' }}
+              >
                 Ingresa tu PIN
               </label>
               <div className="flex gap-3 justify-center mb-6">
@@ -444,9 +472,9 @@ export default function RiderApp() {
                     key={i}
                     className="w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all"
                     style={{
-                      borderColor: pinInput.length > i ? '#F97316' : '#374151',
-                      backgroundColor: pinInput.length > i ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.03)',
-                      color: '#fff',
+                      borderColor: pinInput.length > i ? '#F97316' : '#4B5563',
+                      backgroundColor: pinInput.length > i ? 'rgba(249,115,22,0.2)' : '#1F2937',
+                      color: '#ffffff',
                     }}
                   >
                     {pinInput.length > i ? '●' : ''}
@@ -466,9 +494,9 @@ export default function RiderApp() {
                     disabled={key === ''}
                     className="h-14 rounded-xl text-xl font-bold transition-all active:scale-95 disabled:invisible"
                     style={{
-                      backgroundColor: key === '⌫' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.06)',
-                      color: key === '⌫' ? '#EF4444' : '#fff',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      backgroundColor: key === '⌫' ? 'rgba(239,68,68,0.25)' : '#1F2937',
+                      color: key === '⌫' ? '#EF4444' : '#ffffff',
+                      border: key === '⌫' ? '1px solid rgba(239,68,68,0.4)' : '1px solid #374151',
                     }}
                   >
                     {key}
@@ -477,14 +505,20 @@ export default function RiderApp() {
               </div>
 
               {pinError && (
-                <p className="text-red-400 text-sm text-center mb-3">{pinError}</p>
+                <p className="text-sm text-center mb-3" style={{ color: '#F87171' }}>{pinError}</p>
               )}
 
               <button
                 onClick={handlePinLogin}
                 disabled={pinInput.length < 4 || loginLoading}
-                className="w-full py-3.5 rounded-xl font-bold text-base transition-all disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg,#F97316,#EF4444)', color: '#fff' }}
+                className="w-full py-3.5 rounded-xl font-bold text-base transition-all"
+                style={{
+                  background: pinInput.length < 4 || loginLoading
+                    ? 'rgba(249,115,22,0.4)'
+                    : 'linear-gradient(135deg,#F97316,#EF4444)',
+                  color: '#fff',
+                  opacity: pinInput.length < 4 || loginLoading ? 0.5 : 1,
+                }}
               >
                 {loginLoading ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Entrar'}
               </button>
