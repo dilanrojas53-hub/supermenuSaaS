@@ -9,7 +9,7 @@ import { useActiveOrder } from '@/hooks/useActiveOrder';
 import { useParams, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock, Flame, CheckCircle2, Package, XCircle, Plus, ShoppingBag, MessageCircle, MapPin, Bike, Camera, Loader2, Check, ShieldCheck } from 'lucide-react';
-import { buildWhatsAppUrl } from '@/lib/phone';
+import { buildWhatsAppUrl, waPhone } from '@/lib/phone';
 import { buildMapsLink } from '@/lib/maps';
 import { supabase } from '@/lib/supabase';
 import type { Order, OrderStatus } from '@/lib/types';
@@ -932,7 +932,7 @@ export default function OrderStatusPage() {
         </div>
 
         {/* QUICK REQUESTS */}
-        {order.customer_table && order.status !== 'cancelado' && !isDelivery && !isTakeout && (
+        {order.status !== 'cancelado' && !isDelivery && !isTakeout && (
           <div className="rounded-2xl p-5 border" style={{ backgroundColor: th.surface, borderColor: th.border }}>
             <h3 className="text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: th.muted }}>¿Necesitas algo?</h3>
             <div className="grid grid-cols-3 gap-2">
@@ -1046,7 +1046,7 @@ export default function OrderStatusPage() {
                 style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 12%, transparent)', color: th.accent, border: '1.5px solid color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
                 <Plus size={15} />Pedir de nuevo
               </button>
-              <a href={`https://wa.me/${((order as any).customer_phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+              <a href={(() => { const wp = waPhone((order as any).customer_phone); return wp ? `https://wa.me/${wp}` : '#'; })()} target="_blank" rel="noopener noreferrer"
                 className="py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
                 style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#25D366', border: '1.5px solid rgba(37,211,102,0.25)' }}>
                 <MessageCircle size={15} />Contactar

@@ -646,202 +646,411 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
 
   const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
 
+  // ─── Mute state ───
+  // ─── Stats del turno ───
+  const [staffStats, setStaffStats] = useState<{ delivered: number; revenue: number; avgMin: number } | null>(null);
+  useEffect(() => {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    supabase.from('staff_events')
+      .select('event_type, response_time_seconds, metadata')
+      .eq('tenant_id', tenant.id)
+      .eq('staff_id', staff.id)
+      .eq('event_type', 'order_delivered')
+      .gte('created_at', todayStart.toISOString())
+      .then(({ data }) => {
+        if (!data) return;
+        const delivered = data.length;
+        const times = data.map(d => d.response_time_seconds).filter(Boolean) as number[];
+        const avgMin = times.length ? Math.round(times.reduce((a,b) => a+b,0) / times.length / 60) : 0;
+        setStaffStats({ delivered, revenue: 0, avgMin });
+      });
+  }, [orders.length]);
+
+  const [mutedUntil, setMutedUntil] = useState<Date | null>(null);
+  const isMuted = mutedUntil ? new Date() < mutedUntil : false;
+  const muteFor = (minutes: number) => {
+    const until = new Date(Date.now() + minutes * 60 * 1000);
+    setMutedUntil(until);
+    toast.success(`🔕 Alertas silenciadas por ${minutes} min`);
+  };
+  const unmute = () => { setMutedUntil(null); toast.success('🔔 Alertas reactivadas'); };
+
+  // ─── Asistencias activas ───
+  const activeAssistances = orders.filter(o =>
+    o.quick_request_type && !o.quick_request_seen_by_staff
+  );
+
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      {/* Header — Premium V9.0 */}
-      <header className="border-b border-white/[0.06] px-4 py-3 flex items-center justify-between sticky top-0 z-30" style={{ backgroundColor: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
-        <div className="min-w-0 flex-1 mr-2 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg">
-            <UtensilsCrossed size={15} className="text-[var(--text-primary)]" />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0a0f1a', color: '#e2e8f0' }}>
+
+      {/* ── HEADER ── */}
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 border-b"
+        style={{ backgroundColor: 'rgba(10,15,26,0.97)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
+            <UtensilsCrossed size={16} className="text-black" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-black text-[var(--text-primary)] truncate leading-none">{tenant.name}</h1>
-            <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5">👤 {staff.name}</p>
+            <h1 className="text-sm font-black truncate leading-none text-white">{tenant.name}</h1>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: '#64748b' }}>
+              👤 {staff.name}
+              {wakeLockActive && <span className="ml-2 text-emerald-400">● activo</span>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {wakeLockActive && (
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_6px_rgba(74,222,128,0.6)]" title="App Activa" />
+          {/* Mute button */}
+          {isMuted ? (
+            <button onClick={unmute}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all"
+              style={{ backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.3)', color: '#f87171' }}>
+              <Bell size={12} />
+              <span>Silenciado</span>
+            </button>
+          ) : (
+            <div className="relative group">
+              <button className="w-9 h-9 rounded-xl flex items-center justify-center transition-all border"
+                style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.07)', color: '#94a3b8' }}>
+                <Bell size={15} />
+              </button>
+              {/* Mute dropdown */}
+              <div className="absolute right-0 top-full mt-1 w-44 rounded-2xl border shadow-2xl hidden group-hover:block z-50"
+                style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}>
+                {[5, 15, 60].map(m => (
+                  <button key={m} onClick={() => muteFor(m)}
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-white/5 transition-all first:rounded-t-2xl last:rounded-b-2xl"
+                    style={{ color: '#94a3b8' }}>
+                    🔕 Silenciar {m} min
+                  </button>
+                ))}
+                <button onClick={() => muteFor(480)}
+                  className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-white/5 transition-all rounded-b-2xl border-t"
+                  style={{ color: '#f87171', borderColor: 'rgba(255,255,255,0.06)' }}>
+                  🔕 Silenciar turno
+                </button>
+              </div>
+            </div>
           )}
-          <button onClick={fetchOrders} className="w-9 h-9 rounded-xl bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center border border-white/5">
+          <button onClick={fetchOrders}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all border"
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.07)', color: '#94a3b8' }}>
             <RefreshCw size={14} />
           </button>
           <button onClick={() => setShowQuickAdd(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all hover:brightness-110 active:scale-95"
-            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 4px 12px rgba(245,158,11,0.35)' }}>
-            <Plus size={13} /> <span>Agregar</span>
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95"
+            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+            <Plus size={13} /><span>Agregar</span>
           </button>
-          <button onClick={onLogout} className="w-9 h-9 rounded-xl bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-red-500/20 hover:text-red-400 transition-all flex items-center justify-center border border-white/5">
+          <button onClick={onLogout}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all border hover:bg-red-500/20 hover:text-red-400"
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.07)', color: '#94a3b8' }}>
             <LogOut size={14} />
           </button>
         </div>
       </header>
 
-      {/* Payment Tabs — Premium V9.0 */}
+      {/* ── STATS DEL TURNO ── */}
+      {staffStats && staffStats.delivered > 0 && (
+        <div className="mx-3 mt-3 rounded-2xl px-4 py-3 flex items-center justify-between gap-2"
+          style={{ backgroundColor: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.15)' }}>
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Entregados hoy</p>
+            <p className="text-xl font-black" style={{ color: '#F59E0B' }}>{staffStats.delivered}</p>
+          </div>
+          <div className="w-px h-8" style={{ backgroundColor: 'rgba(245,158,11,0.2)' }} />
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Tiempo prom.</p>
+            <p className="text-xl font-black" style={{ color: '#F59E0B' }}>{staffStats.avgMin}m</p>
+          </div>
+          <div className="w-px h-8" style={{ backgroundColor: 'rgba(245,158,11,0.2)' }} />
+          <div className="text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Activos ahora</p>
+            <p className="text-xl font-black" style={{ color: '#F59E0B' }}>
+              {orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── TABS ── */}
       <div className="flex px-3 pt-3 pb-1 gap-1.5">
-        {[
+        {([
           { key: 'active', label: 'Activos', emoji: '📋', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
           { key: 'cobrar', label: 'Por Cobrar', emoji: '💰', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
           { key: 'cobrados', label: 'Cobrados', emoji: '✅', count: orders.filter(o => o.payment_status === 'paid').length },
-        ].map(tab => (
-          <button key={tab.key} onClick={() => setPaymentTab(tab.key as any)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-black transition-all duration-200 ${
-              paymentTab === tab.key
-                ? 'text-black shadow-lg'
-                : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]/90'
-            }`}
-            style={paymentTab === tab.key ? { background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 14px rgba(245,158,11,0.3)' } : {}}>
-            <span>{tab.emoji}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-              paymentTab === tab.key ? 'bg-black/20 text-black' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
-            }`}>{tab.count}</span>
-          </button>
-        ))}
+        ] as const).map(tab => {
+          const isActive = paymentTab === tab.key;
+          return (
+            <button key={tab.key} onClick={() => setPaymentTab(tab.key)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-black transition-all"
+              style={{
+                background: isActive ? 'linear-gradient(135deg, #F59E0B, #F97316)' : 'rgba(255,255,255,0.04)',
+                color: isActive ? '#000' : '#64748b',
+                border: isActive ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: isActive ? '0 4px 14px rgba(245,158,11,0.3)' : 'none',
+              }}>
+              <span>{tab.emoji}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black"
+                style={{ backgroundColor: isActive ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.06)', color: isActive ? '#000' : '#64748b' }}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Kanban */}
+      {/* ── ASISTENCIAS ACTIVAS ── */}
+      {activeAssistances.length > 0 && paymentTab === 'active' && (
+        <div className="mx-3 mt-3 rounded-2xl overflow-hidden border-2" style={{ borderColor: 'rgba(34,197,94,0.4)', backgroundColor: 'rgba(34,197,94,0.06)' }}>
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(34,197,94,0.2)' }}>
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <h2 className="text-xs font-black uppercase tracking-widest text-emerald-400">
+              Asistencias activas ({activeAssistances.length})
+            </h2>
+          </div>
+          <div className="p-3 space-y-2">
+            {activeAssistances.map(order => (
+              <div key={order.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl"
+                style={{ backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-xl flex-shrink-0">
+                    {order.quick_request_type === 'water_ice' ? '💧' : order.quick_request_type === 'napkins' ? '🧻' : '🆘'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white leading-none">
+                      {QUICK_REQUEST_LABELS[order.quick_request_type!]}
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: '#64748b' }}>
+                      {order.customer_table ? `🪑 ${order.customer_table}` : `#${order.order_number}`}
+                      {order.customer_name ? ` · ${order.customer_name}` : ''}
+                      {order.quick_request_at ? ` · hace ${elapsedMin(order.quick_request_at)}m` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const now = new Date().toISOString();
+                    await supabase.from('orders').update({
+                      quick_request_seen_by_staff: true,
+                      quick_request_claimed_by: staff.name,
+                      quick_request_claimed_at: now,
+                    }).eq('id', order.id);
+                    fetchOrders();
+                    toast.success('✅ Asistencia atendida');
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-black flex-shrink-0 transition-all active:scale-95"
+                  style={{ backgroundColor: '#22c55e', color: '#052e16' }}>
+                  Atendido
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── CONTENIDO PRINCIPAL ── */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full" />
+          <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
       ) : paymentTab === 'cobrar' || paymentTab === 'cobrados' ? (
-        // ─ Vista de cobros ─
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {(() => {
             const cobrarOrders = paymentTab === 'cobrar'
               ? orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid')
               : orders.filter(o => o.payment_status === 'paid');
             if (cobrarOrders.length === 0) return (
-              <p className="text-center text-[var(--text-secondary)] text-sm py-16">
+              <p className="text-center text-sm py-16" style={{ color: '#475569' }}>
                 {paymentTab === 'cobrar' ? 'Sin cuentas pendientes 🎉' : 'Sin cobros registrados'}
               </p>
             );
             return cobrarOrders.map(order => (
-              <div key={order.id} className="border rounded-2xl p-4 space-y-2.5 transition-all" style={{ backgroundColor: 'rgba(30,41,59,0.7)', borderColor: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)' }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-[var(--text-primary)]">#{order.order_number} — {order.customer_name}</span>
-                  {order.customer_table && <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-black text-amber-400">{formatPrice(order.total)}</span>
-                  <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">{order.payment_method}</span>
-                </div>
-                {order.payment_status === 'paid' ? (
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 border border-green-500/25 rounded-xl">
-                    <CheckCircle2 size={14} className="text-green-400" />
-                    <span className="text-xs font-bold text-green-400">Pagado</span>
+              <div key={order.id} className="rounded-2xl border overflow-hidden"
+                style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.07)' }}>
+                {/* Card header */}
+                <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-black text-white">#{order.order_number}</span>
+                    {order.customer_table && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
+                        🪑 {order.customer_table}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <button onClick={() => handleMarkPaid(order.id)}
-                    className="w-full py-3 rounded-xl text-sm font-black transition-all active:scale-95 flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 4px 14px rgba(34,197,94,0.3)' }}>
-                    <CheckCircle2 size={16} /> Marcar como Pagado
-                  </button>
-                )}
+                  <span className="text-[11px] font-bold" style={{ color: '#475569' }}>
+                    {new Date(order.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="px-4 py-3 space-y-2.5">
+                  {order.customer_name && <p className="text-sm font-bold text-white">{order.customer_name}</p>}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-black" style={{ color: '#F59E0B' }}>{formatPrice(order.total)}</span>
+                    {order.payment_method && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-black"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo'}
+                      </span>
+                    )}
+                  </div>
+                  {order.payment_status === 'paid' ? (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                      style={{ backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                      <span className="text-xs font-bold text-emerald-400">Pagado</span>
+                    </div>
+                  ) : (
+                    <button onClick={() => handleMarkPaid(order.id)}
+                      className="w-full py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95"
+                      style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 4px 14px rgba(34,197,94,0.3)' }}>
+                      <CheckCircle2 size={16} /> Marcar como Pagado
+                    </button>
+                  )}
+                </div>
               </div>
             ));
           })()}
         </div>
       ) : (
-        // ─ Vista Kanban Premium V9.0 ─
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {columns.map(col => {
             const colOrders = orders.filter(o => o.status === col.key);
             if (colOrders.length === 0) return null;
-            // Color accent per column
             const colAccent = col.key === 'pendiente' ? '#3b82f6' : col.key === 'en_cocina' ? '#f97316' : '#22c55e';
             return (
-              <div key={col.key} className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${colAccent}25`, backgroundColor: `${colAccent}08` }}>
+              <div key={col.key} className="rounded-2xl overflow-hidden"
+                style={{ border: `1.5px solid ${colAccent}25`, backgroundColor: `${colAccent}06` }}>
                 {/* Column header */}
-                <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: `1px solid ${colAccent}20` }}>
-                  <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: colAccent }}>{col.label}</h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{ backgroundColor: `${colAccent}20`, color: colAccent }}>{colOrders.length}</span>
+                <div className="px-4 py-2.5 flex items-center justify-between border-b"
+                  style={{ borderColor: `${colAccent}18` }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colAccent }} />
+                    <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: colAccent }}>{col.label}</h2>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                    style={{ backgroundColor: `${colAccent}18`, color: colAccent }}>{colOrders.length}</span>
                 </div>
-                {/* Orders list */}
+                {/* Orders */}
                 <div className="p-3 space-y-2.5">
                   {colOrders.map(order => {
                     const elapsed = elapsedMin(order.created_at);
                     const isUrgent = elapsed >= 15;
+                    const hasAssistance = !!order.quick_request_type && !order.quick_request_seen_by_staff;
                     return (
-                    <div key={order.id} className="rounded-2xl p-4 space-y-3 transition-all" style={{ backgroundColor: isUrgent ? 'rgba(239,68,68,0.08)' : 'rgba(15,23,42,0.9)', border: isUrgent ? '1.5px solid rgba(239,68,68,0.35)' : '1.5px solid rgba(255,255,255,0.08)', boxShadow: isUrgent ? '0 4px 20px rgba(239,68,68,0.15)' : '0 4px 16px rgba(0,0,0,0.3)' }}>
-                      {/* Order header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-[var(--text-primary)]">#{order.order_number}</span>
-                          {order.customer_table && (
-                            <span className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">🪑 {order.customer_table}</span>
-                          )}
-                        </div>
-                        <span className={`text-[11px] flex items-center gap-1 px-2 py-0.5 rounded-full font-bold ${
-                          isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
-                        }`}>
-                          <Clock size={9} /> {elapsed}m
-                        </span>
-                      </div>
-                      {order.customer_name && <p className="text-sm text-[var(--text-primary)]/90 font-bold">{order.customer_name}</p>}
-                      {/* V26.0: Ownership badge */}
-                      {order.claimed_by_name && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>
-                            <User size={9} /> {order.claimed_by_name}
-                          </span>
-                          {order.claimed_by_name === staff.name && (
-                            <span className="text-[10px] text-amber-500/60 font-bold">tú</span>
-                          )}
-                        </div>
-                      )}
-                      {/* Items */}
-                      <div className="space-y-1.5 bg-card/50 rounded-xl px-3 py-2.5">
-                        {((order.items || []) as OrderItem[]).map((item, i) => (
-                          <div key={i}>
-                            <div className="flex justify-between text-[13px]">
-                              <span className="text-[var(--text-primary)] font-bold">{item.quantity}× {item.name}</span>
-                              <span className="text-[var(--text-secondary)] flex-shrink-0 ml-2">{formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}</span>
-                            </div>
-                            {item.selectedModifiers && item.selectedModifiers.length > 0 && (
-                              <div className="pl-3 mt-0.5 space-y-0.5">
-                                {item.selectedModifiers.map((mod, mi) => (
-                                  <p key={mi} className="text-[10px] text-amber-400/70">
-                                    <span>└ {mod.option_name}</span>
-                                    {mod.price_adjustment > 0 && <span className="ml-1">+{formatPrice(mod.price_adjustment)}</span>}
-                                  </p>
-                                ))}
-                              </div>
+                      <div key={order.id} className="rounded-2xl overflow-hidden transition-all"
+                        style={{
+                          backgroundColor: isUrgent ? 'rgba(239,68,68,0.07)' : '#111827',
+                          border: hasAssistance ? '2px solid rgba(34,197,94,0.5)' : isUrgent ? '1.5px solid rgba(239,68,68,0.3)' : '1.5px solid rgba(255,255,255,0.07)',
+                          boxShadow: hasAssistance ? '0 0 16px rgba(34,197,94,0.15)' : isUrgent ? '0 4px 20px rgba(239,68,68,0.12)' : '0 2px 12px rgba(0,0,0,0.3)',
+                        }}>
+                        {/* Card header */}
+                        <div className="px-4 py-3 flex items-center justify-between border-b"
+                          style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Número de pedido — GRANDE Y VISIBLE */}
+                            <span className="text-lg font-black text-white leading-none">#{order.order_number}</span>
+                            {/* Mesa */}
+                            {order.customer_table && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-black"
+                                style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
+                                🪑 {order.customer_table}
+                              </span>
+                            )}
+                            {/* Canal */}
+                            {(order as any).delivery_type && (order as any).delivery_type !== 'dine_in' && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                                style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}>
+                                {(order as any).delivery_type === 'delivery' ? '🛵 Delivery' : '🥡 Takeout'}
+                              </span>
                             )}
                           </div>
-                        ))}
-                      </div>
-                      {/* Total + method */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-black text-amber-400">{formatPrice(order.total)}</span>
-                        {order.payment_method && (
-                          <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider bg-[var(--bg-surface)] px-2 py-0.5 rounded-full">{order.payment_method}</span>
-                        )}
-                      </div>
-                      {/* Action buttons */}
-                      <div className="flex gap-2">
-                        {order.status !== 'entregado' && (
-                          <button onClick={() => handleAdvanceStatus(order)}
-                            className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
-                            style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 6px 16px rgba(245,158,11,0.4)', letterSpacing: '-0.01em' }}>
-                            {getActionLabel(order.status)}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {hasAssistance && (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse"
+                                style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                {order.quick_request_type === 'water_ice' ? '💧' : order.quick_request_type === 'napkins' ? '🧻' : '🆘'} Asistencia
+                              </span>
+                            )}
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isUrgent ? 'text-red-400' : ''}`}
+                              style={{ backgroundColor: isUrgent ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)', color: isUrgent ? '#f87171' : '#64748b' }}>
+                              <Clock size={9} /> {elapsed}m
+                            </span>
+                          </div>
+                        </div>
+                        {/* Card body */}
+                        <div className="px-4 py-3 space-y-2.5">
+                          {/* Cliente */}
+                          {order.customer_name && (
+                            <p className="text-sm font-bold text-white">{order.customer_name}</p>
+                          )}
+                          {/* Ownership */}
+                          {order.claimed_by_name && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                style={{ backgroundColor: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                <User size={8} className="inline mr-1" />{order.claimed_by_name}{order.claimed_by_name === staff.name ? ' (tú)' : ''}
+                              </span>
+                            </div>
+                          )}
+                          {/* Items */}
+                          <div className="rounded-xl px-3 py-2.5 space-y-1.5"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            {((order.items || []) as OrderItem[]).map((item, i) => (
+                              <div key={i}>
+                                <div className="flex justify-between text-[13px]">
+                                  <span className="font-bold text-white">{item.quantity}× {item.name}</span>
+                                  <span className="flex-shrink-0 ml-2" style={{ color: '#64748b' }}>
+                                    {formatPrice((item.price + (item.modifiersTotal ?? 0)) * item.quantity)}
+                                  </span>
+                                </div>
+                                {item.selectedModifiers && item.selectedModifiers.length > 0 && (
+                                  <div className="pl-3 mt-0.5 space-y-0.5">
+                                    {item.selectedModifiers.map((mod, mi) => (
+                                      <p key={mi} className="text-[10px] text-amber-400/70">
+                                        └ {mod.option_name}{mod.price_adjustment > 0 ? ` +${formatPrice(mod.price_adjustment)}` : ''}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Total + método */}
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className="text-lg font-black" style={{ color: '#F59E0B' }}>{formatPrice(order.total)}</span>
+                            {order.payment_method && (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-black"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Card footer — Acciones */}
+                        <div className="px-4 pb-3 flex gap-2">
+                          {order.status !== 'entregado' && (
+                            <button onClick={() => handleAdvanceStatus(order)}
+                              className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                              style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000', boxShadow: '0 6px 16px rgba(245,158,11,0.35)' }}>
+                              {getActionLabel(order.status)}
+                            </button>
+                          )}
+                          {order.status === 'entregado' && order.payment_status !== 'paid' && (
+                            <button onClick={() => handleMarkPaid(order.id)}
+                              className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                              style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 6px 16px rgba(34,197,94,0.35)' }}>
+                              ✅ Cobrar
+                            </button>
+                          )}
+                          <button onClick={() => handleCancelWithPin(order.id)}
+                            className="w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-95"
+                            style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            <X size={15} />
                           </button>
-                        )}
-                        {order.status === 'entregado' && order.payment_status !== 'paid' && (
-                          <button onClick={() => handleMarkPaid(order.id)}
-                            className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
-                            style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 6px 16px rgba(34,197,94,0.4)', letterSpacing: '-0.01em' }}>
-                            ✅ Cobrar
-                          </button>
-                        )}
-                        <button onClick={() => handleCancelWithPin(order.id)}
-                          className="w-11 h-11 rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 active:scale-95 transition-all flex items-center justify-center">
-                          <X size={15} />
-                        </button>
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -850,79 +1059,53 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           })}
           {/* Empty state */}
           {columns.every(col => orders.filter(o => o.status === col.key).length === 0) && (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-700">
+            <div className="flex flex-col items-center justify-center py-24" style={{ color: '#1e293b' }}>
               <ChefHat size={44} className="mb-3 opacity-20" />
-              <p className="text-sm font-semibold">Sin pedidos activos</p>
-              <p className="text-xs text-slate-800 mt-1">Los nuevos pedidos aparecerán aquí</p>
+              <p className="text-sm font-semibold text-slate-600">Sin pedidos activos</p>
+              <p className="text-xs mt-1 text-slate-700">Los nuevos pedidos aparecerán aquí</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Quick Add Modal */}
+      {/* ── MODALES ── */}
       {showQuickAdd && (
-        <QuickAddModal
-          tenant={tenant}
-          staff={staff}
-          categories={categories}
-          items={items}
-          onClose={() => setShowQuickAdd(false)}
-          onOrderCreated={fetchOrders}
-        />
+        <QuickAddModal tenant={tenant} staff={staff} categories={categories} items={items}
+          onClose={() => setShowQuickAdd(false)} onOrderCreated={fetchOrders} />
       )}
-
-      {/* PIN Modal */}
       {pinModal && (
-        <PinModal
-          adminPin={tenant.admin_pin || ''}
-          onConfirm={confirmCancel}
-          onCancel={() => setPinModal(null)}
-        />
+        <PinModal adminPin={tenant.admin_pin || ''} onConfirm={confirmCancel} onCancel={() => setPinModal(null)} />
       )}
 
-      {/* ─── V21.0: SMART BILL ALERT MODAL ─── */}
+      {/* ── BILL ALERT MODAL ── */}
       {billAlert && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-          <div
-            className="w-full max-w-sm rounded-3xl overflow-hidden"
-            style={{ backgroundColor: '#0f172a', border: '2px solid #F59E0B', boxShadow: '0 0 60px rgba(245,158,11,0.4)' }}
-          >
-            {/* Animated top bar */}
-            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #F59E0B, #EF4444, #F59E0B)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
-
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden"
+            style={{ backgroundColor: '#0f172a', border: '2px solid #F59E0B', boxShadow: '0 0 60px rgba(245,158,11,0.4)' }}>
+            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #F59E0B, #EF4444, #F59E0B)' }} />
             <div className="p-6 text-center">
-              {/* Bell icon pulsing */}
               <div className="flex items-center justify-center mb-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F59E0B20', border: '2px solid #F59E0B50' }}>
+                <div className="w-20 h-20 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.3)' }}>
                   <Bell size={36} className="text-amber-400" style={{ animation: 'bounce 0.6s infinite' }} />
                 </div>
               </div>
-
-              <h2 className="text-2xl font-black text-[var(--text-primary)] mb-1" style={{ fontFamily: "'Lora', serif" }}>
-                🛎️ ¡Mesa {billAlert.tableNumber} pide la cuenta!
-              </h2>
-              <p className="text-sm text-[var(--text-secondary)] mb-5">Pedido #{billAlert.orderNumber}</p>
-
-              {/* Payment method badge */}
-              <div
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm"
+              <h2 className="text-2xl font-black text-white mb-1">🛎️ ¡Mesa {billAlert.tableNumber} pide la cuenta!</h2>
+              <p className="text-sm mb-5" style={{ color: '#64748b' }}>Pedido #{billAlert.orderNumber}</p>
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm"
                 style={{
                   backgroundColor: billAlert.paymentMethod === 'sinpe' ? '#6C63FF20' : billAlert.paymentMethod === 'tarjeta' ? '#3B82F620' : '#38A16920',
                   border: `1px solid ${billAlert.paymentMethod === 'sinpe' ? '#6C63FF50' : billAlert.paymentMethod === 'tarjeta' ? '#3B82F650' : '#38A16950'}`,
                   color: billAlert.paymentMethod === 'sinpe' ? '#a78bfa' : billAlert.paymentMethod === 'tarjeta' ? '#60a5fa' : '#6ee7b7',
-                }}
-              >
+                }}>
                 {billAlert.paymentMethod === 'sinpe' && <><Smartphone size={16} /><span>Verificar comprobante en sistema</span></>}
                 {billAlert.paymentMethod === 'tarjeta' && <><CreditCard size={16} /><span>Llevar Datáfono</span></>}
-                {billAlert.paymentMethod === 'efectivo' && <><Banknote size={16} /><span>Pago en Efectivo (Llevar cambio)</span></>}
+                {billAlert.paymentMethod === 'efectivo' && <><Banknote size={16} /><span>Llevar cambio</span></>}
               </div>
-
-              {/* CTA button */}
-              <button
-                onClick={() => setBillAlert(null)}
+              <button onClick={() => setBillAlert(null)}
                 className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
-                style={{ backgroundColor: '#F59E0B', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}
-              >
+                style={{ backgroundColor: '#F59E0B', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
                 ✅ Entendido — Voy en camino
               </button>
             </div>
@@ -930,27 +1113,23 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
         </div>
       )}
 
+      {/* ── QUICK REQUEST ALERT MODAL ── */}
       {quickRequestAlert && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-          <div
-            className="w-full max-w-sm rounded-3xl overflow-hidden"
-            style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}
-          >
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden"
+            style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}>
             <div className="p-6 text-center">
-              <h2 className="text-2xl font-black text-[var(--text-primary)] mb-1" style={{ fontFamily: "'Lora', serif" }}>
-                🔔 Solicitud rápida de mesa
-              </h2>
-              <p className="text-sm text-[var(--text-secondary)] mb-1">Mesa {quickRequestAlert.tableNumber}</p>
-              <p className="text-sm text-[var(--text-secondary)] mb-4">Pedido #{quickRequestAlert.orderNumber}</p>
+              <h2 className="text-2xl font-black text-white mb-1">🔔 Solicitud rápida de mesa</h2>
+              <p className="text-sm mb-1" style={{ color: '#64748b' }}>Mesa {quickRequestAlert.tableNumber}</p>
+              <p className="text-sm mb-4" style={{ color: '#64748b' }}>Pedido #{quickRequestAlert.orderNumber}</p>
               <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm border"
-                style={{ backgroundColor: '#22c55e20', borderColor: '#22c55e55', color: '#86efac' }}>
+                style={{ backgroundColor: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)', color: '#86efac' }}>
                 {QUICK_REQUEST_LABELS[quickRequestAlert.requestType]}
               </div>
-              <button
-                onClick={acknowledgeQuickRequest}
+              <button onClick={acknowledgeQuickRequest}
                 className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
-                style={{ backgroundColor: '#22c55e', color: '#052e16' }}
-              >
+                style={{ backgroundColor: '#22c55e', color: '#052e16' }}>
                 ✅ Entendido — Atiendo la mesa
               </button>
             </div>
