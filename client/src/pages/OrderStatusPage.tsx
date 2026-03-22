@@ -630,569 +630,469 @@ export default function OrderStatusPage() {
     );
   }
 
+  // ─── Theme engine ───
+  const th = {
+    bg: 'var(--menu-bg)',
+    surface: 'var(--menu-surface)',
+    text: 'var(--menu-text)',
+    muted: 'var(--menu-muted)',
+    border: 'var(--menu-border)',
+    accent: 'var(--menu-accent)',
+    accentContrast: 'var(--menu-accent-contrast, #000)',
+  };
+
+  const heroConfig: Record<string, { emoji: string; title: string; subtitle: string; pulse?: boolean }> = {
+    pendiente: { emoji: '🕐', title: 'Pedido recibido', subtitle: 'El restaurante está revisando tu pedido...', pulse: true },
+    pago_en_revision: { emoji: '🔍', title: 'Verificando tu pago', subtitle: 'El restaurante está revisando tu comprobante SINPE', pulse: true },
+    en_cocina: { emoji: '🔥', title: 'Estamos preparando tu pedido', subtitle: 'Tu pedido está en manos del chef ahora mismo', pulse: true },
+    listo: { emoji: isDelivery ? '📦' : '✅', title: isDelivery ? '¡Pedido listo para despacho!' : '¡Tu pedido está listo!', subtitle: isDelivery ? 'Asignando repartidor...' : 'Puedes pasar a recogerlo' },
+    entregado: { emoji: '🎉', title: '¡Pedido entregado!', subtitle: isDelivery ? 'Tu pedido llegó. ¡Buen provecho!' : 'Gracias por pedir con nosotros' },
+    cancelado: { emoji: '❌', title: 'Pedido cancelado', subtitle: 'Este pedido fue cancelado. Contáctanos si tienes dudas.' },
+  };
+  const hero = heroConfig[order.status] || heroConfig['pendiente'];
+
+  const statusLabel: Record<string, string> = {
+    pendiente: 'Pedido recibido', pago_en_revision: 'Verificando pago',
+    en_cocina: 'En preparación', listo: isDelivery ? 'Listo para despacho' : 'Listo para recoger',
+    entregado: 'Entregado', cancelado: 'Cancelado',
+  };
+
+  type TimelineStep = { id: string; label: string; sublabel?: string; icon: string; done: boolean; active: boolean };
+  const buildTimeline = (): TimelineStep[] => {
+    const steps: TimelineStep[] = [];
+    const s = order.status;
+    const payVerified = (order as any).payment_verified === true;
+    const deliveryStatus = (order as any).delivery_status as string | null;
+    if (isSinpe) {
+      steps.push({
+        id: 'pago', label: payVerified ? 'Pago verificado' : 'Verificando pago SINPE',
+        sublabel: payVerified ? 'Tu pago fue confirmado' : 'El restaurante está revisando tu comprobante',
+        icon: payVerified ? '✅' : '🔍', done: payVerified,
+        active: !payVerified && (s === 'pendiente' || s === 'pago_en_revision'),
+      });
+    }
+    const statusOrder = ['pendiente', 'pago_en_revision', 'en_cocina', 'listo', 'entregado'];
+    const currentIdx = statusOrder.indexOf(s);
+    ([
+      { id: 'recibido', label: 'Pedido recibido', icon: '📋', status: 'pendiente' },
+      { id: 'cocina', label: 'En preparación', sublabel: 'El chef está trabajando en tu pedido', icon: '🔥', status: 'en_cocina' },
+      { id: 'listo', label: isDelivery ? 'Listo para despacho' : '¡Listo para recoger!', icon: '✅', status: 'listo' },
+    ] as any[]).forEach((step: any) => {
+      const stepIdx = statusOrder.indexOf(step.status);
+      steps.push({ id: step.id, label: step.label, sublabel: step.sublabel, icon: step.icon, done: currentIdx > stepIdx, active: currentIdx === stepIdx });
+    });
+    if (isDelivery) {
+      const dsOrder = ['assigned', 'picked_up', 'delivered'];
+      const dsIdx = dsOrder.indexOf(deliveryStatus || '');
+      ([
+        { id: 'asignado', label: 'Rider asignado', icon: '🛵', ds: 'assigned' },
+        { id: 'en_camino', label: 'En camino', sublabel: 'Tu pedido va en camino', icon: '🚀', ds: 'picked_up' },
+        { id: 'entregado_rider', label: 'Entregado', icon: '🎉', ds: 'delivered' },
+      ] as any[]).forEach((step: any) => {
+        const si = dsOrder.indexOf(step.ds);
+        steps.push({ id: step.id, label: step.label, sublabel: step.sublabel, icon: step.icon, done: dsIdx > si || s === 'entregado', active: dsIdx === si && s !== 'entregado' });
+      });
+    } else {
+      steps.push({ id: 'entregado_final', label: 'Entregado', icon: '🎉', done: s === 'entregado', active: false });
+    }
+    return steps;
+  };
+  const timeline = buildTimeline();
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--menu-bg)', color: 'var(--menu-text)' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-md border-b" style={{ backgroundColor: 'var(--menu-bg)', borderColor: 'var(--menu-border)' }}>
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-          <button
-            onClick={() => window.history.back()}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'var(--menu-surface)', color: 'var(--menu-muted)' }}
-          >
-            <ArrowLeft size={18} />
+    <div className="min-h-screen" style={{ backgroundColor: th.bg, color: th.text }}>
+      {/* HEADER */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl border-b" style={{ backgroundColor: th.bg + 'e8', borderColor: th.border }}>
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          <button onClick={() => window.history.back()}
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
+            style={{ backgroundColor: th.surface, color: th.muted }}>
+            <ArrowLeft size={17} />
           </button>
-          <div className="flex-1">
-            <h1 className="text-base font-bold" style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)' }}>
-              Pedido #{order.order_number}
-            </h1>
-            <p className="text-xs" style={{ color: 'var(--menu-muted)' }}>
-              {new Date(order.created_at).toLocaleString('es-CR', {
-                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-black tracking-tight" style={{ color: th.text }}>Pedido #{order.order_number}</h1>
+            <p className="text-[11px] mt-0.5" style={{ color: th.muted }}>
+              {new Date(order.created_at).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <div
-            className="px-3 py-1 rounded-full text-xs font-bold"
+          <motion.div key={order.status} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wide"
             style={{
-              backgroundColor: ORDER_STATUS_CONFIG[order.status]?.bgColor || '#F3F4F6',
-              color: ORDER_STATUS_CONFIG[order.status]?.color || '#6B7280',
-            }}
-          >
-            {ORDER_STATUS_CONFIG[order.status]?.label || order.status}
-          </div>
+              backgroundColor: isCancelled ? 'rgba(239,68,68,0.15)' : isCompleted ? 'rgba(16,185,129,0.15)' : 'color-mix(in srgb, var(--menu-accent) 15%, transparent)',
+              color: isCancelled ? '#F87171' : isCompleted ? '#34D399' : th.accent,
+              border: `1.5px solid ${isCancelled ? 'rgba(239,68,68,0.3)' : isCompleted ? 'rgba(16,185,129,0.3)' : 'color-mix(in srgb, var(--menu-accent) 35%, transparent)'}`,
+            }}>
+            <span className="text-[10px]">{hero.emoji}</span>
+            <span>{statusLabel[order.status] || order.status}</span>
+          </motion.div>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* ─── STATUS TRACKER ─── */}
-        <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
-          <h2 className="text-sm font-bold uppercase tracking-wider mb-5" style={{ color: 'var(--menu-muted)' }}>Estado del pedido</h2>
+      <div className="max-w-lg mx-auto px-4 pt-5 pb-32 space-y-4">
 
-          {isCancelled ? (
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-center py-6"
-            >
-              <XCircle size={48} className="text-red-400 mx-auto mb-3" />
-              <p className="text-lg font-bold text-red-400">Pedido cancelado</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Este pedido fue cancelado por el restaurante.</p>
+        {/* HERO CARD */}
+        <motion.div key={order.status + '_hero'} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+          className="rounded-2xl p-5 relative overflow-hidden"
+          style={{
+            background: isCompleted
+              ? 'linear-gradient(135deg, color-mix(in srgb, var(--menu-accent) 12%, var(--menu-surface)), var(--menu-surface))'
+              : isCancelled ? 'rgba(239,68,68,0.08)'
+              : 'linear-gradient(135deg, color-mix(in srgb, var(--menu-accent) 10%, var(--menu-surface)), var(--menu-surface))',
+            border: `1.5px solid ${isCompleted ? 'color-mix(in srgb, var(--menu-accent) 30%, transparent)' : isCancelled ? 'rgba(239,68,68,0.2)' : 'color-mix(in srgb, var(--menu-accent) 20%, transparent)'}`,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+          }}>
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-10 blur-2xl" style={{ backgroundColor: th.accent }} />
+          <div className="relative flex items-start gap-4">
+            <motion.div animate={hero.pulse ? { scale: [1, 1.1, 1] } : {}} transition={{ duration: 2, repeat: Infinity }} className="text-4xl flex-shrink-0 mt-0.5">
+              {hero.emoji}
             </motion.div>
-          ) : (
-            <div className="relative">
-              {/* Vertical line */}
-              <div className="absolute left-5 top-5 bottom-5 w-0.5" style={{ backgroundColor: 'var(--menu-border)' }} />
-
-              {/* ── Paso especial: Verificación de pago SINPE ── */}
-              {isSinpe && (
-                <div className="relative flex items-start gap-4 mb-6">
-                  <motion.div
-                    animate={isPaymentPending ? { scale: [1, 1.15, 1] } : {}}
-                    transition={isPaymentPending ? { duration: 1.5, repeat: Infinity } : {}}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all"
-                    style={{
-                      backgroundColor: isPaymentVerified ? '#10B98120' : isPaymentPending ? '#8B5CF620' : '#1e293b',
-                      color: isPaymentVerified ? '#10B981' : isPaymentPending ? '#A78BFA' : '#475569',
-                    }}
-                  >
-                    {isPaymentVerified
-                      ? <CheckCircle2 size={20} className="text-emerald-500" />
-                      : <ShieldCheck size={20} className={isPaymentPending ? 'animate-pulse' : ''} />
-                    }
-                  </motion.div>
-                  <div className="pt-2">
-                    <p className={`text-sm font-bold ${
-                      isPaymentVerified ? 'text-emerald-400' :
-                      isPaymentPending ? 'text-purple-300' : 'text-slate-600'
-                    }`}>
-                      {isPaymentVerified ? 'Pago SINPE confirmado ✅' : 'Verificando pago SINPE...'}
-                    </p>
-                    {isPaymentPending && (
-                      <p className="text-xs text-purple-400/70 mt-0.5 animate-pulse">
-                        ⏳ El restaurante está revisando tu comprobante
-                      </p>
-                    )}
-                    {isPaymentVerified && (
-                      <p className="text-xs text-emerald-400/60 mt-0.5">
-                        Tu pago fue verificado por el restaurante
-                      </p>
-                    )}
-                  </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-black leading-tight" style={{ color: th.text }}>{hero.title}</h2>
+              <p className="text-sm mt-1 leading-snug" style={{ color: th.muted }}>{hero.subtitle}</p>
+              {isDelivery && (order as any).delivery_eta_minutes && !isCompleted && (
+                <div className="flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl w-fit"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
+                  <Clock size={12} style={{ color: th.accent }} />
+                  <span className="text-xs font-bold" style={{ color: th.accent }}>ETA: {(order as any).delivery_eta_minutes} min</span>
                 </div>
               )}
+              {(scheduledDate || scheduledTime) && !isCompleted && (
+                <div className="flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl w-fit"
+                  style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Clock size={12} className="text-amber-400" />
+                  <span className="text-xs font-bold text-amber-400">{scheduledDate === 'tomorrow' ? 'Mañana' : 'Hoy'}{scheduledTime ? ` · ${scheduledTime}` : ''}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
-              {STATUS_STEPS.map((step, idx) => {
-                const isActive = idx === currentStepIdx;
-                const isDone = idx < currentStepIdx;
-                const isFuture = idx > currentStepIdx;
-
+        {/* TIMELINE UNIFICADO */}
+        {!isCancelled && (
+          <div className="rounded-2xl p-5 border" style={{ backgroundColor: th.surface, borderColor: th.border }}>
+            <h3 className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: th.muted }}>Seguimiento</h3>
+            <div className="space-y-0">
+              {timeline.map((step, idx) => {
+                const isLast = idx === timeline.length - 1;
                 return (
-                  <div key={step.key} className="relative flex items-start gap-4 mb-6 last:mb-0">
-                    {/* Circle */}
-                    <motion.div
-                      animate={isActive ? { scale: [1, 1.15, 1] } : {}}
-                      transition={isActive ? { duration: 1.5, repeat: Infinity } : {}}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10 transition-all ${
-                        isDone ? 'bg-emerald-500/20' :
-                        isActive ? 'ring-2 ring-offset-2' :
-                        ''
-                      }`}
-                      style={{
-                        backgroundColor: isDone ? '#10B98120' : isActive ? `${step.color}20` : 'var(--menu-border)',
-                        color: isDone ? '#10B981' : isActive ? step.color : 'var(--menu-muted)',
-                        // @ts-ignore ring color via Tailwind
-                        '--tw-ring-color': isActive ? step.color : undefined,
-                      } as React.CSSProperties}
-                    >
-                      {isDone ? (
-                        <CheckCircle2 size={20} className="text-emerald-500" />
-                      ) : (
-                        <span className={isActive ? step.animClass : ''}>{step.icon}</span>
-                      )}
-                    </motion.div>
-
-                    {/* Text */}
-                    <div className={`pt-2 ${isFuture ? 'opacity-30' : ''}`}>
-                      <p className="text-sm font-bold" style={{ color: isActive ? 'var(--menu-text)' : isDone ? 'var(--menu-muted)' : 'var(--menu-muted)' }}>
+                  <div key={step.id} className="flex gap-3">
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <motion.div animate={step.active ? { scale: [1, 1.2, 1] } : {}} transition={step.active ? { duration: 1.5, repeat: Infinity } : {}}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all z-10"
+                        style={{
+                          backgroundColor: step.done ? 'rgba(16,185,129,0.15)' : step.active ? 'color-mix(in srgb, var(--menu-accent) 15%, transparent)' : 'transparent',
+                          border: step.done ? '2px solid rgba(16,185,129,0.5)' : step.active ? '2px solid var(--menu-accent)' : `2px solid ${th.border}`,
+                          color: step.done ? '#34D399' : step.active ? th.accent : th.muted,
+                        }}>
+                        {step.done ? '✓' : step.icon}
+                      </motion.div>
+                      {!isLast && <div className="w-0.5 flex-1 my-1 min-h-[20px]" style={{ backgroundColor: step.done ? 'rgba(16,185,129,0.3)' : th.border }} />}
+                    </div>
+                    <div className={`pb-4 pt-1.5 flex-1 min-w-0${isLast ? ' pb-0' : ''}`}>
+                      <p className="text-sm font-bold leading-tight transition-all"
+                        style={{ color: step.done ? '#34D399' : step.active ? th.text : th.muted, opacity: step.done || step.active ? 1 : 0.4 }}>
                         {step.label}
                       </p>
-                      {isActive && step.key === 'pendiente' && (
-                        <p className="text-xs text-amber-400/70 mt-0.5">El restaurante está revisando tu pedido...</p>
-                      )}
-                      {isActive && step.key === 'en_cocina' && (
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-xs text-orange-400/70 mt-0.5"
-                        >
-                          🔥 Tu pedido se está preparando ahora mismo
+                      {(step.active || step.done) && step.sublabel && (
+                        <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-xs mt-0.5 leading-snug"
+                          style={{ color: step.done ? 'rgba(52,211,153,0.7)' : th.muted }}>
+                          {step.sublabel}
                         </motion.p>
                       )}
-                      {isActive && step.key === 'listo' && (
-                        <motion.p
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="text-xs text-emerald-400/70 mt-0.5"
-                        >
-                          ✅ ¡Puedes pasar a recoger tu pedido!
-                        </motion.p>
+                      {step.active && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: th.accent }} />
+                          <span className="text-[10px] font-bold" style={{ color: th.accent }}>En curso</span>
+                        </div>
                       )}
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ─── DELIVERY TRACKING BLOCK — Fase 2 ─── */}
-        {isDelivery && <DeliveryTrackingBlock orderId={order.id} order={order as any} />}
+        {/* MAPA */}
+        {isDelivery && deliveryLat && deliveryLon && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl overflow-hidden border" style={{ borderColor: th.border }}>
+            {!isCompleted ? (
+              <>
+                <div className="px-4 py-3 flex items-center gap-2" style={{ backgroundColor: th.surface }}>
+                  <MapPin size={13} style={{ color: th.accent }} />
+                  <span className="text-xs font-medium truncate" style={{ color: th.text }}>
+                    {(order as any).delivery_formatted_address || deliveryAddress || 'Ubicación de entrega'}
+                  </span>
+                </div>
+                <iframe title="Mapa de entrega" width="100%" height="180" style={{ border: 0, display: 'block' }} loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(deliveryLon)-0.005},${Number(deliveryLat)-0.005},${Number(deliveryLon)+0.005},${Number(deliveryLat)+0.005}&layer=mapnik&marker=${deliveryLat},${deliveryLon}`} />
+                <a href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-3 transition-colors" style={{ backgroundColor: th.surface, color: th.accent }}>
+                  <MapPin size={13} /><span className="text-xs font-bold">Abrir en Google Maps</span>
+                </a>
+              </>
+            ) : (
+              <div className="px-4 py-3 flex items-center gap-2" style={{ backgroundColor: th.surface }}>
+                <MapPin size={13} style={{ color: th.muted }} />
+                <span className="text-xs flex-1 truncate" style={{ color: th.muted }}>{(order as any).delivery_formatted_address || deliveryAddress}</span>
+                <a href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] font-bold ml-auto" style={{ color: th.accent }}>Ver</a>
+              </div>
+            )}
+          </motion.div>
+        )}
 
-        {/* ─── ORDER DETAILS ─── */}
-        <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
-          <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--menu-muted)' }}>Detalle del pedido</h2>
-          <div className="space-y-1.5">
+        {isDelivery && !deliveryLat && deliveryAddress && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-2xl border" style={{ backgroundColor: th.surface, borderColor: th.border }}>
+            <MapPin size={15} style={{ color: th.accent }} className="mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold mb-0.5" style={{ color: th.muted }}>Dirección de entrega</p>
+              <p className="text-sm" style={{ color: th.text }}>{deliveryAddress}</p>
+            </div>
+          </div>
+        )}
+
+        {/* GPS + WhatsApp */}
+        {isDelivery && deliveryPhone && !isCompleted && (
+          <div className="space-y-2">
+            {!gpsLink ? (
+              <button onClick={handleGetGPS} disabled={gpsLoading}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
+                style={{ backgroundColor: 'rgba(16,163,127,0.1)', color: '#10A37F', border: '1.5px solid rgba(16,163,127,0.25)' }}>
+                <MapPin size={15} />{gpsLoading ? 'Obteniendo ubicación...' : 'Compartir mi ubicación GPS'}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl" style={{ backgroundColor: 'rgba(16,185,129,0.08)', border: '1.5px solid rgba(16,185,129,0.2)' }}>
+                <MapPin size={13} className="text-emerald-400 flex-shrink-0" />
+                <p className="text-xs font-bold text-emerald-400 flex-1">Ubicación GPS capturada ✅</p>
+                <button onClick={() => setGpsLink(null)} className="text-xs" style={{ color: th.muted }}>✕</button>
+              </div>
+            )}
+            {gpsError && <p className="text-[11px] text-red-400 text-center">{gpsError}</p>}
+            <button onClick={handleWhatsAppDelivery}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all active:scale-[0.97]"
+              style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#25D366', border: '1.5px solid rgba(37,211,102,0.25)' }}>
+              <MessageCircle size={15} />{gpsLink ? 'Enviar pedido y GPS por WhatsApp' : 'Coordinar entrega por WhatsApp'}
+            </button>
+          </div>
+        )}
+
+        {/* DETALLE DEL PEDIDO */}
+        <div className="rounded-2xl p-5 border" style={{ backgroundColor: th.surface, borderColor: th.border }}>
+          <h3 className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: th.muted }}>Tu pedido</h3>
+          <div className="space-y-2.5">
             {((order.items as any[]) || []).map((item: any, i: number) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span style={{ color: 'var(--menu-text)' }}>
-                  {item.quantity}× {item.name}
-                </span>
-                <span style={{ color: 'var(--menu-muted)' }}>{formatPrice(item.price * item.quantity)}</span>
+              <div key={i} className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                  <span className="text-xs font-black px-1.5 py-0.5 rounded-md flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 15%, transparent)', color: th.accent }}>
+                    {item.quantity}×
+                  </span>
+                  <span className="text-sm leading-snug" style={{ color: th.text }}>{item.name}</span>
+                </div>
+                <span className="text-sm font-bold flex-shrink-0" style={{ color: th.muted }}>{formatPrice(item.price * item.quantity)}</span>
               </div>
             ))}
           </div>
-          <div className="flex justify-between pt-3 mt-3 border-t font-bold" style={{ borderColor: 'var(--menu-border)' }}>
-            <span style={{ color: 'var(--menu-accent)' }}>Total</span>
-            <span style={{ color: 'var(--menu-accent)' }}>{formatPrice(order.total)}</span>
-          </div>
-          {order.customer_name && (
-            <div className="mt-3 pt-3 border-t text-xs space-y-0.5" style={{ borderColor: 'var(--menu-border)', color: 'var(--menu-muted)' }}>
-              <p>👤 {order.customer_name}</p>
-              {order.customer_table && <p>🪑 Mesa: {order.customer_table}</p>}
-              {order.payment_method && <p>💳 {order.payment_method.toUpperCase()}</p>}
+          <div className="my-4 border-t" style={{ borderColor: th.border }} />
+          <div className="space-y-2">
+            {isDelivery && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: th.muted }}>Subtotal</span>
+                  <span style={{ color: th.muted }}>{formatPrice(order.total - ((order as any).delivery_fee_final || 0))}</span>
+                </div>
+                {((order as any).delivery_fee_final || (order as any).delivery_fee_pending) && (
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: th.muted }}>Envío</span>
+                    <span style={{ color: (order as any).delivery_fee_pending ? '#F59E0B' : th.muted }}>
+                      {(order as any).delivery_fee_pending ? 'Por confirmar' : formatPrice((order as any).delivery_fee_final)}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-base font-black" style={{ color: th.text }}>Total</span>
+              <span className="text-xl font-black" style={{ color: th.accent }}>{formatPrice(order.total)}</span>
             </div>
-          )}
+          </div>
+          <div className="mt-4 pt-4 border-t flex items-center justify-between gap-3" style={{ borderColor: th.border }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {order.customer_name && <span className="text-xs" style={{ color: th.muted }}>👤 {order.customer_name}</span>}
+              {order.customer_table && <span className="text-xs" style={{ color: th.muted }}>🪑 {order.customer_table}</span>}
+            </div>
+            {order.payment_method && (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-black flex-shrink-0"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 12%, transparent)', color: th.accent, border: '1px solid color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
+                {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'efectivo' ? '💵 Efectivo' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : order.payment_method.toUpperCase()}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* ─── TABLE QUICK REQUESTS — solo dine_in ─── */}
+        {/* QUICK REQUESTS */}
         {order.customer_table && order.status !== 'cancelado' && !isDelivery && !isTakeout && (
-          <div className="rounded-2xl p-5 border" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
-            <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--menu-muted)' }}>¿Necesitas algo en la mesa?</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="rounded-2xl p-5 border" style={{ backgroundColor: th.surface, borderColor: th.border }}>
+            <h3 className="text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: th.muted }}>¿Necesitas algo?</h3>
+            <div className="grid grid-cols-3 gap-2">
               {TABLE_QUICK_REQUESTS.map((request) => {
                 const isActive = activeQuickRequest === request.type;
-                const isSending = quickRequestLoading === request.type;
                 return (
-                  <button
-                    key={request.type}
-                    onClick={() => handleQuickRequest(request.type)}
-                    disabled={!!quickRequestLoading}
-                    className="rounded-xl px-3 py-3 text-sm font-bold border transition-all disabled:opacity-60"
-                    style={{
-                      backgroundColor: isActive ? 'var(--menu-accent)' + '20' : 'var(--menu-bg)',
-                      borderColor: isActive ? 'var(--menu-accent)' : 'var(--menu-border)',
-                      color: isActive ? 'var(--menu-accent)' : 'var(--menu-text)',
-                    }}
-                  >
-                    {isSending ? 'Enviando…' : `${request.emoji} ${request.label}`}
+                  <button key={request.type} onClick={() => handleQuickRequest(request.type)} disabled={!!quickRequestLoading}
+                    className="rounded-xl px-2 py-3 text-xs font-bold border transition-all disabled:opacity-60 active:scale-95"
+                    style={{ backgroundColor: isActive ? 'color-mix(in srgb, var(--menu-accent) 15%, transparent)' : th.bg, borderColor: isActive ? th.accent : th.border, color: isActive ? th.accent : th.text }}>
+                    {quickRequestLoading === request.type ? '...' : `${request.emoji} ${request.label}`}
                   </button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-muted-foreground/70 mt-3">
-              Estas solicitudes avisan al staff en tiempo real y al admin con alerta visual.
-            </p>
           </div>
         )}
 
-        {/* ─── DELIVERY INFO CARD ─── */}
-        {(isDelivery || isTakeout) && (
-          <div className="rounded-2xl p-5 border space-y-3" style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-border)' }}>
-            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--menu-muted)' }}>
-              {isDelivery ? '🛕 Información de Delivery' : '🥡 Información de Takeout'}
-            </h2>
-            {scheduledDate && (
-              <div className="flex items-center gap-2 text-sm">
-                <Clock size={14} className="text-amber-400" />
-                <span className="text-muted-foreground">
-                  {scheduledDate === 'tomorrow' ? (
-                    <span className="font-bold text-orange-400">⏰ Mañana</span>
-                  ) : 'Hoy'}
-                  {scheduledTime && ` a las ${scheduledTime}`}
-                </span>
-              </div>
-            )}
-            {deliveryAddress && (
-              <div className="flex items-start gap-2 text-sm">
-                <MapPin size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                <span style={{ color: 'var(--menu-muted)' }}>{deliveryAddress}</span>
-              </div>
-            )}
-            {/* Mapa de la ubicación de entrega */}
-            {isDelivery && deliveryLat && deliveryLon && (
-              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--menu-border)' }}>
-                <iframe
-                  title="Mapa de entrega"
-                  width="100%"
-                  height="160"
-                  style={{ border: 0, display: 'block' }}
-                  loading="lazy"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(deliveryLon)-0.005},${Number(deliveryLat)-0.005},${Number(deliveryLon)+0.005},${Number(deliveryLat)+0.005}&layer=mapnik&marker=${deliveryLat},${deliveryLon}`}
-                />
-                <a
-                  href={`https://www.google.com/maps?q=${deliveryLat},${deliveryLon}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 transition-colors"
-                  style={{ backgroundColor: 'var(--menu-bg)' }}
-                >
-                  <MapPin size={12} className="text-blue-400" />
-                  <span className="text-xs text-blue-400 font-semibold">Ver en Google Maps</span>
-                </a>
-              </div>
-            )}
-            {isDelivery && deliveryPhone && (
-              <div className="space-y-3">
-                {/* Botón GPS */}
-                {!gpsLink ? (
-                  <button
-                    onClick={handleGetGPS}
-                    disabled={gpsLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
-                    style={{
-                      backgroundColor: gpsLoading ? '#16A34A10' : '#16A34A20',
-                      color: gpsLoading ? '#86EFAC' : '#4ADE80',
-                      border: '2px solid #16A34A40',
-                      opacity: gpsLoading ? 0.7 : 1,
-                    }}
-                  >
-                    <MapPin size={16} />
-                    {gpsLoading ? 'Obteniendo ubicación...' : '📍 Usar mi ubicación GPS actual'}
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-500/10 border border-green-500/30">
-                    <MapPin size={14} className="text-green-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-green-400">Ubicación GPS capturada ✅</p>
-                      <p className="text-[10px] text-muted-foreground/70 truncate">Se adjuntará al mensaje de WhatsApp</p>
-                    </div>
-                    <button
-                      onClick={() => setGpsLink(null)}
-                      className="text-muted-foreground/70 hover:text-muted-foreground transition-colors text-xs"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-
-                {/* Error GPS */}
-                {gpsError && (
-                  <p className="text-[11px] text-red-400 text-center px-1">⚠️ {gpsError}</p>
-                )}
-
-                {/* Botón WhatsApp */}
-                <button
-                  onClick={handleWhatsAppDelivery}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
-                  style={{ backgroundColor: '#25D36620', color: '#25D366', border: '2px solid #25D36640' }}
-                >
-                  <MessageCircle size={16} />
-                  {gpsLink ? 'Enviar pedido y GPS por WhatsApp' : 'Coordinar entrega por WhatsApp'}
-                </button>
-
-                {!gpsLink && (
-                  <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed px-1">
-                    ℹ️ Usa el botón GPS para compartir tu ubicación exacta automáticamente.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── V17.2: SINPE ASYNC DROPZONE ─── */}
-        {/* GATING: SINPE dropzone solo para delivery */}
-        {order.payment_method === 'sinpe' && isDelivery && !sinpeUploaded && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-5 border-2 space-y-4"
-            style={{ backgroundColor: 'var(--menu-surface)', borderColor: 'var(--menu-accent)' }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--menu-accent)' + '20' }}>
-                <span className="text-xl">📸</span>
-              </div>
+        {/* SINPE — VISIBILIDAD CONDICIONAL */}
+        {isSinpe && isDelivery && (() => {
+          const hasReceipt = !!((order as any).sinpe_receipt_url?.length > 5);
+          if (isPaymentVerified) return (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+              style={{ backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }}>
+              <ShieldCheck size={18} className="text-emerald-400 flex-shrink-0" />
               <div>
-                <h2 className="text-sm font-bold" style={{ color: 'var(--menu-text)' }}>Comprobante SINPE</h2>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--menu-muted)' }}>Puedes subir la foto ahora o después de comer</p>
+                <p className="text-sm font-bold text-emerald-400">Pago SINPE verificado ✅</p>
+                <p className="text-xs mt-0.5" style={{ color: th.muted }}>Tu pago fue confirmado por el restaurante</p>
               </div>
             </div>
-
-            {/* Número SINPE del local */}
-            {order.tenant_id && (
-              <SinpeTenantNumber tenantId={order.tenant_id} />
-            )}
-
-            {/* Dropzone / Preview */}
-            {sinpePreview ? (
-              <div className="relative">
-                <img src={sinpePreview} alt="Comprobante" className="w-full h-40 object-cover rounded-xl" />
-                <button
-                  onClick={() => { setSinpeFile(null); setSinpePreview(''); }}
-                  className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center"
-                >
-                  <XCircle size={14} className="text-foreground" />
-                </button>
+          );
+          if (sinpeUploaded || hasReceipt) return (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
+              <Check size={18} style={{ color: th.accent }} className="flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold" style={{ color: th.accent }}>Comprobante enviado</p>
+                <p className="text-xs mt-0.5" style={{ color: th.muted }}>Estamos validando tu pago SINPE...</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {/* Botón cámara */}
-                <button
-                  onClick={() => sinpeCameraInputRef.current?.click()}
-                  className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all"
-                  style={{ borderColor: 'var(--menu-accent)', color: 'var(--menu-accent)' }}
-                >
-                  <Camera size={22} />
-                  <span className="text-xs font-semibold">Tomar foto</span>
-                </button>
-                {/* Botón galería */}
-                <button
-                  onClick={() => sinpeInputRef.current?.click()}
-                  className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all"
-                  style={{ borderColor: 'var(--menu-accent)', color: 'var(--menu-accent)' }}
-                >
-                  <span className="text-2xl">🖼️</span>
-                  <span className="text-xs font-semibold">Desde galería</span>
-                </button>
+            </motion.div>
+          );
+          return (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl p-5 border-2 space-y-4"
+              style={{ backgroundColor: th.surface, borderColor: 'color-mix(in srgb, var(--menu-accent) 40%, transparent)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 15%, transparent)' }}>
+                  <span className="text-xl">📸</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: th.text }}>Comprobante SINPE</h3>
+                  <p className="text-xs mt-0.5" style={{ color: th.muted }}>Puedes subir la foto ahora o después</p>
+                </div>
               </div>
-            )}
-            {/* Input galería (sin capture) */}
-            <input
-              ref={sinpeInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleSinpeFileSelect}
-              className="hidden"
-            />
-            {/* Input cámara (con capture) */}
-            <input
-              ref={sinpeCameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleSinpeFileSelect}
-              className="hidden"
-            />
+              {order.tenant_id && <SinpeTenantNumber tenantId={order.tenant_id} />}
+              {sinpePreview ? (
+                <div className="relative rounded-xl overflow-hidden">
+                  <img src={sinpePreview} alt="Comprobante" className="w-full max-h-48 object-cover rounded-xl" />
+                  <button onClick={() => { setSinpeFile(null); setSinpePreview(''); }}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white text-xs">✕</button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => sinpeCameraInputRef.current?.click()}
+                    className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all active:scale-95"
+                    style={{ borderColor: 'color-mix(in srgb, var(--menu-accent) 40%, transparent)', color: th.accent }}>
+                    <Camera size={22} /><span className="text-xs font-semibold">Tomar foto</span>
+                  </button>
+                  <button onClick={() => sinpeInputRef.current?.click()}
+                    className="py-5 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-all active:scale-95"
+                    style={{ borderColor: 'color-mix(in srgb, var(--menu-accent) 40%, transparent)', color: th.accent }}>
+                    <span className="text-2xl">🖼️</span><span className="text-xs font-semibold">Desde galería</span>
+                  </button>
+                </div>
+              )}
+              <input ref={sinpeInputRef} type="file" accept="image/*" onChange={handleSinpeFileSelect} className="hidden" />
+              <input ref={sinpeCameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleSinpeFileSelect} className="hidden" />
+              {sinpeFile && (
+                <button onClick={handleSinpeUpload} disabled={sinpeUploading}
+                  className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 active:scale-[0.98]"
+                  style={{ backgroundColor: th.accent, color: th.accentContrast, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)' }}>
+                  {sinpeUploading ? <><Loader2 size={18} className="animate-spin" /> Enviando...</> : <><ShoppingBag size={18} /> Enviar comprobante</>}
+                </button>
+              )}
+            </motion.div>
+          );
+        })()}
 
-            {sinpeFile && (
-              <button
-                onClick={handleSinpeUpload}
-                disabled={sinpeUploading}
-                className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                style={{ backgroundColor: 'var(--menu-accent)', color: 'var(--menu-accent-contrast, #fff)', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}
-              >
-                {sinpeUploading ? (
-                  <><Loader2 size={18} className="animate-spin" /> Enviando comprobante...</>
-                ) : (
-                  <><ShoppingBag size={18} /> Enviar comprobante al restaurante</>
-                )}
-              </button>
-            )}
-          </motion.div>
-        )}
-
-        {/* Comprobante ya enviado */}
-        {/* GATING: Comprobante enviado solo para delivery */}
-        {order.payment_method === 'sinpe' && isDelivery && sinpeUploaded && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
-            style={{ backgroundColor: 'var(--menu-accent)' + '15', borderColor: 'var(--menu-accent)' }}
-          >
-            <Check size={18} style={{ color: 'var(--menu-accent)' }} className="flex-shrink-0" />
-            <div>
-              <p className="text-sm font-bold" style={{ color: 'var(--menu-accent)' }}>Comprobante enviado ✅</p>
-              <p className="text-xs" style={{ color: 'var(--menu-muted)' }}>El restaurante verificará tu pago SINPE.</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ─── CUENTA ABIERTA: ADD MORE BUTTON ─── */}
+        {/* CUENTA ABIERTA */}
         {canAddMore && (
-          <motion.button
-            onClick={handleAddMore}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileTap={{ scale: 0.97 }}
+          <motion.button onClick={handleAddMore} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.97 }}
             className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
-            style={{
-              backgroundColor: 'var(--menu-accent)',
-              color: 'var(--menu-accent-contrast, #000)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-            }}
-          >
-            <Plus size={20} />
-            Agregar más platillos / bebidas
+            style={{ backgroundColor: th.accent, color: th.accentContrast, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)' }}>
+            <Plus size={20} />Agregar más platillos
           </motion.button>
         )}
 
-        {/* Completed state */}
+        {/* ESTADO FINAL: ENTREGADO */}
         {isCompleted && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="space-y-4"
-          >
-            {/* Mensaje principal */}
-            <div className="text-center py-4">
-              <p className="text-6xl mb-3">🍽️</p>
-              <p className="text-lg font-bold" style={{ fontFamily: "'Lora', serif" }}>¡Buen provecho!</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--menu-muted)' }}>Gracias por tu pedido. ¡Esperamos que lo disfrutes!</p>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+            <div className="rounded-2xl p-6 text-center border"
+              style={{ background: 'linear-gradient(135deg, color-mix(in srgb, var(--menu-accent) 8%, var(--menu-surface)), var(--menu-surface))', borderColor: 'color-mix(in srgb, var(--menu-accent) 20%, transparent)' }}>
+              <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 1.5, repeat: 2 }} className="text-5xl mb-3">🎉</motion.div>
+              <h2 className="text-xl font-black mb-1" style={{ color: th.text }}>¡Pedido entregado!</h2>
+              <p className="text-sm" style={{ color: th.muted }}>{isDelivery ? 'Tu pedido llegó. ¡Buen provecho!' : 'Gracias por pedir con nosotros. ¡Buen provecho!'}</p>
             </div>
-            {/* Recordatorio de pago contextual */}
-            {/* GATING: nota SINPE solo para delivery */}
-            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status !== 'paid' && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-purple-500/10 border border-purple-500/30"
-              >
-                <span className="text-xl flex-shrink-0">📱</span>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={handleAddMore}
+                className="py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 12%, transparent)', color: th.accent, border: '1.5px solid color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
+                <Plus size={15} />Pedir de nuevo
+              </button>
+              <a href={`https://wa.me/${((order as any).customer_phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                className="py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#25D366', border: '1.5px solid rgba(37,211,102,0.25)' }}>
+                <MessageCircle size={15} />Contactar
+              </a>
+            </div>
+            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status !== 'paid' && !isPaymentVerified && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-3 px-4 py-3 rounded-2xl border"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
+                <span className="text-lg flex-shrink-0">📱</span>
                 <div>
-                  <p className="text-sm font-bold text-purple-200">Recuerda tu pago por SINPE</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, envía tu comprobante de SINPE si aún no lo has hecho.</p>
-                </div>
-              </motion.div>
-            )}
-            {order.payment_method === 'sinpe' && isDelivery && (order as any).payment_status === 'paid' && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30"
-              >
-                <span className="text-xl">✅</span>
-                <p className="text-sm font-bold text-emerald-300">Pago verificado. ¡Todo en orden!</p>
-              </motion.div>
-            )}
-            {order.payment_method === 'efectivo' && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30"
-              >
-                <span className="text-xl flex-shrink-0">💵</span>
-                <div>
-                  <p className="text-sm font-bold text-amber-200">Pago en efectivo</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar en caja.</p>
-                </div>
-              </motion.div>
-            )}
-            {order.payment_method === 'tarjeta' && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-blue-500/10 border border-blue-500/30"
-              >
-                <span className="text-xl flex-shrink-0">💳</span>
-                <div>
-                  <p className="text-sm font-bold text-blue-200">Pago con tarjeta</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Cuando termines de comer, puedes pagar con tarjeta en caja.</p>
+                  <p className="text-sm font-bold" style={{ color: th.accent }}>Pago SINPE pendiente</p>
+                  <p className="text-xs mt-0.5" style={{ color: th.muted }}>El restaurante verificará tu comprobante pronto.</p>
                 </div>
               </motion.div>
             )}
           </motion.div>
         )}
+
+        {isCancelled && (
+          <div className="text-center py-6">
+            <p className="text-4xl mb-3">❌</p>
+            <p className="text-base font-bold text-red-400">Pedido cancelado</p>
+            <p className="text-sm mt-1" style={{ color: th.muted }}>Contáctanos si tienes alguna duda.</p>
+          </div>
+        )}
+
       </div>
 
-      {/* ─── V21.0: SMART BILL — Sticky Footer ─── */}
-      {/* Solo para dine_in: no tiene sentido pedir la cuenta a un mesero en delivery/takeout */}
+      {/* Smart Bill Footer */}
       {isCompleted && (order as any).payment_status !== 'paid' && !isDelivery && !isTakeout && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 p-4"
-          style={{
-            background: `linear-gradient(to top, var(--menu-bg) 60%, transparent)`,
-          }}
-        >
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4" style={{ background: 'linear-gradient(to top, var(--menu-bg) 60%, transparent)' }}>
           <div className="max-w-lg mx-auto">
-            <motion.button
-              onClick={handleRequestBill}
-              disabled={billRequested || billLoading}
-              whileTap={!billRequested ? { scale: 0.97 } : {}}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
+            <motion.button onClick={handleRequestBill} disabled={billRequested || billLoading} whileTap={!billRequested ? { scale: 0.97 } : {}}
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
               className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all"
               style={{
-                backgroundColor: billRequested ? 'var(--menu-surface)' : 'var(--menu-accent)',
-                color: billRequested ? 'var(--menu-muted)' : 'var(--menu-accent-contrast, #000)',
-                boxShadow: billRequested ? 'none' : '0 4px 24px rgba(0,0,0,0.4)',
+                backgroundColor: billRequested ? th.surface : th.accent,
+                color: billRequested ? th.muted : th.accentContrast,
+                boxShadow: billRequested ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.1)',
                 cursor: billRequested ? 'default' : 'pointer',
-                border: billRequested ? `1px solid var(--menu-border)` : 'none',
-              }}
-            >
-              {billLoading ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" />
-                  <span>Enviando solicitud...</span>
-                </>
-              ) : billRequested ? (
-                <>
-                  <span className="text-xl">✅</span>
-                  <span>El mesero va en camino con tu cuenta...</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-xl">🛎️</span>
-                  <span>Pedir la Cuenta</span>
-                </>
-              )}
+                border: billRequested ? `1px solid ${th.border}` : 'none',
+              }}>
+              {billLoading ? <><Loader2 size={20} className="animate-spin" /><span>Enviando...</span></>
+                : billRequested ? <><span className="text-xl">✅</span><span>El mesero va en camino...</span></>
+                : <><span className="text-xl">🛎️</span><span>Pedir la Cuenta</span></>}
             </motion.button>
           </div>
         </div>
