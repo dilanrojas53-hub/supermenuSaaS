@@ -439,6 +439,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       .select('*')
       .eq('tenant_id', tenant.id)
       .in('status', ACTIVE_STATUSES)
+      .in('delivery_type', ['dine_in', 'takeout'])
       .order('created_at', { ascending: false })
       .limit(80);
     const newOrders = (data as Order[]) || [];
