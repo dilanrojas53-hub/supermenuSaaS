@@ -1768,6 +1768,31 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     }
   }, [tenant.id]);
   useEffect(() => { fetchActiveSessions(); }, [fetchActiveSessions]);
+  const fetchOrders = useCallback(async () => {
+    // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
+    // Excluir pedidos archivados (mesa cerrada) de la vista activa
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .not('status', 'in', '(cancelado)')
+      .neq('table_archived', true)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    const newOrders = (data as Order[]) || [];
+    // Detección de nuevos pedidos por ID (más fiable que por conteo)
+    const activeOrders = newOrders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado');
+    const activeIds = new Set(activeOrders.map(o => o.id));
+    const hasNewOrder = prevActiveIdsRef.current.size > 0 &&
+      activeOrders.some(o => !prevActiveIdsRef.current.has(o.id));
+    if (hasNewOrder) {
+      playBell();
+      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
+    }
+    prevActiveIdsRef.current = activeIds;
+    setOrders(newOrders);
+    setLoading(false);
+  }, [tenant.id, playBell]);
   const handleCloseTable = useCallback(async (tableName: string) => {
     const sessionId = activeSessions[tableName];
     if (sessionId) {
@@ -1794,31 +1819,6 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     help: '🆘 Ayuda',
   };
 
-  const fetchOrders = useCallback(async () => {
-    // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
-    // Excluir pedidos archivados (mesa cerrada) de la vista activa
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .not('status', 'in', '(cancelado)')
-      .neq('table_archived', true)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    const newOrders = (data as Order[]) || [];
-    // Detección de nuevos pedidos por ID (más fiable que por conteo)
-    const activeOrders = newOrders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado');
-    const activeIds = new Set(activeOrders.map(o => o.id));
-    const hasNewOrder = prevActiveIdsRef.current.size > 0 &&
-      activeOrders.some(o => !prevActiveIdsRef.current.has(o.id));
-    if (hasNewOrder) {
-      playBell();
-      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
-    }
-    prevActiveIdsRef.current = activeIds;
-    setOrders(newOrders);
-    setLoading(false);
-  }, [tenant.id, playBell]);
 
   // V17.2: Marcar orden como pagada
   const handleMarkPaid = async (orderId: string) => {
