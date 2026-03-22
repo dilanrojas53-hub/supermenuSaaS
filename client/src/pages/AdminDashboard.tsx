@@ -1755,6 +1755,39 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       .then(({ data }) => { if (data?.sinpe_block_mode) setSinpeBlockMode(data.sinpe_block_mode as any); });
   }, [tenant.id]);
 
+  // ── Sesiones de mesa activas ──
+  const [activeSessions, setActiveSessions] = useState<Record<string, string>>({});
+  const [tableHistoryModal, setTableHistoryModal] = useState<string | null>(null);
+  const [tableHistoryOrders, setTableHistoryOrders] = useState<Order[]>([]);
+  const fetchActiveSessions = useCallback(async () => {
+    const { data } = await supabase.from('table_sessions').select('id,table_name').eq('tenant_id', tenant.id).eq('status', 'active');
+    if (data) {
+      const map: Record<string, string> = {};
+      (data as any[]).forEach(s => { map[s.table_name] = s.id; });
+      setActiveSessions(map);
+    }
+  }, [tenant.id]);
+  useEffect(() => { fetchActiveSessions(); }, [fetchActiveSessions]);
+  const handleCloseTable = useCallback(async (tableName: string) => {
+    const sessionId = activeSessions[tableName];
+    if (sessionId) {
+      await supabase.from('orders').update({ table_archived: true, updated_at: new Date().toISOString() }).eq('session_id', sessionId);
+      await supabase.from('table_sessions').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', sessionId);
+      setActiveSessions(prev => { const n = { ...prev }; delete n[tableName]; return n; });
+    }
+    // Archivar pedidos entregados legacy (sin session_id)
+    await supabase.from('orders').update({ table_archived: true, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenant.id).eq('customer_table', tableName).eq('status', 'entregado').is('session_id', null);
+    toast.success(`✅ Mesa ${tableName} cerrada — lista para nuevo cliente`);
+    fetchOrders();
+  }, [activeSessions, tenant.id, fetchOrders]);
+  const handleViewTableHistory = useCallback(async (tableName: string) => {
+    const { data } = await supabase.from('orders').select('*').eq('tenant_id', tenant.id)
+      .eq('customer_table', tableName).order('created_at', { ascending: false }).limit(50);
+    setTableHistoryOrders((data as Order[]) || []);
+    setTableHistoryModal(tableName);
+  }, [tenant.id]);
+
   const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
     water_ice: '💧 Agua / Hielo',
     napkins: '🧻 Servilletas',
@@ -1763,11 +1796,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   const fetchOrders = useCallback(async () => {
     // V17.2: Traer tanto activos como entregados (para el tab Cobrados)
+    // Excluir pedidos archivados (mesa cerrada) de la vista activa
     const { data } = await supabase
       .from('orders')
       .select('*')
       .eq('tenant_id', tenant.id)
       .not('status', 'in', '(cancelado)')
+      .neq('table_archived', true)
       .order('created_at', { ascending: false })
       .limit(100);
     const newOrders = (data as Order[]) || [];
@@ -2480,31 +2515,111 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           />
         ) : (
           /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KanbanColumn
-              title="Nuevos"
-              icon={<AlertCircle size={14} />}
-              color="#F59E0B"
-              orders={nuevos}
-              emptyMsg="Sin pedidos nuevos"
-            />
-            <KanbanColumn
-              title="En Preparación"
-              icon={<ChefHat size={14} />}
-              color="#3B82F6"
-              orders={enCocina}
-              emptyMsg="Cocina libre"
-            />
-            <KanbanColumn
-              title="Listos para Entregar"
-              icon={<CheckCircle2 size={14} />}
-              color="#10B981"
-              orders={listos}
-              emptyMsg="Sin pedidos listos"
-            />
-          </div>
+          <>
+            {/* Panel de mesas activas (solo DINE_IN) */}
+            {activeSubTab === 'DINE_IN' && (() => {
+              // Agrupar pedidos activos por mesa
+              const tableGroups: Record<string, Order[]> = {};
+              filteredOrders.forEach(o => {
+                const t = (o as any).customer_table || 'Sin mesa';
+                if (!tableGroups[t]) tableGroups[t] = [];
+                tableGroups[t].push(o);
+              });
+              const tableNames = Object.keys(tableGroups).sort();
+              if (tableNames.length === 0) return null;
+              return (
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">🪑 Mesas Activas</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{tableNames.length} mesa{tableNames.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tableNames.map(tableName => {
+                      const tOrders = tableGroups[tableName];
+                      const allDelivered = tOrders.every(o => o.status === 'entregado');
+                      const hasActive = tOrders.some(o => o.status !== 'entregado');
+                      return (
+                        <div key={tableName} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold"
+                          style={{ background: allDelivered ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', borderColor: allDelivered ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)', color: allDelivered ? '#10B981' : '#F59E0B' }}>
+                          <span>🪑 {tableName}</span>
+                          <span className="text-[10px] opacity-70">({tOrders.length})</span>
+                          {allDelivered && (
+                            <button onClick={() => handleCloseTable(tableName)}
+                              className="ml-1 px-2 py-0.5 rounded-lg text-[10px] font-black transition-all active:scale-95"
+                              style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981', border: '1px solid rgba(16,185,129,0.4)' }}
+                              title="Cerrar mesa y archivar pedidos">
+                              ✓ Cerrar
+                            </button>
+                          )}
+                          {hasActive && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold" style={{ background: 'rgba(245,158,11,0.2)', color: '#F59E0B' }}>EN CURSO</span>
+                          )}
+                          <button onClick={() => handleViewTableHistory(tableName)}
+                            className="ml-1 text-[10px] opacity-50 hover:opacity-100 transition-opacity" title="Ver historial">
+                            📋
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <KanbanColumn
+                title="Nuevos"
+                icon={<AlertCircle size={14} />}
+                color="#F59E0B"
+                orders={nuevos}
+                emptyMsg="Sin pedidos nuevos"
+              />
+              <KanbanColumn
+                title="En Preparación"
+                icon={<ChefHat size={14} />}
+                color="#3B82F6"
+                orders={enCocina}
+                emptyMsg="Cocina libre"
+              />
+              <KanbanColumn
+                title="Listos para Entregar"
+                icon={<CheckCircle2 size={14} />}
+                color="#10B981"
+                orders={listos}
+                emptyMsg="Sin pedidos listos"
+              />
+            </div>
+          </>
         )}
         </>
+      )}
+
+      {/* ─── Modal Historial de Mesa ─── */}
+      {tableHistoryModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setTableHistoryModal(null)}>
+          <div className="relative max-w-lg w-[90vw] max-h-[85vh] bg-card rounded-2xl border border-[var(--border)] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
+              <span className="text-sm font-bold text-[var(--text-primary)]">🪑 Historial — Mesa {tableHistoryModal}</span>
+              <button onClick={() => setTableHistoryModal(null)} className="w-8 h-8 rounded-full bg-[var(--bg-surface)] hover:bg-slate-600 flex items-center justify-center text-[var(--text-secondary)] transition-colors"><X size={16} /></button>
+            </div>
+            <div className="overflow-y-auto max-h-[70vh] p-4 space-y-3">
+              {tableHistoryOrders.length === 0 ? (
+                <p className="text-center text-xs text-[var(--text-secondary)] py-8">Sin historial para esta mesa</p>
+              ) : tableHistoryOrders.map(o => (
+                <div key={o.id} className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-[var(--text-primary)]"># {o.order_number}</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">{new Date(o.created_at).toLocaleDateString('es-CR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--text-secondary)]">{o.status}</span>
+                    <span className="text-xs font-bold text-amber-400">{formatPrice(o.total)}</span>
+                  </div>
+                  {(o as any).table_archived && <span className="text-[9px] text-emerald-400 font-bold">ARCHIVADO</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── Receipt Lightbox Modal ─── */}

@@ -687,6 +687,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           delivery_destination_id: deliveryType === 'delivery' ? (deliveryCheckoutData?.destinationId ?? null) : null,
           // SINPE: pago no verificado hasta que el admin revise el comprobante
           payment_verified: method !== 'sinpe', // pos_externo = true (cobro externo, no requiere verificación)
+          // Sesión de mesa: null al crear; el admin asigna sesión activa al primer pedido de la mesa
+          session_id: null,
+          table_archived: false,
         })
         .select('id, order_number')
         .single();
