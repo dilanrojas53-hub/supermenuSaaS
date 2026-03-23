@@ -22,7 +22,7 @@ import {
   Bike, MapPin, Phone, Plus, User, CheckCircle2, Clock,
   Navigation, AlertCircle, ExternalLink, Trash2, Eye,
   EyeOff, Copy, RefreshCw, Loader2, X, ListOrdered,
-  Zap, ChevronRight, BarChart2, ArrowUpCircle
+  Zap, ChevronRight, BarChart2, ArrowUpCircle, Power, PowerOff
 } from 'lucide-react';
 import {
   commitToKitchen,
@@ -241,15 +241,24 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
     toast.success(`Rider ${newRider.name} creado ✅`);
     setNewRider({ name: '', phone: '', pin: '', vehicle_type: 'moto' });
     setShowAddRider(false);
-    fetchRiders();
   };
-
-  // ─── Desactivar rider ────────────────────────────────────────────────────────
+  // ─── Desactivar rider ────────────────────────────────────────────────────────────────────────────────
   const toggleRiderActive = async (rider: RiderProfile) => {
     await supabase.from('rider_profiles').update({ is_active: !rider.is_active }).eq('id', rider.id);
     fetchRiders();
   };
 
+  // ─── Eliminar rider permanentemente ────────────────────────────────────────────────────────────────────────────────
+  const deleteRider = async (rider: RiderProfile) => {
+    if (!confirm(`¿Eliminar al rider "${rider.name}" permanentemente? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from('rider_profiles').delete().eq('id', rider.id);
+    if (error) {
+      toast.error('Error al eliminar rider: ' + error.message);
+      return;
+    }
+    toast.success(`Rider "${rider.name}" eliminado`);
+    fetchRiders();
+  };
   const riderAppUrl = `${window.location.origin}/rider/${tenant.slug}`;
 
   if (loading) {
@@ -703,10 +712,17 @@ export default function DeliveryDispatchPanel({ tenant }: { tenant: Tenant }) {
                       <button
                         onClick={() => toggleRiderActive(rider)}
                         className="p-1.5 rounded transition-colors"
-                        style={{ color: rider.is_active ? '#EF4444' : '#22C55E' }}
+                        style={{ color: rider.is_active ? '#F59E0B' : '#22C55E' }}
                         title={rider.is_active ? 'Desactivar' : 'Activar'}
                       >
-                        {rider.is_active ? <Trash2 size={12} /> : <CheckCircle2 size={12} />}
+                        {rider.is_active ? <PowerOff size={12} /> : <Power size={12} />}
+                      </button>
+                      <button
+                        onClick={() => deleteRider(rider)}
+                        className="p-1.5 rounded transition-colors text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                        title="Eliminar rider permanentemente"
+                      >
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>

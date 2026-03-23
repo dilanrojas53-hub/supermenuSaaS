@@ -405,14 +405,18 @@ export default function OrderStatusPage() {
 
   const currentStepIdx = order ? getStepIndex(order.status) : -1;
   const isCancelled = order?.status === 'cancelado';
-  const isCompleted = order?.status === 'entregado';
-  const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
   const isDelivery = (order as any)?.delivery_type === 'delivery';
   // SINPE payment verification state
   // GATING: SINPE solo aplica en delivery (dine-in/takeout cobran externamente)
   const isSinpe = order?.payment_method === 'sinpe' && isDelivery;
   const isPaymentVerified = (order as any)?.payment_verified === true;
   const isPaymentPending = isSinpe && !isPaymentVerified && order?.status === 'pendiente';
+  // REGLA: Para delivery, el pedido se considera completado solo cuando el rider confirma
+  // la entrega (delivery_status === 'delivered'). Para otros tipos, cuando status === 'entregado'.
+  const isCompleted = isDelivery
+    ? (order as any)?.delivery_status === 'delivered'
+    : order?.status === 'entregado';
+  const canAddMore = order && !isCancelled && !isCompleted && order.status !== 'listo';
   const isTakeout = (order as any)?.delivery_type === 'takeout';
   const scheduledDate = (order as any)?.scheduled_date;
   const scheduledTime = (order as any)?.scheduled_time;

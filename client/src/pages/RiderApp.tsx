@@ -297,7 +297,14 @@ export default function RiderApp() {
     }
 
     // Actualizar delivery_status en orders
-    await supabase.from('orders').update({ delivery_status: newStatus }).eq('id', order.id);
+    // REGLA: Cuando el rider marca 'delivered', también se completa el status principal del pedido.
+    // Esto es lo que cierra la pantalla del cliente y marca el pedido como terminado.
+    const orderUpdate: Record<string, any> = { delivery_status: newStatus };
+    if (newStatus === 'delivered') {
+      orderUpdate.status = 'entregado';
+      orderUpdate.completed_at = now;
+    }
+    await supabase.from('orders').update(orderUpdate).eq('id', order.id);
 
     // F7: Sincronizar logistic_status con delivery_status (assigned → assigned, picked_up → picked_up, etc.)
     // Si es 'delivered', también promueve el siguiente pedido en waitlist automáticamente

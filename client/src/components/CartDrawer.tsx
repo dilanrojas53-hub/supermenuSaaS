@@ -118,6 +118,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerTable, setCustomerTable] = useState('');
+  const [availableTables, setAvailableTables] = useState<{ id: string; table_number: string; label: string | null; is_occupied: boolean }[]>([]);
   const [notes, setNotes] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
@@ -275,6 +276,20 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           }
         }
       } catch { /* ignore parse errors */ }
+    }
+  }, [isOpen, tenant.id]);
+
+  // Cargar mesas configuradas cuando el drawer se abre
+  useEffect(() => {
+    if (isOpen && tenant.id) {
+      supabase
+        .from('restaurant_tables')
+        .select('id, table_number, label, is_occupied')
+        .eq('tenant_id', tenant.id)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('table_number', { ascending: true })
+        .then(({ data }) => setAvailableTables(data || []));
     }
   }, [isOpen, tenant.id]);
 
@@ -705,6 +720,20 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       if (orderData) {
         setOrderNumber(orderData.order_number);
         setOrderId(orderData.id);
+
+        // Marcar mesa como ocupada si el cliente seleccionó una mesa
+        if (deliveryType === 'dine_in' && customerTable.trim()) {
+          const selectedTable = availableTables.find(
+            t => t.table_number === customerTable.trim() || `Mesa ${t.table_number}` === customerTable.trim()
+          );
+          if (selectedTable) {
+            supabase
+              .from('restaurant_tables')
+              .update({ is_occupied: true, current_order_id: orderData.id, occupied_at: new Date().toISOString() })
+              .eq('id', selectedTable.id)
+              .then(() => console.info(`[Tables] Mesa ${selectedTable.table_number} marcada como ocupada`));
+          }
+        }
 
         // F7: Motor de orquestación — inicializar logistic_status para pedidos delivery
         // SINPE: NO inicializar logística hasta que el admin valide el pago.
@@ -1420,18 +1449,56 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
                           {t('checkout.table')}
                         </label>
-                        <input
-                          type="text"
-                          value={customerTable}
-                          onChange={e => setCustomerTable(e.target.value)}
-                          placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra' : 'E.g.: Table 5, Bar'}
-                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                          style={{
-                            backgroundColor: `${theme.text_color}06`,
-                            border: `1.5px solid ${theme.text_color}15`,
-                            color: theme.text_color,
-                          }}
-                        />
+                        {availableTables.length > 0 ? (
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {availableTables.map(tbl => (
+                              <button
+                                key={tbl.id}
+                                type="button"
+                                disabled={tbl.is_occupied}
+                                onClick={() => setCustomerTable(tbl.table_number)}
+                                className="py-2 rounded-xl text-xs font-bold transition-all"
+                                style={{
+                                  backgroundColor: tbl.is_occupied
+                                    ? 'rgba(239,68,68,0.15)'
+                                    : customerTable === tbl.table_number
+                                      ? 'var(--menu-accent)'
+                                      : `${theme.text_color}08`,
+                                  border: `1.5px solid ${
+                                    tbl.is_occupied
+                                      ? 'rgba(239,68,68,0.3)'
+                                      : customerTable === tbl.table_number
+                                        ? 'var(--menu-accent)'
+                                        : `${theme.text_color}15`
+                                  }`,
+                                  color: tbl.is_occupied
+                                    ? 'rgba(239,68,68,0.5)'
+                                    : customerTable === tbl.table_number
+                                      ? '#000'
+                                      : theme.text_color,
+                                  cursor: tbl.is_occupied ? 'not-allowed' : 'pointer',
+                                  opacity: tbl.is_occupied ? 0.6 : 1,
+                                }}
+                              >
+                                {tbl.label || `Mesa ${tbl.table_number}`}
+                                {tbl.is_occupied && <span className="block text-[9px] opacity-70">{lang === 'es' ? 'Ocupada' : 'Occupied'}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={customerTable}
+                            onChange={e => setCustomerTable(e.target.value)}
+                            placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra' : 'E.g.: Table 5, Bar'}
+                            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1.5px solid ${theme.text_color}15`,
+                              color: theme.text_color,
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                     <div>

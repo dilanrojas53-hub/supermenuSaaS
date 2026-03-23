@@ -24,6 +24,7 @@ import DeliveryOpsPanel from '@/components/DeliveryOpsPanel';
 import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
 import { DeliveryOS } from '@/components/DeliveryOS';
 import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
+import TablesMapPanel from '@/components/TablesMapPanel';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -34,7 +35,8 @@ import {
   LayoutGrid, List, ExternalLink, ClipboardList, BarChart3, QrCode,
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
-  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp, ChevronRight, Menu as MenuIcon
+  Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp, ChevronRight, Menu as MenuIcon,
+  Loader2
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { AdminSidebar } from '@/components/AdminSidebar';
@@ -596,6 +598,217 @@ function DeliveryTabWithHistory({ tenant, kanbanNode, pendingCount }: { tenant: 
       {view === 'dispatch' && <DeliveryDispatchPanel  tenant={tenant} />}
       {view === 'ops'      && <DeliveryOpsPanel      tenant={tenant} />}
       {view === 'history'  && <DeliveryHistoryPanel   tenant={tenant} />}
+    </div>
+  );
+}
+
+// ─── Tables Config Section ───
+function TablesConfigSection({ tenant }: { tenant: Tenant }) {
+  const [tables, setTables] = useState<{ id: string; table_number: string; label: string; capacity: string; sort_order: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [newTable, setNewTable] = useState({ table_number: '', label: '', capacity: '' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [bulkCount, setBulkCount] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+
+  const fetchTables = useCallback(async () => {
+    const { data } = await supabase
+      .from('restaurant_tables')
+      .select('id, table_number, label, capacity, sort_order, is_active')
+      .eq('tenant_id', tenant.id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .order('table_number', { ascending: true });
+    setTables((data || []).map((t: any) => ({ ...t, capacity: String(t.capacity || '') })));
+    setLoading(false);
+  }, [tenant.id]);
+
+  useEffect(() => { fetchTables(); }, [fetchTables]);
+
+  const handleAddTable = async () => {
+    if (!newTable.table_number.trim()) { toast.error('El número de mesa es obligatorio'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('restaurant_tables').insert({
+      tenant_id: tenant.id,
+      table_number: newTable.table_number.trim(),
+      label: newTable.label.trim() || null,
+      capacity: parseInt(newTable.capacity) || null,
+      is_active: true,
+      is_occupied: false,
+      sort_order: tables.length,
+    });
+    setSaving(false);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('Mesa agregada');
+    setNewTable({ table_number: '', label: '', capacity: '' });
+    setShowAdd(false);
+    fetchTables();
+  };
+
+  const handleBulkCreate = async () => {
+    const count = parseInt(bulkCount);
+    if (!count || count < 1 || count > 50) { toast.error('Ingresa un número entre 1 y 50'); return; }
+    setSaving(true);
+    const existingNumbers = new Set(tables.map(t => t.table_number));
+    const toInsert = [];
+    let num = 1;
+    while (toInsert.length < count) {
+      const numStr = String(num);
+      if (!existingNumbers.has(numStr)) {
+        toInsert.push({
+          tenant_id: tenant.id,
+          table_number: numStr,
+          label: null,
+          capacity: null,
+          is_active: true,
+          is_occupied: false,
+          sort_order: tables.length + toInsert.length,
+        });
+      }
+      num++;
+    }
+    const { error } = await supabase.from('restaurant_tables').insert(toInsert);
+    setSaving(false);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success(`${count} mesas creadas`);
+    setBulkCount('');
+    setShowBulk(false);
+    fetchTables();
+  };
+
+  const handleDeleteTable = async (id: string) => {
+    if (!confirm('¿Eliminar esta mesa?')) return;
+    const { error } = await supabase.from('restaurant_tables').update({ is_active: false }).eq('id', id);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('Mesa eliminada');
+    fetchTables();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <UtensilsCrossed size={16} className="text-amber-400" />
+          <h3 className="text-sm font-black text-white">Mesas del Restaurante</h3>
+          <span className="text-xs text-slate-500">({tables.length} configuradas)</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowBulk(!showBulk); setShowAdd(false); }}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            Crear en lote
+          </button>
+          <button
+            onClick={() => { setShowAdd(!showAdd); setShowBulk(false); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+          >
+            <Plus size={12} /> Agregar mesa
+          </button>
+        </div>
+      </div>
+
+      {/* Creación en lote */}
+      {showBulk && (
+        <div className="mb-4 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <p className="text-xs text-slate-400 mb-3">Crea múltiples mesas numeradas automáticamente (Mesa 1, Mesa 2, etc.)</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={1} max={50}
+              value={bulkCount}
+              onChange={e => setBulkCount(e.target.value)}
+              placeholder="¿Cuántas mesas?"
+              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+            />
+            <button
+              onClick={handleBulkCreate}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Creando...' : 'Crear'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Formulario agregar mesa individual */}
+      {showAdd && (
+        <div className="mb-4 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Número *</label>
+              <input
+                value={newTable.table_number}
+                onChange={e => setNewTable({ ...newTable, table_number: e.target.value })}
+                placeholder="Ej: 5"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Etiqueta</label>
+              <input
+                value={newTable.label}
+                onChange={e => setNewTable({ ...newTable, label: e.target.value })}
+                placeholder="Ej: Terraza"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Capacidad</label>
+              <input
+                type="number" min={1}
+                value={newTable.capacity}
+                onChange={e => setNewTable({ ...newTable, capacity: e.target.value })}
+                placeholder="Ej: 4"
+                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAddTable} disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors">
+              {saving ? 'Guardando...' : 'Agregar'}
+            </button>
+            <button onClick={() => setShowAdd(false)}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de mesas */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 size={20} className="text-amber-400 animate-spin" />
+        </div>
+      ) : tables.length === 0 ? (
+        <div className="text-center py-8">
+          <UtensilsCrossed size={28} className="text-slate-600 mx-auto mb-2" />
+          <p className="text-xs text-slate-500">No hay mesas configuradas. Agrega mesas para activar el sistema de ocupación.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {tables.map(table => (
+            <div key={table.id}
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
+              <div>
+                <p className="text-sm font-bold text-white">Mesa {table.table_number}</p>
+                {table.label && <p className="text-[10px] text-slate-400">{table.label}</p>}
+                {table.capacity && <p className="text-[10px] text-slate-500">{table.capacity} pax</p>}
+              </div>
+              <button
+                onClick={() => handleDeleteTable(table.id)}
+                className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Eliminar mesa"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1189,6 +1402,11 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
           <DeliveryZonesPanel tenant={tenant} />
         </div>
       )}
+
+      {/* ── Configuración de Mesas ── */}
+      <div className="mt-6 pt-6 border-t border-slate-700/50">
+        <TablesConfigSection tenant={tenant} />
+      </div>
     </div>
   );
 }
@@ -1935,6 +2153,14 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const now = new Date().toISOString();
+    const order = orders.find(o => o.id === orderId);
+    const isDeliveryOrder = (order as any)?.delivery_type === 'delivery';
+    // REGLA: Para pedidos delivery, el admin NO puede marcar 'entregado' directamente.
+    // Solo el rider puede completar la entrega. El admin usa handleDeliverToRider.
+    if (isDeliveryOrder && newStatus === 'entregado') {
+      toast.error('Para delivery, usa el botón "Entregar al Rider". Solo el rider completa la entrega.');
+      return;
+    }
     const extra: Record<string, any> = { updated_at: now, has_new_items: false };
     if (newStatus === 'en_cocina') extra.accepted_at = now;
     if (newStatus === 'listo') {
@@ -1952,42 +2178,50 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     toast.success(`✅ ${label}`);
     // Silenciar alarma al atender el pedido (aceptar, marcar listo, etc.)
     stopAlarm();
+    // Liberar mesa automáticamente cuando se marca entregado (dine_in)
+    if (newStatus === 'entregado' && order && (order as any).delivery_type !== 'delivery') {
+      supabase
+        .from('restaurant_tables')
+        .update({ is_occupied: false, current_order_id: null, occupied_at: null })
+        .eq('current_order_id', orderId)
+        .then(() => console.info('[Tables] Mesa liberada automáticamente'));
+    }
     fetchOrders();
-
-    // ── Automatización WhatsApp ──
-    const order = orders.find(o => o.id === orderId);
+    // ── WhatsApp: solo para takeout cuando está listo (no delivery — el rider se encarga) ──
     if (!order) return;
+    const deliveryType = (order as any).delivery_type || 'dine_in';
+    if (deliveryType === 'delivery') return;
     const customerPhone = (order as any).delivery_phone || order.customer_phone;
     if (!customerPhone) return;
-
     const name = order.customer_name || 'Cliente';
     const shortId = String(order.order_number);
-    const deliveryType = (order as any).delivery_type || 'dine_in';
-
-    let waMsg: string | null = null;
-
-    if (newStatus === 'listo') {
-      const suffix =
-        deliveryType === 'delivery'
-          ? 'El motorizado va en camino hacia tu dirección.'
-          : deliveryType === 'takeout'
-          ? 'Ya puedes pasar por él al local.'
-          : 'Te lo estamos llevando a tu mesa.';
-      waMsg = `¡Buenas noticias ${name}! Tu pedido #${shortId} ya está LISTO 🎉.\n${suffix}`;
-    } else if (newStatus === 'entregado') {
-      // Recordatorio amable de pago al entregar — contextual según método
-      const payMethod = order.payment_method || 'efectivo';
-      const payReminder =
-        payMethod === 'sinpe'
-          ? 'Cuando termines, recuerda enviar tu comprobante de SINPE si aún no lo has hecho. 📱'
-          : payMethod === 'tarjeta'
-          ? 'Cuando termines, puedes pagar con tarjeta en caja. 💳'
-          : 'Cuando termines, puedes pagar en efectivo en caja. 💵';
-      waMsg =
-        `¡Hola ${name}! Tu pedido #${shortId} ya fue entregado. ¡Buen provecho! 🍽️\n${payReminder}`;
+    if (newStatus === 'listo' && deliveryType === 'takeout') {
+      const waMsg = `¡Buenas noticias ${name}! Tu pedido #${shortId} ya está LISTO 🎉.\nYa puedes pasar por él al local.`;
+      const waUrl = buildWhatsAppUrl(customerPhone, waMsg);
+      if (waUrl) setTimeout(() => window.open(waUrl, '_blank'), 500);
     }
+  };
 
-    if (waMsg) {
+  // ── Entregar al Rider: marca delivery_status = picked_up (NO cambia status principal) ──
+  // El rider es el único que puede completar la entrega final.
+  const handleDeliverToRider = async (orderId: string) => {
+    const now = new Date().toISOString();
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    const { error } = await supabase.from('orders').update({
+      delivery_status: 'picked_up',
+      updated_at: now,
+    }).eq('id', orderId);
+    if (error) { toast.error('Error: ' + error.message); return; }
+    toast.success('🛵 Pedido entregado al rider — en camino');
+    fetchOrders();
+    // WhatsApp al cliente al despachar al rider
+    const deliveryPhone = (order as any).delivery_phone;
+    const customerPhone = deliveryPhone || order.customer_phone;
+    if (customerPhone) {
+      const name = order.customer_name || 'Cliente';
+      const shortId = String(order.order_number);
+      const waMsg = `🛵 ¡Hola ${name}! Tu pedido #${shortId} ya está en camino hacia tu dirección. ¡En breve llegará!`;
       const waUrl = buildWhatsAppUrl(customerPhone, waMsg);
       if (waUrl) setTimeout(() => window.open(waUrl, '_blank'), 500);
     }
@@ -2316,19 +2550,35 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               <CheckCircle2 size={16} /> Marcar como Pagado
             </button>
           )}
+          {/* Delivery: botón "Entregar al Rider" cuando está listo y el rider ya está asignado */}
+          {isDelivery && order.status === 'listo' && (order as any).rider_id && (order as any).delivery_status !== 'picked_up' && (order as any).delivery_status !== 'delivered' && (
+            <button
+              onClick={() => handleDeliverToRider(order.id)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all active:scale-[0.97] touch-manipulation"
+              style={{ backgroundColor: '#F9731620', color: '#F97316', border: '2px solid #F9731640' }}
+            >
+              <Bike size={16} /> Entregar al Rider
+            </button>
+          )}
+          {/* Delivery: indicador cuando ya fue entregado al rider */}
+          {isDelivery && (order as any).delivery_status === 'picked_up' && order.status !== 'entregado' && (
+            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold"
+              style={{ backgroundColor: '#3B82F615', color: '#60A5FA', border: '1px solid #3B82F630' }}>
+              <Bike size={13} /> En camino — esperando confirmación del rider
+            </div>
+          )}
           <div className="flex gap-2">
             {actions
               // SINPE sin verificar: ocultar botón "A Cocina" según sinpe_block_mode
               .filter((action: any) => {
                 if (action.nextStatus !== 'en_cocina') return true;
                 if (!isSinpe || (order as any).payment_verified) return true;
-                // 'never': no bloquear — el pedido avanza aunque no esté verificado
                 if (sinpeBlockMode === 'never') return true;
-                // 'delivery_only': solo bloquear en delivery
                 if (sinpeBlockMode === 'delivery_only' && !isDeliveryOrder) return true;
-                // 'always' o 'delivery_only' en delivery: ocultar botón
                 return false;
               })
+              // Para delivery, ocultar el botón "Entregado" (solo el rider puede completar)
+              .filter((action: any) => !(isDelivery && action.nextStatus === 'entregado'))
               .map((action: any) => (
               <button key={action.nextStatus}
                 onClick={() => handleStatusChange(order.id, action.nextStatus)}
@@ -3230,6 +3480,28 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [cleaningOrders, setCleaningOrders] = useState(false);
+  const [showCleanConfirm, setShowCleanConfirm] = useState<'7days' | '30days' | '90days' | null>(null);
+
+  const handleCleanOldOrders = async (days: number) => {
+    setCleaningOrders(true);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const { error, count } = await supabase
+      .from('orders')
+      .delete({ count: 'exact' })
+      .eq('tenant_id', tenant.id)
+      .in('status', ['entregado', 'cancelado'])
+      .lt('created_at', cutoff.toISOString());
+    setCleaningOrders(false);
+    setShowCleanConfirm(null);
+    if (error) {
+      toast.error('Error al limpiar pedidos: ' + error.message);
+    } else {
+      toast.success(`✅ ${count || 0} pedidos eliminados correctamente`);
+      fetchHistory();
+    }
+  };
 
   const getDateRange = (f: HistoryFilter): { from: Date; to: Date } => {
     const now = new Date();
@@ -3391,6 +3663,47 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
           </div>
         </div>
       )}
+
+      {/* ── Limpieza de pedidos viejos ── */}
+      <div className="mt-8 p-5 rounded-2xl border border-red-500/20 bg-red-500/5">
+        <h3 className="text-sm font-bold text-red-400 mb-1 flex items-center gap-2">
+          <Trash2 size={14} /> Limpiar pedidos del sistema
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">Elimina permanentemente pedidos completados o cancelados más antiguos que el período seleccionado. Esta acción no se puede deshacer.</p>
+        <div className="flex flex-wrap gap-2">
+          {[{ key: '7days' as const, label: 'Más de 7 días', days: 7 },
+            { key: '30days' as const, label: 'Más de 30 días', days: 30 },
+            { key: '90days' as const, label: 'Más de 90 días', days: 90 }].map(opt => (
+            <div key={opt.key}>
+              {showCleanConfirm === opt.key ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-300 font-bold">¿Confirmar?</span>
+                  <button
+                    onClick={() => handleCleanOldOrders(opt.days)}
+                    disabled={cleaningOrders}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                  >
+                    {cleaningOrders ? 'Eliminando...' : 'Sí, eliminar'}
+                  </button>
+                  <button
+                    onClick={() => setShowCleanConfirm(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowCleanConfirm(opt.key)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  {opt.label}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -4086,7 +4399,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -4220,6 +4533,14 @@ export default function AdminDashboard() {
           {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
           {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
           {activeTab === 'delivery' && <DeliveryOS tenant={tenant} />}
+          {activeTab === 'tables' && (
+            <div>
+              <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
+              </h2>
+              <TablesMapPanel tenant={tenant} />
+            </div>
+          )}
         </main>
       </div>
     </div>

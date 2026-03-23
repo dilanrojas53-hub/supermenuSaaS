@@ -10,6 +10,19 @@ import {
   Bell, CreditCard, Banknote, Smartphone
 } from 'lucide-react';
 import { useKitchenBell } from '@/hooks/useKitchenBell';
+import TablesMapPanel from '@/components/TablesMapPanel';
+
+// ─── StaffTablesMap: wrapper ligero para meseros ───
+function StaffTablesMap({ tenant }: { tenant: { id: string; slug: string; name: string } }) {
+  return (
+    <div>
+      <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2">
+        🪑 Estado de Mesas
+      </h2>
+      <TablesMapPanel tenant={tenant} />
+    </div>
+  );
+}
 
 // ─── Types ───
 interface StaffMember {
@@ -373,7 +386,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [pinModal, setPinModal] = useState<{ orderId: string } | null>(null);
-  const [paymentTab, setPaymentTab] = useState<'active' | 'cobrar' | 'cobrados'>('active');
+  const [paymentTab, setPaymentTab] = useState<'active' | 'cobrar' | 'cobrados' | 'mesas'>('active');
   const { playBell } = useKitchenBell();
   const prevCountRef = useRef(0);
 
@@ -609,6 +622,14 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     if (next === 'listo') updateData.ready_at = now;
     if (next === 'entregado') updateData.completed_at = now;
     await supabase.from('orders').update(updateData).eq('id', order.id);
+    // Liberar mesa automáticamente cuando se entrega (dine_in)
+    if (next === 'entregado' && (order as any).delivery_type !== 'delivery') {
+      supabase
+        .from('restaurant_tables')
+        .update({ is_occupied: false, current_order_id: null, occupied_at: null })
+        .eq('current_order_id', order.id)
+        .then(() => console.info('[Tables] Mesa liberada por mesero'));
+    }
     // Log event
     const eventMap: Record<string, string> = { en_cocina: 'order_accepted', listo: 'order_ready', entregado: 'order_delivered' };
     if (eventMap[next]) await logStaffEvent(eventMap[next], order);
@@ -780,10 +801,11 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           { key: 'active', label: 'Activos', emoji: '📋', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
           { key: 'cobrar', label: 'Por Cobrar', emoji: '💰', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
           { key: 'cobrados', label: 'Cobrados', emoji: '✅', count: orders.filter(o => o.payment_status === 'paid').length },
+          { key: 'mesas', label: 'Mesas', emoji: '🪑', count: 0 },
         ] as const).map(tab => {
-          const isActive = paymentTab === tab.key;
+          const isActive = paymentTab === (tab.key as string);
           return (
-            <button key={tab.key} onClick={() => setPaymentTab(tab.key)}
+            <button key={tab.key} onClick={() => setPaymentTab(tab.key as any)}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-black transition-all"
               style={{
                 background: isActive ? 'linear-gradient(135deg, #F59E0B, #F97316)' : 'rgba(255,255,255,0.04)',
@@ -1066,6 +1088,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
               <p className="text-xs mt-1 text-slate-700">Los nuevos pedidos aparecerán aquí</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab Mesas */}
+      {paymentTab === 'mesas' && (
+        <div className="flex-1 overflow-y-auto p-4">
+          <StaffTablesMap tenant={tenant} />
         </div>
       )}
 
