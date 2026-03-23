@@ -9,7 +9,7 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck,
+  Truck, LayoutGrid,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
@@ -19,7 +19,8 @@ export type TabKey =
   | 'menu' | 'categories' | 'modifiers'
   | 'analytics' | 'performance' | 'qr' | 'closing'
   | 'settings' | 'theme'
-  | 'delivery';  // Delivery OS add-on
+  | 'delivery'  // Delivery OS add-on
+  | 'tables';   // Mesas del restaurante
 
 interface NavItem {
   key: TabKey;
@@ -39,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'orders',  label: 'Pedidos',   icon: <ClipboardList size={16} /> },
       { key: 'history', label: 'Historial', icon: <Clock size={16} /> },
       { key: 'staff',   label: 'Equipo',    icon: <Users size={16} /> },
+      { key: 'tables',  label: 'Mesas',     icon: <LayoutGrid size={16} /> },
     ],
   },
   {
