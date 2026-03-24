@@ -13,6 +13,7 @@ import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/lib/supabase';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 import ModifierSelector from './ModifierSelector';
 import { toast } from 'sonner';
 
@@ -296,9 +297,11 @@ export default function ProductDetailModal({
               {item.image_url ? (
                 <div className="w-full h-64 relative">
                   <img
-                    src={item.image_url}
+                    src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.detail.width, IMAGE_SIZES.detail.quality)}
                     alt={item.name}
                     className="w-full h-full object-cover"
+                    loading="eager"
+                    decoding="async"
                   />
                   <div
                     className="absolute inset-0"
@@ -434,9 +437,11 @@ export default function ProductDetailModal({
                               {/* Thumbnail */}
                               {suggestion.image_url ? (
                                 <img
-                                  src={suggestion.image_url}
+                                  src={getOptimizedImageUrl(suggestion.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
                                   alt={suggestion.name}
                                   className="w-16 h-16 rounded-xl object-cover shrink-0"
+                                  loading="lazy"
+                                  decoding="async"
                                 />
                               ) : (
                                 <div

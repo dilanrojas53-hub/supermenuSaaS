@@ -14,6 +14,7 @@ import { useI18n } from '@/contexts/I18nContext';
 import SocialProofBadge from './SocialProofBadge';
 import ModifierSelector from './ModifierSelector';
 import { supabase } from '@/lib/supabase';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 
 const DRINK_ICON_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
 const WINE_ICON_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
@@ -120,11 +121,12 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem' }}>
             {hasImage ? (
               <img
-                src={item.image_url!}
+                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
                 alt={item.name}
                 className="w-full h-full object-cover"
                 style={{ borderRadius: '0.75rem' }}
                 loading="lazy"
+                decoding="async"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '0.75rem' }}>
@@ -237,10 +239,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         {hasImage ? (
           <>
             <img
-              src={item.image_url!}
+              src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality)}
               alt={item.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
+              decoding="async"
             />
             {/* Gradiente oscuro */}
             <div className="absolute inset-0" style={{

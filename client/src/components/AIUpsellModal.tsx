@@ -10,6 +10,7 @@ import { X, Plus, ChevronRight, Sparkles, Loader2, Check } from 'lucide-react';
 import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 import { useI18n } from '@/contexts/I18nContext';
 
 export interface AISuggestedItem {
@@ -224,9 +225,11 @@ export default function AIUpsellModal({
                           >
                             {item.image_url ? (
                               <img
-                                src={item.image_url}
+                                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-2xl opacity-40">

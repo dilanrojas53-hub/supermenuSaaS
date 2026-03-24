@@ -10,6 +10,7 @@ import type { MenuItem, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 
 interface FeaturedDishProps {
   item: MenuItem;
@@ -123,7 +124,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
           {/* Image — protagonist */}
           {item.image_url && (
             <div className="w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 shadow-lg relative">
-              <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality)} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               <div
                 className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
                 style={{

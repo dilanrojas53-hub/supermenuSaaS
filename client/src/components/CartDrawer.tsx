@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { buildWhatsAppUrl } from '@/lib/phone';
 import { shouldShowPaymentUI, getDefaultPaymentMethodForChannel } from '@/lib/paymentGating';
 import { getDeliveryFeeForDistance, getAvailablePaymentMethods, canAcceptOrdersNow, type DeliveryConfig } from '@/lib/deliveryConfig';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 import type { OrderChannel } from '@/lib/paymentGating';
 
 // V11.0: Placeholder icon para items del carrito sin imagen
@@ -1019,9 +1020,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       >
                         {ci.menuItem.image_url ? (
                           <img
-                            src={ci.menuItem.image_url}
+                            src={getOptimizedImageUrl(ci.menuItem.image_url, IMAGE_SIZES.cart.width, IMAGE_SIZES.cart.quality)}
                             alt={ci.menuItem.name}
                             className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           /* V11.0 Placeholder inteligente en el carrito */

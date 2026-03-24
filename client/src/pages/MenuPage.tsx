@@ -16,6 +16,7 @@ import { I18nProvider, useI18n } from '@/contexts/I18nContext';
 import { TENANT_HERO_IMAGES, getFontFamily, getPlanFeatures } from '@/lib/types';
 import { getContrastColor } from '@/lib/utils';
 import type { MenuItem } from '@/lib/types';
+import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 import type { PlanTier } from '@/lib/plans';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
@@ -230,10 +231,13 @@ function MenuContent() {
       <div className="relative overflow-hidden" style={{ height: '16rem' }}>
         {heroImage && (
           <img
-            src={heroImage}
+            src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             alt={tenant.name}
             className="w-full h-full object-cover scale-105"
             style={{ filter: 'brightness(0.85)' }}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
           />
         )}
         {!heroImage && (
