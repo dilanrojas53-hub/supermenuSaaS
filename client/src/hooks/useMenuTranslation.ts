@@ -9,13 +9,7 @@
  * Results cached in module-level Map to avoid re-fetching within the same session.
  */
 import { useState, useEffect, useRef } from 'react';
-import type { MenuItem } from '@/lib/types';
-
-interface Category {
-  id: string;
-  name: string;
-  description?: string | null;
-}
+import type { MenuItem, Category } from '@/lib/types';
 
 interface TenantInfo {
   name: string;
