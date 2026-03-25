@@ -149,6 +149,22 @@ function MenuContent() {
     return () => observer.disconnect();
   }, [data]);
 
+  // V19.0 Franjas Horarias: cargar secciones del admin (DEBE estar antes de cualquier return condicional)
+  useEffect(() => {
+    if (!data?.tenant.id) return;
+    const loadSections = async () => {
+      const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', data.tenant.id).eq('is_active', true).order('sort_order');
+      if (!sData || sData.length === 0) { setMenuSections([]); return; }
+      const { data: scData } = await supabase.from('menu_section_categories').select('*').in('section_id', sData.map((s: any) => s.id));
+      const sections = sData.map((s: any) => ({
+        ...s,
+        categoryIds: (scData || []).filter((sc: any) => sc.section_id === s.id).map((sc: any) => sc.category_id)
+      }));
+      setMenuSections(sections);
+    };
+    loadSections();
+  }, [data?.tenant.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--menu-bg)' }}>
@@ -192,22 +208,6 @@ function MenuContent() {
         masterTab === 'drinks' ? cat.is_drink : !cat.is_drink
       )
     : categories;
-
-  // V19.0 Franjas Horarias: cargar secciones del admin
-  useEffect(() => {
-    if (!data?.tenant.id) return;
-    const loadSections = async () => {
-      const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', data.tenant.id).eq('is_active', true).order('sort_order');
-      if (!sData || sData.length === 0) { setMenuSections([]); return; }
-      const { data: scData } = await supabase.from('menu_section_categories').select('*').in('section_id', sData.map((s: any) => s.id));
-      const sections = sData.map((s: any) => ({
-        ...s,
-        categoryIds: (scData || []).filter((sc: any) => sc.section_id === s.id).map((sc: any) => sc.category_id)
-      }));
-      setMenuSections(sections);
-    };
-    loadSections();
-  }, [data?.tenant.id]);
 
   // Filtrar por sección activa
   const visibleCategories = activeSection === 'all' || menuSections.length === 0
