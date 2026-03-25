@@ -40,6 +40,9 @@ function MenuContent() {
   const [detailOpen, setDetailOpen] = useState(false);
   // V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas
   const [masterTab, setMasterTab] = useState<'food' | 'drinks'>('food');
+  // V19.0 Franjas Horarias
+  const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; categoryIds: string[] }[]>([]);
+  const [activeSection, setActiveSection] = useState<string | 'all'>('all');
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
@@ -190,10 +193,7 @@ function MenuContent() {
       )
     : categories;
 
-  // V19.0 Franjas Horarias: secciones configuradas por el admin
-  const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; categoryIds: string[] }[]>([]);
-  const [activeSection, setActiveSection] = useState<string | 'all'>('all');
-
+  // V19.0 Franjas Horarias: cargar secciones del admin
   useEffect(() => {
     if (!data?.tenant.id) return;
     const loadSections = async () => {
