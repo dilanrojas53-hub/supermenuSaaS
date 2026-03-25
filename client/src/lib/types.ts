@@ -75,6 +75,7 @@ export interface Category {
   description: string | null;
   sort_order: number;
   is_active: boolean;
+  is_drink: boolean;
   created_at: string;
   updated_at: string;
 }

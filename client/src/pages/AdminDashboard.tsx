@@ -462,18 +462,18 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
 }) {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', sort_order: '0', is_active: true });
+  const [form, setForm] = useState({ name: '', description: '', sort_order: '0', is_active: true, is_drink: false });
 
   const startEdit = (cat: Category) => {
     setEditingCat(cat); setIsCreating(false);
-    setForm({ name: cat.name, description: cat.description || '', sort_order: String(cat.sort_order), is_active: cat.is_active });
+    setForm({ name: cat.name, description: cat.description || '', sort_order: String(cat.sort_order), is_active: cat.is_active, is_drink: cat.is_drink ?? false });
   };
 
   const handleSave = async () => {
     if (!form.name) { toast.error('El nombre es obligatorio'); return; }
     const payload = {
       tenant_id: tenant.id, name: form.name, description: form.description || null,
-      sort_order: parseInt(form.sort_order) || 0, is_active: form.is_active,
+      sort_order: parseInt(form.sort_order) || 0, is_active: form.is_active, is_drink: form.is_drink,
       updated_at: new Date().toISOString()
     };
     if (editingCat) {
@@ -501,7 +501,7 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-bold text-[var(--text-primary)]">Categorías ({categories.length})</h2>
-        <button onClick={() => { setIsCreating(true); setEditingCat(null); setForm({ name: '', description: '', sort_order: '0', is_active: true }); }}
+            <button onClick={() => { setIsCreating(true); setEditingCat(null); setForm({ name: '', description: '', sort_order: '0', is_active: true, is_drink: false }); }}
           className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-[var(--text-primary)] rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors">
           <Plus size={16} /> Nueva categoría
         </button>
@@ -526,6 +526,7 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
                 className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <ToggleSwitch checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Activa" />
+            <ToggleSwitch checked={form.is_drink} onChange={(v) => setForm({ ...form, is_drink: v })} label="Es categoría de Bebidas 🍹" />
           </div>
           <div className="flex gap-3 mt-5">
             <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-[var(--text-primary)] rounded-xl text-sm font-medium hover:bg-amber-600">
@@ -547,6 +548,7 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-[var(--text-primary)]">{cat.name}</span>
                 {!cat.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">Inactiva</span>}
+                {cat.is_drink && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">🍹 Bebida</span>}
               </div>
               {cat.description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{cat.description}</p>}
             </div>
@@ -557,6 +559,183 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Menu Sections Manager (Franjas Horarias) ───
+function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categories: Category[] }) {
+  const [sections, setSections] = useState<{ id: string; name: string; description: string | null; icon: string; sort_order: number; is_active: boolean }[]>([]);
+  const [sectionCats, setSectionCats] = useState<{ section_id: string; category_id: string }[]>([]);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '', icon: '🍽️', sort_order: '0', is_active: true });
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchSections = useCallback(async () => {
+    const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', tenant.id).order('sort_order');
+    const { data: scData } = await supabase.from('menu_section_categories').select('*');
+    setSections(sData || []);
+    setSectionCats(scData || []);
+  }, [tenant.id]);
+
+  useEffect(() => { fetchSections(); }, [fetchSections]);
+
+  const handleSaveSection = async () => {
+    if (!form.name) { toast.error('El nombre es obligatorio'); return; }
+    setSaving(true);
+    const payload = { tenant_id: tenant.id, name: form.name, description: form.description || null, icon: form.icon || '🍽️', sort_order: parseInt(form.sort_order) || 0, is_active: form.is_active, updated_at: new Date().toISOString() };
+    if (editingSection) {
+      const { error } = await supabase.from('menu_sections').update(payload).eq('id', editingSection);
+      if (error) { toast.error('Error: ' + error.message); setSaving(false); return; }
+      toast.success('Sección actualizada');
+    } else {
+      const { error } = await supabase.from('menu_sections').insert(payload);
+      if (error) { toast.error('Error: ' + error.message); setSaving(false); return; }
+      toast.success('Sección creada');
+    }
+    setEditingSection(null); setIsCreating(false); setSaving(false); fetchSections();
+  };
+
+  const handleDeleteSection = async (id: string) => {
+    if (!confirm('¿Eliminar esta sección? Las categorías no se eliminarán.')) return;
+    await supabase.from('menu_sections').delete().eq('id', id);
+    toast.success('Sección eliminada'); fetchSections();
+  };
+
+  const toggleCategoryInSection = async (sectionId: string, categoryId: string) => {
+    const exists = sectionCats.some(sc => sc.section_id === sectionId && sc.category_id === categoryId);
+    if (exists) {
+      await supabase.from('menu_section_categories').delete().eq('section_id', sectionId).eq('category_id', categoryId);
+    } else {
+      await supabase.from('menu_section_categories').insert({ section_id: sectionId, category_id: categoryId });
+    }
+    fetchSections();
+  };
+
+  const ICONS = ['🍽️', '🌅', '☀️', '🌙', '🍳', '🥗', '🍖', '🍷', '☕', '🎉', '🌮', '🍜'];
+
+  return (
+    <div className="mt-8 border-t border-[var(--border)] pt-8">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base font-bold text-[var(--text-primary)]">Franjas Horarias del Menú</h3>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">Agrupa categorías en secciones como Desayunos, Almuerzos o Cenas. El cliente verá un selector adicional.</p>
+        </div>
+        <button onClick={() => { setIsCreating(true); setEditingSection(null); setForm({ name: '', description: '', icon: '🍽️', sort_order: '0', is_active: true }); }}
+          className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500 text-white rounded-xl text-xs font-medium hover:bg-indigo-600 transition-colors">
+          <Plus size={14} /> Nueva franja
+        </button>
+      </div>
+
+      {(isCreating || editingSection) && (
+        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">Nombre *</label>
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder="Ej: Desayunos, Almuerzos Ejecutivos, Cenas"
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-indigo-500/50 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">Orden</label>
+              <input type="number" value={form.sort_order} onChange={e => setForm({ ...form, sort_order: e.target.value })}
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-indigo-500/50 focus:outline-none" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">Descripción (opcional)</label>
+              <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-indigo-500/50 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-secondary)] mb-2">Ícono</label>
+              <div className="flex flex-wrap gap-2">
+                {ICONS.map(icon => (
+                  <button key={icon} onClick={() => setForm({ ...form, icon })}
+                    className={`text-xl p-1.5 rounded-lg transition-all ${form.icon === icon ? 'bg-indigo-500/30 ring-2 ring-indigo-500' : 'hover:bg-[var(--bg-surface)]'}`}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ToggleSwitch checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Activa" />
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleSaveSection} disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-medium hover:bg-indigo-600 disabled:opacity-50">
+              <Save size={14} /> {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button onClick={() => { setEditingSection(null); setIsCreating(false); }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-medium hover:bg-slate-500">
+              <X size={14} /> Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sections.length === 0 && !isCreating && (
+        <div className="text-center py-8 text-[var(--text-secondary)] text-sm border border-dashed border-[var(--border)] rounded-2xl">
+          <p className="text-2xl mb-2">🕐</p>
+          <p>No hay franjas horarias configuradas.</p>
+          <p className="text-xs mt-1 opacity-70">Crea una para separar tu menú por horario.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {sections.map(section => {
+          const assignedIds = sectionCats.filter(sc => sc.section_id === section.id).map(sc => sc.category_id);
+          const isExpanded = expandedSection === section.id;
+          return (
+            <div key={section.id} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-3 p-4">
+                <span className="text-2xl">{section.icon}</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-[var(--text-primary)]">{section.name}</span>
+                    {!section.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">Inactiva</span>}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400">{assignedIds.length} categorías</span>
+                  </div>
+                  {section.description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{section.description}</p>}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setExpandedSection(isExpanded ? null : section.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg text-xs hover:bg-indigo-500/20 transition-colors">
+                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    {isExpanded ? 'Cerrar' : 'Asignar categorías'}
+                  </button>
+                  <button onClick={() => { setEditingSection(section.id); setIsCreating(false); setForm({ name: section.name, description: section.description || '', icon: section.icon, sort_order: String(section.sort_order), is_active: section.is_active }); }}
+                    className="p-2 hover:bg-[var(--bg-surface)] rounded-lg"><Pencil size={14} className="text-[var(--text-secondary)]" /></button>
+                  <button onClick={() => handleDeleteSection(section.id)}
+                    className="p-2 hover:bg-red-500/10 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="border-t border-[var(--border)] p-4 bg-[var(--bg-surface)]/50">
+                  <p className="text-xs text-[var(--text-secondary)] mb-3">Selecciona las categorías que pertenecen a esta franja:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map(cat => {
+                      const isAssigned = assignedIds.includes(cat.id);
+                      return (
+                        <button key={cat.id} onClick={() => toggleCategoryInSection(section.id, cat.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                            isAssigned
+                              ? 'bg-indigo-500 text-white shadow-sm'
+                              : 'bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-indigo-500/50'
+                          }`}>
+                          {isAssigned && <Check size={10} />}
+                          {cat.name}
+                          {cat.is_drink && ' 🍹'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -4522,7 +4701,12 @@ export default function AdminDashboard() {
         <main className="flex-1 px-4 py-6 lg:px-8 overflow-y-auto">
           {activeTab === 'orders' && <OrdersTab tenant={tenant} />}
           {activeTab === 'menu' && <MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} />}
-          {activeTab === 'categories' && <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />}
+          {activeTab === 'categories' && (
+            <div>
+              <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
+              <MenuSectionsManager tenant={tenant} categories={categories} />
+            </div>
+          )}
           {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
           {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
           {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}

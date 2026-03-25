@@ -9,6 +9,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams } from 'wouter';
 import { motion } from 'framer-motion';
 import { MapPin, Loader2, Globe } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useTenantData } from '@/hooks/useTenantData';
 import { useMenuTranslation } from '@/hooks/useMenuTranslation';
 import { CartProvider } from '@/contexts/CartContext';
@@ -179,18 +180,42 @@ function MenuContent() {
   const categories = translatedData.categories.length ? translatedData.categories : data.categories;
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
 
-  // V12.0 Macro-Categorías: clasificación de bebidas
-  const DRINK_CATEGORIES = ['Bebidas', 'Cócteles', 'Licores y Destilados', 'Vinos', 'Vinos (Botella)', 'Vinos por Copa', 'Cafetería', 'Té y Bebidas Naturales'];
-  const hasDrinks = categories.some(cat => DRINK_CATEGORIES.includes(cat.name));
-  const hasFood = categories.some(cat => !DRINK_CATEGORIES.includes(cat.name));
+  // V12.1 Macro-Categorías: usar is_drink del campo BD (no por nombre, funciona en cualquier idioma)
+  const hasDrinks = categories.some(cat => cat.is_drink);
+  const hasFood = categories.some(cat => !cat.is_drink);
   // Filtrar categorías según el tab activo
-  const visibleCategories = (hasDrinks && hasFood)
+  const masterFilteredCategories = (hasDrinks && hasFood)
     ? categories.filter(cat =>
-        masterTab === 'drinks'
-          ? DRINK_CATEGORIES.includes(cat.name)
-          : !DRINK_CATEGORIES.includes(cat.name)
+        masterTab === 'drinks' ? cat.is_drink : !cat.is_drink
       )
     : categories;
+
+  // V19.0 Franjas Horarias: secciones configuradas por el admin
+  const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; categoryIds: string[] }[]>([]);
+  const [activeSection, setActiveSection] = useState<string | 'all'>('all');
+
+  useEffect(() => {
+    if (!data?.tenant.id) return;
+    const loadSections = async () => {
+      const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', data.tenant.id).eq('is_active', true).order('sort_order');
+      if (!sData || sData.length === 0) { setMenuSections([]); return; }
+      const { data: scData } = await supabase.from('menu_section_categories').select('*').in('section_id', sData.map((s: any) => s.id));
+      const sections = sData.map((s: any) => ({
+        ...s,
+        categoryIds: (scData || []).filter((sc: any) => sc.section_id === s.id).map((sc: any) => sc.category_id)
+      }));
+      setMenuSections(sections);
+    };
+    loadSections();
+  }, [data?.tenant.id]);
+
+  // Filtrar por sección activa
+  const visibleCategories = activeSection === 'all' || menuSections.length === 0
+    ? masterFilteredCategories
+    : masterFilteredCategories.filter(cat => {
+        const section = menuSections.find(s => s.id === activeSection);
+        return section ? section.categoryIds.includes(cat.id) : true;
+      });
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
 
@@ -319,6 +344,51 @@ function MenuContent() {
           )}
         </div>
       </div>
+
+      {/* V19.0 Selector de Franjas Horarias */}
+      {menuSections.length > 0 && (
+        <div style={{ padding: '10px 16px 0', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+          <button
+            onClick={() => { setActiveSection('all'); setActiveCategory(null); }}
+            style={{
+              flexShrink: 0,
+              padding: '8px 16px',
+              borderRadius: '20px',
+              fontWeight: activeSection === 'all' ? 700 : 500,
+              fontSize: '13px',
+              backgroundColor: activeSection === 'all' ? ((theme as any).badge_color || theme.primary_color) : 'rgba(255,255,255,0.08)',
+              color: activeSection === 'all' ? '#fff' : theme.text_color,
+              border: activeSection === 'all' ? 'none' : '1px solid rgba(255,255,255,0.15)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s',
+            }}
+          >
+            🕐 Todo el menú
+          </button>
+          {menuSections.map(section => (
+            <button
+              key={section.id}
+              onClick={() => { setActiveSection(section.id); setActiveCategory(null); }}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontWeight: activeSection === section.id ? 700 : 500,
+                fontSize: '13px',
+                backgroundColor: activeSection === section.id ? ((theme as any).badge_color || theme.primary_color) : 'rgba(255,255,255,0.08)',
+                color: activeSection === section.id ? '#fff' : theme.text_color,
+                border: activeSection === section.id ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
+              }}
+            >
+              {section.icon} {section.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas */}
       {hasDrinks && hasFood && (
