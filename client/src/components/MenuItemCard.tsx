@@ -121,7 +121,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem' }}>
             {hasImage ? (
               <img
-                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
+                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                 alt={item.name}
                 className="w-full h-full object-cover"
                 style={{ borderRadius: '0.75rem' }}
@@ -239,7 +239,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         {hasImage ? (
           <>
             <img
-              src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality)}
+              src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality, IMAGE_SIZES.card.height)}
               alt={item.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"

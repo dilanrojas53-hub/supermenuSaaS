@@ -225,7 +225,7 @@ export default function AIUpsellModal({
                           >
                             {item.image_url ? (
                               <img
-                                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
+                                src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                                 loading="lazy"

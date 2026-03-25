@@ -1020,7 +1020,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       >
                         {ci.menuItem.image_url ? (
                           <img
-                            src={getOptimizedImageUrl(ci.menuItem.image_url, IMAGE_SIZES.cart.width, IMAGE_SIZES.cart.quality)}
+                            src={getOptimizedImageUrl(ci.menuItem.image_url, IMAGE_SIZES.cart.width, IMAGE_SIZES.cart.quality, IMAGE_SIZES.cart.height)}
                             alt={ci.menuItem.name}
                             className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                             loading="lazy"

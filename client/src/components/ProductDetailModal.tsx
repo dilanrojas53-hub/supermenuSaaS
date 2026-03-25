@@ -437,7 +437,7 @@ export default function ProductDetailModal({
                               {/* Thumbnail */}
                               {suggestion.image_url ? (
                                 <img
-                                  src={getOptimizedImageUrl(suggestion.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality)}
+                                  src={getOptimizedImageUrl(suggestion.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                                   alt={suggestion.name}
                                   className="w-16 h-16 rounded-xl object-cover shrink-0"
                                   loading="lazy"
