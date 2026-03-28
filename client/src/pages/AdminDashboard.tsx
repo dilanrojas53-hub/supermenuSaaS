@@ -2464,6 +2464,19 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
   const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  // Formatea minutos en formato legible: 18 min, 1 h 12 min, 2 h
+  const formatElapsed = (min: number): string => {
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m === 0 ? `${h} h` : `${h} h ${m} min`;
+  };
+  // Severidad del cronómetro: normal < 15, warning 15-25, critical > 25
+  const timerSeverity = (min: number): 'normal' | 'warning' | 'critical' => {
+    if (min >= 25) return 'critical';
+    if (min >= 15) return 'warning';
+    return 'normal';
+  };
 
   // ── Normaliza delivery_type para comparación case-insensitive ──
   const getDeliveryType = (o: Order): string =>
@@ -2500,6 +2513,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const KanbanCard = ({ order, showPayBtn = false }: { order: Order; showPayBtn?: boolean }) => {
     const elapsed = elapsedMin(order.status === 'en_cocina' && order.accepted_at ? order.accepted_at : order.created_at);
     const isUrgent = elapsed > 20;
+    const severity = timerSeverity(elapsed);
+    const timerColors = {
+      normal:   { bg: 'rgba(100,116,139,0.15)', text: 'var(--text-secondary)', border: 'rgba(100,116,139,0.2)' },
+      warning:  { bg: 'rgba(245,158,11,0.15)',  text: '#F59E0B',              border: 'rgba(245,158,11,0.3)' },
+      critical: { bg: 'rgba(239,68,68,0.18)',   text: '#F87171',              border: 'rgba(239,68,68,0.4)' },
+    }[severity];
     const hasNewItems = (order as any).has_new_items === true;
     const isDeliveryOrder = (order as any).delivery_type === 'delivery';
     // GATING: SINPE solo aplica en delivery (dine-in/takeout cobran con POS externo)
@@ -2603,10 +2622,9 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         )}
         <div className="flex items-center justify-between mb-2">
           <span className="text-base font-bold text-[var(--text-primary)]">#{order.order_number}</span>
-          <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-            isUrgent ? 'bg-red-500/20 text-red-400' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
-          }`}>
-            <Timer size={10} /> {elapsed}m
+          <div className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: timerColors.bg, color: timerColors.text, border: `1px solid ${timerColors.border}` }}>
+            <Timer size={10} /> {formatElapsed(elapsed)}
           </div>
         </div>
         {(order.customer_name || order.customer_table) && (
@@ -2745,7 +2763,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               {isDeliveredUrgent ? '⚠️ COBRAR YA' : '⏰ PENDIENTE COBRO'}
             </span>
             <span className="ml-auto text-xs font-bold text-[var(--text-secondary)]">
-              Entregado hace {deliveredElapsed}m
+              Hace {formatElapsed(deliveredElapsed)}
             </span>
           </div>
         )}
@@ -2857,209 +2875,155 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      {/* ── HEADER COMPACTO ── */}
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Pedidos en Vivo</h2>
-          <p className="text-xs text-[var(--text-secondary)]">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''} · {porCobrar.length} por cobrar</p>
+          <h2 className="text-base font-bold text-[var(--text-primary)] leading-tight">Pedidos en Vivo</h2>
+          <p className="text-[11px] text-[var(--text-secondary)] leading-tight">
+            {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
+            {porCobrar.length > 0 && <span className="text-yellow-400 font-semibold"> · {porCobrar.length} por cobrar</span>}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Botón silenciar alarma — solo visible cuando está sonando */}
+        <div className="flex items-center gap-1.5">
           {isAlarming && (
-            <button
-              onClick={stopAlarm}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black animate-pulse"
-              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}
-            >
-              <span className="text-sm">🔔</span> Silenciar
+            <button onClick={stopAlarm}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black animate-pulse"
+              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}>
+              🔔 Silenciar
             </button>
           )}
           <button onClick={fetchOrders}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] text-[var(--text-secondary)] rounded-lg text-xs hover:bg-slate-600 transition-colors">
-            <RefreshCw size={12} /> Actualizar
+            className="p-1.5 rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-600 transition-colors" title="Actualizar">
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
-      {/* V17.2: Tabs principales Por Cobrar / Cobrados */}
-      <div className="flex gap-2 mb-4 p-1 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border)]">
-        <button
-          onClick={() => setPaymentTab('pending')}
-          className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
-            paymentTab === 'pending'
-              ? 'bg-yellow-500/20 border-yellow-500/60 text-yellow-300'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
-          }`}
-        >
-          💰 Por Cobrar
-          {porCobrar.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-[var(--text-primary)] text-[10px] font-black px-1 shadow-lg animate-pulse">
-              {porCobrar.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setPaymentTab('paid')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${
-            paymentTab === 'paid'
-              ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
-          }`}
-        >
-          ✅ Cobrados ({cobrados.length})
-        </button>
-      </div>
-
-      {/* V17.2: Vista Por Cobrar — lista de entregados sin pagar */}
-      {paymentTab === 'paid' && (
-        <div className="space-y-3 mb-6">
-          {cobrados.length === 0 ? (
-            <div className="text-center py-12 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-2xl">Sin pedidos cobrados hoy</div>
-          ) : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
-        </div>
-      )}
-
-      {paymentTab === 'pending' && (
-        <>
-          {/* Por Cobrar: lista de entregados sin pagar */}
-          {porCobrar.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span>💰</span> Cuentas pendientes de cobro ({porCobrar.length})
-              </h3>
-              <div className="space-y-3">
-                {porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Sub-navegación: Comer Aquí / Delivery / Por Encargo ── */}
-      <div className="flex gap-2 mb-5 p-1 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border)]">
+      {/* ── BARRA ÚNICA DE FILTROS: canal + cobro ── */}
+      <div className="flex items-center gap-1.5 mb-3 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)]">
+        {/* Canal */}
         {subTabs.map(tab => {
           const count = badgeCount(tab.key);
           const isActive = activeSubTab === tab.key;
           return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveSubTab(tab.key)}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${
-                isActive
-                  ? tab.activeColor
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]'
-              }`}
-            >
+            <button key={tab.key} onClick={() => setActiveSubTab(tab.key)}
+              className={`relative flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all border ${
+                isActive ? tab.activeColor : 'border-transparent text-[var(--text-secondary)]'
+              }`}>
               <span>{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="hidden xs:inline sm:inline">{tab.label}</span>
               {count > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-[var(--text-primary)] text-[10px] font-black px-1 shadow-lg animate-pulse">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black px-1 shadow animate-pulse">
                   {count}
                 </span>
               )}
             </button>
           );
         })}
+        {/* Divisor */}
+        <div className="w-px h-5 bg-[var(--border)] flex-shrink-0" />
+        {/* Cobro */}
+        <button onClick={() => setPaymentTab('pending')}
+          className={`relative flex items-center gap-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all border ${
+            paymentTab === 'pending' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' : 'border-transparent text-[var(--text-secondary)]'
+          }`}>
+          💰
+          {porCobrar.length > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black px-1 shadow animate-pulse">
+              {porCobrar.length}
+            </span>
+          )}
+        </button>
+        <button onClick={() => setPaymentTab('paid')}
+          className={`flex items-center gap-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all border ${
+            paymentTab === 'paid' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'border-transparent text-[var(--text-secondary)]'
+          }`}>
+          ✅ <span className="text-[10px]">{cobrados.length}</span>
+        </button>
       </div>
+
+      {/* ── VISTA COBRADOS ── */}
+      {paymentTab === 'paid' && (
+        <div className="space-y-3 mb-4">
+          {cobrados.length === 0 ? (
+            <div className="text-center py-10 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin pedidos cobrados hoy</div>
+          ) : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
+        </div>
+      )}
+
+      {/* ── VISTA PENDIENTE: Por Cobrar (cuentas entregadas) ── */}
+      {paymentTab === 'pending' && porCobrar.length > 0 && (
+        <div className="mb-4 p-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">💰 Por cobrar</span>
+            <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">{porCobrar.length}</span>
+          </div>
+          <div className="space-y-2">
+            {porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
       ) : (
         <>
-        {/* Kanban: columnas según sub-tab activa */}
+        {/* ── MESAS ACTIVAS COMPACTAS (solo DINE_IN) ── */}
+        {activeSubTab === 'DINE_IN' && (() => {
+          const tableGroups: Record<string, Order[]> = {};
+          filteredOrders.forEach(o => {
+            const t = (o as any).customer_table || 'Sin mesa';
+            if (!tableGroups[t]) tableGroups[t] = [];
+            tableGroups[t].push(o);
+          });
+          const tableNames = Object.keys(tableGroups).sort();
+          if (tableNames.length === 0) return null;
+          return (
+            <div className="mb-3 px-2 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)]">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex-shrink-0">🪑 {tableNames.length} mesa{tableNames.length !== 1 ? 's' : ''}</span>
+                {tableNames.map(tableName => {
+                  const tOrders = tableGroups[tableName];
+                  const allDelivered = tOrders.every(o => o.status === 'entregado');
+                  return (
+                    <div key={tableName} className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[10px] font-bold"
+                      style={{ background: allDelivered ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)', borderColor: allDelivered ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.35)', color: allDelivered ? '#10B981' : '#F59E0B' }}>
+                      {tableName} <span className="opacity-60">({tOrders.length})</span>
+                      {allDelivered && (
+                        <button onClick={() => handleCloseTable(tableName)}
+                          className="ml-1 text-[9px] font-black px-1 py-0.5 rounded"
+                          style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981' }}
+                          title="Cerrar mesa">✓</button>
+                      )}
+                      <button onClick={() => handleViewTableHistory(tableName)}
+                        className="ml-0.5 opacity-40 hover:opacity-80 transition-opacity" title="Historial">📋</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── KANBAN: 3 columnas en todos los canales (Nuevos | En preparación | Listos) ── */}
         {activeSubTab === 'DELIVERY' ? (
-          /* Vista Delivery: Kanban + Despacho + Operaciones + Historial */
           <DeliveryTabWithHistory
             tenant={tenant}
             pendingCount={nuevos.length}
             kanbanNode={
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <KanbanColumn
-                  title="Pendientes"
-                  icon={<AlertCircle size={14} />}
-                  color="#F59E0B"
-                  orders={nuevos}
-                  emptyMsg="Sin pedidos nuevos"
-                />
-                <KanbanColumn
-                  title="Listos para Despacho"
-                  icon={<CheckCircle2 size={14} />}
-                  color="#10B981"
-                  orders={listos}
-                  emptyMsg="Sin pedidos listos"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <KanbanColumn title="Pendientes" icon={<AlertCircle size={14} />} color="#F59E0B" orders={nuevos} emptyMsg="Sin pedidos nuevos" />
+                <KanbanColumn title="En preparación" icon={<ChefHat size={14} />} color="#3B82F6" orders={enCocina} emptyMsg="Cocina libre" />
+                <KanbanColumn title="Listos" icon={<CheckCircle2 size={14} />} color="#10B981" orders={listos} emptyMsg="Sin pedidos listos" />
               </div>
             }
           />
         ) : (
-          /* Vista Comer Aquí / Por Encargo: 3 columnas estándar */
-          <>
-            {/* Panel de mesas activas (solo DINE_IN) */}
-            {activeSubTab === 'DINE_IN' && (() => {
-              // Agrupar pedidos activos por mesa
-              const tableGroups: Record<string, Order[]> = {};
-              filteredOrders.forEach(o => {
-                const t = (o as any).customer_table || 'Sin mesa';
-                if (!tableGroups[t]) tableGroups[t] = [];
-                tableGroups[t].push(o);
-              });
-              const tableNames = Object.keys(tableGroups).sort();
-              if (tableNames.length === 0) return null;
-              return (
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">🪑 Mesas Activas</span>
-                    <span className="text-xs text-[var(--text-secondary)]">{tableNames.length} mesa{tableNames.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {tableNames.map(tableName => {
-                      const tOrders = tableGroups[tableName];
-                      const allDelivered = tOrders.every(o => o.status === 'entregado');
-                      const hasActive = tOrders.some(o => o.status !== 'entregado');
-                      return (
-                        <div key={tableName} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold"
-                          style={{ background: allDelivered ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', borderColor: allDelivered ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.4)', color: allDelivered ? '#10B981' : '#F59E0B' }}>
-                          <span>🪑 {tableName}</span>
-                          <span className="text-[10px] opacity-70">({tOrders.length})</span>
-                          {allDelivered && (
-                            <button onClick={() => handleCloseTable(tableName)}
-                              className="ml-1 px-2 py-0.5 rounded-lg text-[10px] font-black transition-all active:scale-95"
-                              style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981', border: '1px solid rgba(16,185,129,0.4)' }}
-                              title="Cerrar mesa y archivar pedidos">
-                              ✓ Cerrar
-                            </button>
-                          )}
-                          {hasActive && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold" style={{ background: 'rgba(245,158,11,0.2)', color: '#F59E0B' }}>EN CURSO</span>
-                          )}
-                          <button onClick={() => handleViewTableHistory(tableName)}
-                            className="ml-1 text-[10px] opacity-50 hover:opacity-100 transition-opacity" title="Ver historial">
-                            📋
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <KanbanColumn
-                title="Nuevos"
-                icon={<AlertCircle size={14} />}
-                color="#F59E0B"
-                orders={nuevos}
-                emptyMsg="Sin pedidos nuevos"
-              />
-              <KanbanColumn
-                title="Listos para Entregar"
-                icon={<CheckCircle2 size={14} />}
-                color="#10B981"
-                orders={listos}
-                emptyMsg="Sin pedidos listos"
-              />
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <KanbanColumn title="Nuevos" icon={<AlertCircle size={14} />} color="#F59E0B" orders={nuevos} emptyMsg="Sin pedidos nuevos" />
+            <KanbanColumn title="En preparación" icon={<ChefHat size={14} />} color="#3B82F6" orders={enCocina} emptyMsg="Cocina libre" />
+            <KanbanColumn title="Listos" icon={<CheckCircle2 size={14} />} color="#10B981" orders={listos} emptyMsg="Sin pedidos listos" />
+          </div>
         )}
         </>
       )}
