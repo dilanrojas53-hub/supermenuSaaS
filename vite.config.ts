@@ -178,6 +178,8 @@ const pwaPlugin = VitePWA({
     ],
   },
   workbox: {
+    skipWaiting: true,   // Activa el nuevo SW inmediatamente sin esperar que el usuario cierre pestañas
+    clientsClaim: true,  // El nuevo SW toma control de todos los clientes activos de inmediato
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     navigateFallback: null,
     globIgnores: ['sw-push.js'], // sw-push.js se registra manualmente, no via workbox

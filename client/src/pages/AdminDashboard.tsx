@@ -2973,20 +2973,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             tenant={tenant}
             pendingCount={nuevos.length}
             kanbanNode={
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <KanbanColumn
                   title="Pendientes"
                   icon={<AlertCircle size={14} />}
                   color="#F59E0B"
                   orders={nuevos}
                   emptyMsg="Sin pedidos nuevos"
-                />
-                <KanbanColumn
-                  title="En Preparación"
-                  icon={<ChefHat size={14} />}
-                  color="#3B82F6"
-                  orders={enCocina}
-                  emptyMsg="Cocina libre"
                 />
                 <KanbanColumn
                   title="Listos para Despacho"
@@ -3050,20 +3043,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 </div>
               );
             })()}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <KanbanColumn
                 title="Nuevos"
                 icon={<AlertCircle size={14} />}
                 color="#F59E0B"
                 orders={nuevos}
                 emptyMsg="Sin pedidos nuevos"
-              />
-              <KanbanColumn
-                title="En Preparación"
-                icon={<ChefHat size={14} />}
-                color="#3B82F6"
-                orders={enCocina}
-                emptyMsg="Cocina libre"
               />
               <KanbanColumn
                 title="Listos para Entregar"
