@@ -2199,6 +2199,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
+  const [activeStatusTab, setActiveStatusTab] = useState<'nuevos' | 'en_cocina' | 'listos' | 'cobro'>('nuevos');
   const prevActiveIdsRef = useRef<Set<string>>(new Set());
   const { playBell, stopAlarm, isAlarming } = useKitchenBell();
   // sinpe_block_mode: cargado de delivery_settings para respetar la config del admin
@@ -2589,7 +2590,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     };
 
     return (
-      <div className={`rounded-2xl p-4 border transition-all ${
+      <div className={`rounded-xl p-3 border transition-all ${
         hasNewItems ? 'bg-amber-500/10 border-amber-500/50 animate-pulse' :
         isDeliveredUrgent ? 'bg-red-500/8 border-red-500/50' :
         isDeliveredUnpaid ? 'bg-yellow-500/8 border-yellow-500/40' :
@@ -2620,19 +2621,17 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             </span>
           </div>
         )}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-base font-bold text-[var(--text-primary)]">#{order.order_number}</span>
-          <div className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+        {/* Fila 1: número + cliente/mesa + timer — todo en 1 línea */}
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="text-sm font-black text-[var(--text-primary)] flex-shrink-0">#{order.order_number}</span>
+          {order.customer_name && <span className="text-[11px] text-[var(--text-secondary)] truncate flex-1">👤 {order.customer_name}</span>}
+          {!order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-1">🪑 {order.customer_table}</span>}
+          {order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-shrink-0">🪑 {order.customer_table}</span>}
+          <div className="ml-auto flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
             style={{ background: timerColors.bg, color: timerColors.text, border: `1px solid ${timerColors.border}` }}>
-            <Timer size={10} /> {formatElapsed(elapsed)}
+            <Timer size={9} /> {formatElapsed(elapsed)}
           </div>
         </div>
-        {(order.customer_name || order.customer_table) && (
-          <div className="text-xs text-[var(--text-secondary)] mb-2 flex gap-2">
-            {order.customer_name && <span>👤 {order.customer_name}</span>}
-            {order.customer_table && <span>🪑 {order.customer_table}</span>}
-          </div>
-        )}
 
         {quickRequestType && (
           <div className="mb-2">
@@ -2649,11 +2648,11 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             )}
           </div>
         )}
-        <div className="space-y-0.5 mb-3">
+        <div className="space-y-0 mb-2">
           {(order.items as any[]).map((item: any, i: number) => (
-            <div key={i} className="flex justify-between text-sm">
+            <div key={i} className="flex justify-between text-[11px]">
               <span className="text-[var(--text-secondary)]">{item.quantity}× {item.name}</span>
-              <span className="text-[var(--text-secondary)] text-xs">{formatPrice(item.price * item.quantity)}</span>
+              <span className="text-[var(--text-secondary)] opacity-60">{formatPrice(item.price * item.quantity)}</span>
             </div>
           ))}
         </div>
@@ -2776,10 +2775,10 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] mb-3">
-          <span className="font-bold text-amber-400">{formatPrice(order.total)}</span>
-          <div className="flex items-center gap-2">
-            {isDelivery && <Bike size={12} className="text-blue-400" />}
+        <div className="flex items-center justify-between pt-1.5 border-t border-[var(--border)] mb-2">
+          <span className="text-sm font-bold text-amber-400">{formatPrice(order.total)}</span>
+          <div className="flex items-center gap-1.5">
+            {isDelivery && <Bike size={11} className="text-blue-400" />}
             <span className="text-[10px] text-[var(--text-secondary)] uppercase">{order.payment_method}</span>
           </div>
         </div>
@@ -2835,8 +2834,8 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               .map((action: any) => (
               <button key={action.nextStatus}
                 onClick={() => handleStatusChange(order.id, action.nextStatus)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] touch-manipulation"
-                style={{ backgroundColor: `${action.color}20`, color: action.color, border: `2px solid ${action.color}40` }}>
+                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold transition-all active:scale-[0.97] touch-manipulation"
+                style={{ backgroundColor: `${action.color}20`, color: action.color, border: `1px solid ${action.color}40` }}>
                 <span>{action.icon}</span> {action.label}
               </button>
             ))}
@@ -2875,158 +2874,187 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   return (
     <div>
-      {/* ── HEADER COMPACTO ── */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-bold text-[var(--text-primary)] leading-tight">Pedidos en Vivo</h2>
-          <p className="text-[11px] text-[var(--text-secondary)] leading-tight">
-            {activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}
-            {porCobrar.length > 0 && <span className="text-yellow-400 font-semibold"> · {porCobrar.length} por cobrar</span>}
-          </p>
+      {/* ── ROW 1: Header ultra-compacto ── */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Pedidos en Vivo</h2>
+          <span className="text-[10px] text-[var(--text-secondary)]">{activeOrders.length} activo{activeOrders.length !== 1 ? 's' : ''}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {isAlarming && (
             <button onClick={stopAlarm}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black animate-pulse"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black animate-pulse"
               style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}>
-              🔔 Silenciar
+              🔔
             </button>
           )}
           <button onClick={fetchOrders}
             className="p-1.5 rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-600 transition-colors" title="Actualizar">
-            <RefreshCw size={14} />
+            <RefreshCw size={13} />
+          </button>
+          <button
+            onClick={() => { if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).then(() => window.location.reload()); }}
+            className="p-1.5 rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-600 transition-colors" title="Limpiar caché y actualizar">
+            <span className="text-[11px]">🗑️</span>
           </button>
         </div>
       </div>
 
-      {/* ── BARRA ÚNICA DE FILTROS: canal + cobro ── */}
-      <div className="flex items-center gap-1.5 mb-3 p-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)]">
-        {/* Canal */}
+      {/* ── ROW 2: Canal (Comer Aquí / Delivery / Encargo) ── */}
+      <div className="flex gap-1 mb-2 p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border)]">
         {subTabs.map(tab => {
           const count = badgeCount(tab.key);
           const isActive = activeSubTab === tab.key;
           return (
             <button key={tab.key} onClick={() => setActiveSubTab(tab.key)}
-              className={`relative flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all border ${
-                isActive ? tab.activeColor : 'border-transparent text-[var(--text-secondary)]'
+              className={`relative flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                isActive ? tab.activeColor + ' border' : 'border border-transparent text-[var(--text-secondary)]'
               }`}>
               <span>{tab.icon}</span>
-              <span className="hidden xs:inline sm:inline">{tab.label}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
               {count > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black px-1 shadow animate-pulse">
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-black px-0.5 shadow animate-pulse">
                   {count}
                 </span>
               )}
             </button>
           );
         })}
-        {/* Divisor */}
-        <div className="w-px h-5 bg-[var(--border)] flex-shrink-0" />
-        {/* Cobro */}
-        <button onClick={() => setPaymentTab('pending')}
-          className={`relative flex items-center gap-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all border ${
-            paymentTab === 'pending' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' : 'border-transparent text-[var(--text-secondary)]'
-          }`}>
-          💰
-          {porCobrar.length > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black px-1 shadow animate-pulse">
-              {porCobrar.length}
-            </span>
-          )}
-        </button>
-        <button onClick={() => setPaymentTab('paid')}
-          className={`flex items-center gap-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all border ${
-            paymentTab === 'paid' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'border-transparent text-[var(--text-secondary)]'
-          }`}>
-          ✅ <span className="text-[10px]">{cobrados.length}</span>
-        </button>
       </div>
 
-      {/* ── VISTA COBRADOS ── */}
-      {paymentTab === 'paid' && (
-        <div className="space-y-3 mb-4">
-          {cobrados.length === 0 ? (
-            <div className="text-center py-10 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin pedidos cobrados hoy</div>
-          ) : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
-        </div>
-      )}
-
-      {/* ── VISTA PENDIENTE: Por Cobrar (cuentas entregadas) ── */}
-      {paymentTab === 'pending' && porCobrar.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">💰 Por cobrar</span>
-            <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">{porCobrar.length}</span>
+      {/* ── ROW 3: Mesas activas compactas (solo DINE_IN) ── */}
+      {activeSubTab === 'DINE_IN' && (() => {
+        const tableGroups: Record<string, Order[]> = {};
+        filteredOrders.forEach(o => {
+          const t = (o as any).customer_table || 'Sin mesa';
+          if (!tableGroups[t]) tableGroups[t] = [];
+          tableGroups[t].push(o);
+        });
+        const tableNames = Object.keys(tableGroups).sort();
+        if (tableNames.length === 0) return null;
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap mb-2 px-2 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+            <span className="text-[10px] font-bold text-amber-400 flex-shrink-0">🪑</span>
+            {tableNames.map(tableName => {
+              const tOrders = tableGroups[tableName];
+              const allDelivered = tOrders.every(o => o.status === 'entregado');
+              return (
+                <div key={tableName} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-bold"
+                  style={{ background: allDelivered ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)', borderColor: allDelivered ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.35)', color: allDelivered ? '#10B981' : '#F59E0B' }}>
+                  {tableName}<span className="opacity-50">({tOrders.length})</span>
+                  {allDelivered && (
+                    <button onClick={() => handleCloseTable(tableName)}
+                      className="ml-0.5 text-[9px] font-black px-1 rounded"
+                      style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981' }}
+                      title="Cerrar">✓</button>
+                  )}
+                  <button onClick={() => handleViewTableHistory(tableName)}
+                    className="ml-0.5 opacity-40 hover:opacity-80" title="Historial">📋</button>
+                </div>
+              );
+            })}
           </div>
-          <div className="space-y-2">
-            {porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {loading ? (
-        <div className="text-center py-16"><div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
-      ) : (
-        <>
-        {/* ── MESAS ACTIVAS COMPACTAS (solo DINE_IN) ── */}
-        {activeSubTab === 'DINE_IN' && (() => {
-          const tableGroups: Record<string, Order[]> = {};
-          filteredOrders.forEach(o => {
-            const t = (o as any).customer_table || 'Sin mesa';
-            if (!tableGroups[t]) tableGroups[t] = [];
-            tableGroups[t].push(o);
-          });
-          const tableNames = Object.keys(tableGroups).sort();
-          if (tableNames.length === 0) return null;
-          return (
-            <div className="mb-3 px-2 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)]">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex-shrink-0">🪑 {tableNames.length} mesa{tableNames.length !== 1 ? 's' : ''}</span>
-                {tableNames.map(tableName => {
-                  const tOrders = tableGroups[tableName];
-                  const allDelivered = tOrders.every(o => o.status === 'entregado');
-                  return (
-                    <div key={tableName} className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[10px] font-bold"
-                      style={{ background: allDelivered ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)', borderColor: allDelivered ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.35)', color: allDelivered ? '#10B981' : '#F59E0B' }}>
-                      {tableName} <span className="opacity-60">({tOrders.length})</span>
-                      {allDelivered && (
-                        <button onClick={() => handleCloseTable(tableName)}
-                          className="ml-1 text-[9px] font-black px-1 py-0.5 rounded"
-                          style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981' }}
-                          title="Cerrar mesa">✓</button>
-                      )}
-                      <button onClick={() => handleViewTableHistory(tableName)}
-                        className="ml-0.5 opacity-40 hover:opacity-80 transition-opacity" title="Historial">📋</button>
-                    </div>
-                  );
-                })}
-              </div>
+      {/* ── ROW 4: TABS DE ESTADO — el corazón del panel ── */}
+      {(() => {
+        const statusTabs = [
+          { key: 'nuevos' as const,    label: 'Nuevos',      icon: '🔔', color: '#F59E0B', count: nuevos.length },
+          { key: 'en_cocina' as const, label: 'En prep.',    icon: '👨‍🍳', color: '#3B82F6', count: enCocina.length },
+          { key: 'listos' as const,    label: 'Listos',      icon: '✅',    color: '#10B981', count: listos.length },
+          { key: 'cobro' as const,     label: 'Cobro',       icon: '💰',    color: '#A78BFA', count: porCobrar.length + cobrados.length },
+        ];
+        const currentOrders =
+          activeStatusTab === 'nuevos'    ? nuevos :
+          activeStatusTab === 'en_cocina' ? enCocina :
+          activeStatusTab === 'listos'    ? listos : null;
+        return (
+          <>
+            {/* Tabs de estado */}
+            <div className="grid grid-cols-4 gap-1 mb-2">
+              {statusTabs.map(st => {
+                const isActive = activeStatusTab === st.key;
+                const hasUrgent = st.key === 'nuevos' && nuevos.length > 0;
+                return (
+                  <button key={st.key}
+                    onClick={() => setActiveStatusTab(st.key)}
+                    className={`flex flex-col items-center py-2 px-1 rounded-lg border transition-all ${
+                      isActive
+                        ? 'border-current'
+                        : 'border-[var(--border)] bg-[var(--bg-surface)]'
+                    }`}
+                    style={isActive ? { background: `${st.color}18`, borderColor: `${st.color}60`, color: st.color } : { color: 'var(--text-secondary)' }}
+                  >
+                    <span className="text-base leading-none">{st.icon}</span>
+                    <span className="text-[9px] font-bold mt-0.5 leading-none">{st.label}</span>
+                    <span className={`text-sm font-black mt-0.5 leading-none ${
+                      isActive ? '' : st.count > 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+                    }`}>{st.count}</span>
+                    {hasUrgent && !isActive && (
+                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          );
-        })()}
 
-        {/* ── KANBAN: 3 columnas en todos los canales (Nuevos | En preparación | Listos) ── */}
-        {activeSubTab === 'DELIVERY' ? (
-          <DeliveryTabWithHistory
-            tenant={tenant}
-            pendingCount={nuevos.length}
-            kanbanNode={
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <KanbanColumn title="Pendientes" icon={<AlertCircle size={14} />} color="#F59E0B" orders={nuevos} emptyMsg="Sin pedidos nuevos" />
-                <KanbanColumn title="En preparación" icon={<ChefHat size={14} />} color="#3B82F6" orders={enCocina} emptyMsg="Cocina libre" />
-                <KanbanColumn title="Listos" icon={<CheckCircle2 size={14} />} color="#10B981" orders={listos} emptyMsg="Sin pedidos listos" />
+            {/* Contenido del tab de estado activo */}
+            {loading ? (
+              <div className="text-center py-10"><div className="animate-spin w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full mx-auto" /></div>
+            ) : activeStatusTab === 'cobro' ? (
+              /* ── Vista Cobro ── */
+              <div>
+                <div className="flex gap-1 mb-2 p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border)]">
+                  <button onClick={() => setPaymentTab('pending')}
+                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all border ${
+                      paymentTab === 'pending' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' : 'border-transparent text-[var(--text-secondary)]'
+                    }`}>
+                    💰 Por cobrar ({porCobrar.length})
+                  </button>
+                  <button onClick={() => setPaymentTab('paid')}
+                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all border ${
+                      paymentTab === 'paid' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'border-transparent text-[var(--text-secondary)]'
+                    }`}>
+                    ✅ Cobrados ({cobrados.length})
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {paymentTab === 'pending' ? (
+                    porCobrar.length === 0
+                      ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin cuentas pendientes</div>
+                      : porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)
+                  ) : (
+                    cobrados.length === 0
+                      ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin cobrados hoy</div>
+                      : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)
+                  )}
+                </div>
               </div>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <KanbanColumn title="Nuevos" icon={<AlertCircle size={14} />} color="#F59E0B" orders={nuevos} emptyMsg="Sin pedidos nuevos" />
-            <KanbanColumn title="En preparación" icon={<ChefHat size={14} />} color="#3B82F6" orders={enCocina} emptyMsg="Cocina libre" />
-            <KanbanColumn title="Listos" icon={<CheckCircle2 size={14} />} color="#10B981" orders={listos} emptyMsg="Sin pedidos listos" />
-          </div>
-        )}
-        </>
-      )}
+            ) : activeSubTab === 'DELIVERY' && currentOrders !== null ? (
+              /* ── Vista Delivery: envuelve en DeliveryTabWithHistory ── */
+              <DeliveryTabWithHistory
+                tenant={tenant}
+                pendingCount={nuevos.length}
+                kanbanNode={
+                  <div className="space-y-2">
+                    {currentOrders.length === 0
+                      ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin pedidos en este estado</div>
+                      : currentOrders.map(o => <KanbanCard key={o.id} order={o} />)}
+                  </div>
+                }
+              />
+            ) : currentOrders !== null ? (
+              /* ── Vista normal: lista del estado activo ── */
+              <div className="space-y-2">
+                {currentOrders.length === 0
+                  ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin pedidos en este estado</div>
+                  : currentOrders.map(o => <KanbanCard key={o.id} order={o} />)}
+              </div>
+            ) : null}
+          </>
+        );
+      })()}
 
       {/* ─── Modal Historial de Mesa ─── */}
       {tableHistoryModal && (
