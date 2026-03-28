@@ -41,7 +41,7 @@ function MenuContent() {
   // V12.0 Master Toggle: Macro-Categorías Comidas vs Bebidas
   const [masterTab, setMasterTab] = useState<'food' | 'drinks'>('food');
   // V19.0 Franjas Horarias
-  const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; categoryIds: string[] }[]>([]);
+  const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; itemIds: string[] }[]>([]);
   const [activeSection, setActiveSection] = useState<string | 'all'>('all');
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -155,10 +155,10 @@ function MenuContent() {
     const loadSections = async () => {
       const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', data.tenant.id).eq('is_active', true).order('sort_order');
       if (!sData || sData.length === 0) { setMenuSections([]); return; }
-      const { data: scData } = await supabase.from('menu_section_categories').select('*').in('section_id', sData.map((s: any) => s.id));
+      const { data: siData } = await supabase.from('menu_section_items').select('*').in('section_id', sData.map((s: any) => s.id));
       const sections = sData.map((s: any) => ({
         ...s,
-        categoryIds: (scData || []).filter((sc: any) => sc.section_id === s.id).map((sc: any) => sc.category_id)
+        itemIds: (siData || []).filter((si: any) => si.section_id === s.id).map((si: any) => si.item_id)
       }));
       setMenuSections(sections);
     };
@@ -209,13 +209,16 @@ function MenuContent() {
       )
     : categories;
 
-  // Filtrar por sección activa
-  const visibleCategories = activeSection === 'all' || menuSections.length === 0
+  // Filtrar por sección activa (basado en platillos individuales)
+  const activeSectionItemIds: string[] | null = (activeSection !== 'all' && menuSections.length > 0)
+    ? (menuSections.find(s => s.id === activeSection)?.itemIds || [])
+    : null;
+  // visibleCategories: en modo sección, solo mostrar categorías que tengan al menos un platillo en la sección
+  const visibleCategories = activeSectionItemIds === null
     ? masterFilteredCategories
-    : masterFilteredCategories.filter(cat => {
-        const section = menuSections.find(s => s.id === activeSection);
-        return section ? section.categoryIds.includes(cat.id) : true;
-      });
+    : masterFilteredCategories.filter(cat =>
+        translatedMenuItems.some(item => item.category_id === cat.id && activeSectionItemIds.includes(item.id))
+      );
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
 
@@ -497,7 +500,11 @@ function MenuContent() {
       {/* Menu Items by Category */}
       <div className="px-4 mt-2">
         {visibleCategories.map(cat => {
-          const catItems = itemsByCategory[cat.id] || [];
+          // Si hay sección activa, filtrar solo los platillos de esa sección
+          const allCatItems = itemsByCategory[cat.id] || [];
+          const catItems = activeSectionItemIds !== null
+            ? allCatItems.filter(item => activeSectionItemIds.includes(item.id))
+            : allCatItems;
           if (catItems.length === 0) return null;
 
           return (

@@ -565,20 +565,28 @@ function CategoriesTab({ tenant, categories, onRefresh }: {
 }
 
 // ─── Menu Sections Manager (Franjas Horarias) ───
-function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categories: Category[] }) {
+function MenuSectionsManager({ tenant, categories, items }: { tenant: Tenant; categories: Category[]; items: MenuItem[] }) {
   const [sections, setSections] = useState<{ id: string; name: string; description: string | null; icon: string; sort_order: number; is_active: boolean }[]>([]);
-  const [sectionCats, setSectionCats] = useState<{ section_id: string; category_id: string }[]>([]);
+  const [sectionItems, setSectionItems] = useState<{ section_id: string; item_id: string }[]>([]);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', icon: '🍽️', sort_order: '0', is_active: true });
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Search filter per section
+  const [searchQuery, setSearchQuery] = useState<Record<string, string>>({});
 
   const fetchSections = useCallback(async () => {
     const { data: sData } = await supabase.from('menu_sections').select('*').eq('tenant_id', tenant.id).order('sort_order');
-    const { data: scData } = await supabase.from('menu_section_categories').select('*');
+    // Fetch section items filtered by sections belonging to this tenant
+    const sectionIds = (sData || []).map((s: any) => s.id);
+    let siData: any[] = [];
+    if (sectionIds.length > 0) {
+      const { data } = await supabase.from('menu_section_items').select('*').in('section_id', sectionIds);
+      siData = data || [];
+    }
     setSections(sData || []);
-    setSectionCats(scData || []);
+    setSectionItems(siData);
   }, [tenant.id]);
 
   useEffect(() => { fetchSections(); }, [fetchSections]);
@@ -600,19 +608,23 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
   };
 
   const handleDeleteSection = async (id: string) => {
-    if (!confirm('¿Eliminar esta sección? Las categorías no se eliminarán.')) return;
+    if (!confirm('¿Eliminar esta sección? Los platillos no se eliminarán.')) return;
+    await supabase.from('menu_section_items').delete().eq('section_id', id);
     await supabase.from('menu_sections').delete().eq('id', id);
     toast.success('Sección eliminada'); fetchSections();
   };
 
-  const toggleCategoryInSection = async (sectionId: string, categoryId: string) => {
-    const exists = sectionCats.some(sc => sc.section_id === sectionId && sc.category_id === categoryId);
+  const toggleItemInSection = async (sectionId: string, itemId: string) => {
+    const exists = sectionItems.some(si => si.section_id === sectionId && si.item_id === itemId);
     if (exists) {
-      await supabase.from('menu_section_categories').delete().eq('section_id', sectionId).eq('category_id', categoryId);
+      const { error } = await supabase.from('menu_section_items').delete().eq('section_id', sectionId).eq('item_id', itemId);
+      if (error) { toast.error('Error: ' + error.message); return; }
+      setSectionItems(prev => prev.filter(si => !(si.section_id === sectionId && si.item_id === itemId)));
     } else {
-      await supabase.from('menu_section_categories').insert({ section_id: sectionId, category_id: categoryId });
+      const { error } = await supabase.from('menu_section_items').insert({ section_id: sectionId, item_id: itemId });
+      if (error) { toast.error('Error: ' + error.message); return; }
+      setSectionItems(prev => [...prev, { section_id: sectionId, item_id: itemId }]);
     }
-    fetchSections();
   };
 
   const ICONS = ['🍽️', '🌅', '☀️', '🌙', '🍳', '🥗', '🍖', '🍷', '☕', '🎉', '🌮', '🍜'];
@@ -622,7 +634,7 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-bold text-[var(--text-primary)]">Franjas Horarias del Menú</h3>
-          <p className="text-xs text-[var(--text-secondary)] mt-0.5">Agrupa categorías en secciones como Desayunos, Almuerzos o Cenas. El cliente verá un selector adicional.</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">Asigna platillos individuales a secciones como Desayunos, Almuerzos o Cenas. El cliente verá un selector adicional.</p>
         </div>
         <button onClick={() => { setIsCreating(true); setEditingSection(null); setForm({ name: '', description: '', icon: '🍽️', sort_order: '0', is_active: true }); }}
           className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500 text-white rounded-xl text-xs font-medium hover:bg-indigo-600 transition-colors">
@@ -685,8 +697,9 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
 
       <div className="space-y-3">
         {sections.map(section => {
-          const assignedIds = sectionCats.filter(sc => sc.section_id === section.id).map(sc => sc.category_id);
+          const assignedItemIds = sectionItems.filter(si => si.section_id === section.id).map(si => si.item_id);
           const isExpanded = expandedSection === section.id;
+          const query = (searchQuery[section.id] || '').toLowerCase();
           return (
             <div key={section.id} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl overflow-hidden">
               <div className="flex items-center gap-3 p-4">
@@ -695,7 +708,7 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-[var(--text-primary)]">{section.name}</span>
                     {!section.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">Inactiva</span>}
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400">{assignedIds.length} categorías</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400">{assignedItemIds.length} platillos</span>
                   </div>
                   {section.description && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{section.description}</p>}
                 </div>
@@ -703,7 +716,7 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
                   <button onClick={() => setExpandedSection(isExpanded ? null : section.id)}
                     className="flex items-center gap-1 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg text-xs hover:bg-indigo-500/20 transition-colors">
                     {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    {isExpanded ? 'Cerrar' : 'Asignar categorías'}
+                    {isExpanded ? 'Cerrar' : 'Asignar platillos'}
                   </button>
                   <button onClick={() => { setEditingSection(section.id); setIsCreating(false); setForm({ name: section.name, description: section.description || '', icon: section.icon, sort_order: String(section.sort_order), is_active: section.is_active }); }}
                     className="p-2 hover:bg-[var(--bg-surface)] rounded-lg"><Pencil size={14} className="text-[var(--text-secondary)]" /></button>
@@ -713,21 +726,64 @@ function MenuSectionsManager({ tenant, categories }: { tenant: Tenant; categorie
               </div>
               {isExpanded && (
                 <div className="border-t border-[var(--border)] p-4 bg-[var(--bg-surface)]/50">
-                  <p className="text-xs text-[var(--text-secondary)] mb-3">Selecciona las categorías que pertenecen a esta franja:</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-xs text-[var(--text-secondary)] mb-3">Selecciona los platillos que pertenecen a esta franja horaria:</p>
+                  {/* Search filter */}
+                  <input
+                    type="text"
+                    placeholder="Buscar platillo..."
+                    value={searchQuery[section.id] || ''}
+                    onChange={e => setSearchQuery(prev => ({ ...prev, [section.id]: e.target.value }))}
+                    className="w-full mb-3 px-3 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-xs focus:ring-2 focus:ring-indigo-500/50 focus:outline-none"
+                  />
+                  {/* Items grouped by category */}
+                  <div className="space-y-4">
                     {categories.map(cat => {
-                      const isAssigned = assignedIds.includes(cat.id);
+                      const catItems = items.filter(i => i.category_id === cat.id && (!query || i.name.toLowerCase().includes(query)));
+                      if (catItems.length === 0) return null;
+                      const allCatAssigned = catItems.every(i => assignedItemIds.includes(i.id));
                       return (
-                        <button key={cat.id} onClick={() => toggleCategoryInSection(section.id, cat.id)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                            isAssigned
-                              ? 'bg-indigo-500 text-white shadow-sm'
-                              : 'bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-indigo-500/50'
-                          }`}>
-                          {isAssigned && <Check size={10} />}
-                          {cat.name}
-                          {cat.is_drink && ' 🍹'}
-                        </button>
+                        <div key={cat.id}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wide">{cat.name}</span>
+                            <button
+                              onClick={async () => {
+                                if (allCatAssigned) {
+                                  // Deselect all in category
+                                  for (const item of catItems) {
+                                    if (assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id);
+                                  }
+                                } else {
+                                  // Select all in category
+                                  for (const item of catItems) {
+                                    if (!assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id);
+                                  }
+                                }
+                              }}
+                              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                                allCatAssigned
+                                  ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
+                                  : 'bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-indigo-500/50'
+                              }`}>
+                              {allCatAssigned ? 'Quitar todos' : 'Seleccionar todos'}
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {catItems.map(item => {
+                              const isAssigned = assignedItemIds.includes(item.id);
+                              return (
+                                <button key={item.id} onClick={() => toggleItemInSection(section.id, item.id)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                                    isAssigned
+                                      ? 'bg-indigo-500 text-white shadow-sm'
+                                      : 'bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-indigo-500/50'
+                                  }`}>
+                                  {isAssigned && <Check size={10} />}
+                                  {item.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -4704,7 +4760,7 @@ export default function AdminDashboard() {
           {activeTab === 'categories' && (
             <div>
               <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
-              <MenuSectionsManager tenant={tenant} categories={categories} />
+              <MenuSectionsManager tenant={tenant} categories={categories} items={items} />
             </div>
           )}
           {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
