@@ -25,6 +25,13 @@ export interface CustomerProfile {
   updated_at?: string;
 }
 
+export interface TenantStats {
+  points: number;
+  level: string;
+  total_spent: number;
+  total_orders: number;
+}
+
 export type AuthStep =
   | 'idle'
   | 'phone_input'
@@ -45,6 +52,7 @@ export interface WebAuthnCredentialInfo {
 
 interface CustomerProfileContextType {
   profile: CustomerProfile | null;
+  tenantStats: TenantStats | null;  // puntos/nivel aislados por tenant
   isGuest: boolean;
   isLoading: boolean;
   authStep: AuthStep;
@@ -125,8 +133,27 @@ function base64urlToBuffer(base64url: string): Uint8Array {
 
 export function CustomerProfileProvider({ children, tenantId }: { children: ReactNode; tenantId?: string }) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authStep, setAuthStep] = useState<AuthStep>('idle');
+
+  // Cargar stats del tenant cuando cambia el perfil o el tenantId
+  useEffect(() => {
+    if (!profile?.id || !tenantId) { setTenantStats(null); return; }
+    supabase.from('tenant_customer_stats')
+      .select('points, level, total_spent, total_orders')
+      .eq('customer_id', profile.id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setTenantStats(data ? {
+          points: data.points ?? 0,
+          level: data.level ?? 'bronze',
+          total_spent: data.total_spent ?? 0,
+          total_orders: data.total_orders ?? 0,
+        } : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 });
+      });
+  }, [profile?.id, tenantId]);
 
   useEffect(() => {
     if (tenantId === undefined) return;
@@ -429,7 +456,7 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
 
   return (
     <CustomerProfileContext.Provider value={{
-      profile, isGuest: !profile, isLoading, authStep, setAuthStep,
+      profile, tenantStats, isGuest: !profile, isLoading, authStep, setAuthStep,
       checkPhone, registerWithPassword, loginWithPassword, changePassword,
       isWebAuthnSupported, registerPasskey, loginWithPasskey, getPasskeys, deletePasskey,
       updateProfile, refreshProfile, logout, logoutAllDevices,

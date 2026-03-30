@@ -13,6 +13,7 @@ interface CustomerProfile {
   phone: string;
   name: string | null;
   email: string | null;
+  // Puntos aislados por tenant (de tenant_customer_stats)
   points: number;
   level: string;
   total_spent: number;
@@ -188,16 +189,49 @@ export default function CustomersTab({ tenant }: { tenant: Tenant }) {
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     const seg = SEGMENTS.find(s => s.key === segment)!;
-    let q = supabase.from('customer_profiles').select('*').eq('tenant_id', tenant.id);
+
+    // Obtener perfiles del tenant con sus stats por tenant (JOIN via tenant_customer_stats)
+    const { data: profiles } = await supabase
+      .from('customer_profiles')
+      .select('id, phone, name, email, created_at, last_login_at')
+      .eq('tenant_id', tenant.id)
+      .limit(200);
+
+    if (!profiles?.length) { setCustomers([]); setLoading(false); return; }
+
+    // Obtener stats por tenant para estos clientes
+    const ids = profiles.map(p => p.id);
+    const { data: statsRows } = await supabase
+      .from('tenant_customer_stats')
+      .select('customer_id, points, level, total_spent, total_orders')
+      .eq('tenant_id', tenant.id)
+      .in('customer_id', ids);
+
+    const statsMap = Object.fromEntries((statsRows || []).map(s => [s.customer_id, s]));
+
+    // Combinar y ordenar en cliente
+    let merged: CustomerProfile[] = profiles.map(p => ({
+      ...p,
+      points: statsMap[p.id]?.points ?? 0,
+      level: statsMap[p.id]?.level ?? 'bronze',
+      total_spent: statsMap[p.id]?.total_spent ?? 0,
+      total_orders: statsMap[p.id]?.total_orders ?? 0,
+    }));
+
     if (segment === 'new') {
-      q = q.order('created_at', { ascending: false }).limit(50);
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } else if (segment === 'inactive') {
-      q = q.order('last_login_at', { ascending: true }).limit(50);
+      merged.sort((a, b) => {
+        const ta = a.last_login_at ? new Date(a.last_login_at).getTime() : 0;
+        const tb = b.last_login_at ? new Date(b.last_login_at).getTime() : 0;
+        return ta - tb;
+      });
     } else {
-      q = q.order(seg.orderBy, { ascending: false }).limit(50);
+      const orderBy = seg.orderBy as keyof CustomerProfile;
+      merged.sort((a, b) => ((b[orderBy] as number) || 0) - ((a[orderBy] as number) || 0));
     }
-    const { data } = await q;
-    setCustomers((data || []) as CustomerProfile[]);
+
+    setCustomers(merged.slice(0, 50));
     setLoading(false);
   }, [segment, tenant.id]);
 

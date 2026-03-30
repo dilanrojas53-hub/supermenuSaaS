@@ -92,11 +92,11 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   // Fix: solo cargar datos cuando el panel se abre (isOpen: false→true), no en cada cambio de profile
   useEffect(() => { if (isOpen && profile) { loadData(); } }, [isOpen, loadData]);
 
-  const levelKey = profile?.level || 'bronze';
+  const levelKey = tenantLevel;
   const lvl = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.bronze;
   const nextLvlKey = Object.keys(LEVEL_CONFIG)[Object.keys(LEVEL_CONFIG).indexOf(levelKey) + 1];
   const nextLvl = nextLvlKey ? LEVEL_CONFIG[nextLvlKey] : null;
-  const progress = nextLvl ? Math.min(100, ((profile?.points || 0) - lvl.min) / (nextLvl.min - lvl.min) * 100) : 100;
+  const progress = nextLvl ? Math.min(100, (tenantPoints - lvl.min) / (nextLvl.min - lvl.min) * 100) : 100;
 
   const handleSavePassword = async () => {
     if (pw1 !== pw2) { setPwMsg('Las contraseñas no coinciden'); return; }
@@ -194,7 +194,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
           <p className="text-xs opacity-50">{profile.phone}</p>
         </div>
         <div className="text-right">
-          <div className="text-xl font-black" style={{ color: accentColor }}>{profile.points || 0}</div>
+          <div className="text-xl font-black" style={{ color: accentColor }}>{tenantPoints}</div>
           <div className="text-[10px] opacity-50">puntos</div>
         </div>
       </div>
@@ -228,7 +228,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                   <div className="text-xl font-black">{lvl.icon} {lvl.label}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-black" style={{ color: accentColor }}>{profile.points || 0}</div>
+                  <div className="text-2xl font-black" style={{ color: accentColor }}>{tenantPoints}</div>
                   <div className="text-xs opacity-50">puntos</div>
                 </div>
               </div>
@@ -238,7 +238,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                     <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: lvl.color }} />
                   </div>
                   <div className="flex justify-between text-[10px] opacity-50">
-                    <span>{profile.points || 0} pts</span>
+                    <span>{tenantPoints} pts</span>
                     <span>{nextLvl.min} pts para {nextLvl.icon} {nextLvl.label}</span>
                   </div>
                 </>
@@ -248,8 +248,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Pedidos', value: profile.total_orders || 0, icon: '🛒' },
-                { label: 'Total gastado', value: `₡${((profile.total_spent || 0) / 1000).toFixed(0)}k`, icon: '💰' },
+                { label: 'Pedidos', value: tenantTotalOrders, icon: '🛒' },
+                { label: 'Total gastado', value: `₡${(tenantTotalSpent / 1000).toFixed(0)}k`, icon: '💰' },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: 'var(--menu-surface)' }}>
                   <div className="text-2xl mb-1">{s.icon}</div>
@@ -265,7 +265,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                 <h3 className="text-sm font-bold mb-2 opacity-70">Recompensas disponibles</h3>
                 <div className="space-y-2">
                   {rewards.map(r => {
-                    const canRedeem = (profile.points || 0) >= r.points_required;
+                    const canRedeem = tenantPoints >= r.points_required;
                     return (
                       <div key={r.id} className="flex items-center justify-between rounded-xl p-3"
                         style={{ background: 'var(--menu-surface)', opacity: canRedeem ? 1 : 0.5 }}>
@@ -275,7 +275,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                         </div>
                         <div className="text-xs font-bold px-2 py-1 rounded-full"
                           style={{ background: canRedeem ? accentColor + '22' : 'rgba(255,255,255,0.05)', color: canRedeem ? accentColor : textColor }}>
-                          {canRedeem ? '¡Canjear!' : `Faltan ${r.points_required - (profile.points || 0)}`}
+                          {canRedeem ? '¡Canjear!' : `Faltan ${r.points_required - tenantPoints}`}
                         </div>
                       </div>
                     );

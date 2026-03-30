@@ -768,19 +768,34 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         }
 
         setStep('confirmation');
-        // Fidelización: otorgar puntos si el cliente tiene perfil
-        if (customerProfile?.id && orderData?.id) {
+        // Fidelización: otorgar puntos POR TENANT (aislados por restaurante)
+        if (customerProfile?.id && orderData?.id && tenant?.id) {
           const pointsEarned = Math.floor(totalPrice / 100); // 1 punto por cada ₡100
-          const newPoints = (customerProfile.points || 0) + pointsEarned;
-          const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
-          supabase.from('customer_profiles').update({
-            points: newPoints,
-            level: newLevel,
-            total_spent: (customerProfile.total_spent || 0) + totalPrice,
-            total_orders: (customerProfile.total_orders || 0) + 1,
-          }).eq('id', customerProfile.id);
+          // Leer stats actuales de este tenant específico
+          supabase.from('tenant_customer_stats')
+            .select('points, total_spent, total_orders')
+            .eq('customer_id', customerProfile.id)
+            .eq('tenant_id', tenant.id)
+            .maybeSingle()
+            .then(({ data: stats }) => {
+              const currentPoints = stats?.points || 0;
+              const newPoints = currentPoints + pointsEarned;
+              const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
+              // Upsert: crea o actualiza el registro para este (customer, tenant)
+              supabase.from('tenant_customer_stats').upsert({
+                customer_id: customerProfile.id,
+                tenant_id: tenant.id,
+                points: newPoints,
+                level: newLevel,
+                total_spent: (stats?.total_spent || 0) + totalPrice,
+                total_orders: (stats?.total_orders || 0) + 1,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'customer_id,tenant_id' });
+            });
+          // Registrar la transacción de puntos con tenant_id
           supabase.from('customer_rewards').insert({
             customer_id: customerProfile.id,
+            tenant_id: tenant.id,
             type: 'earned',
             amount: pointsEarned,
             description: `Pedido #${orderData.order_number}`,
