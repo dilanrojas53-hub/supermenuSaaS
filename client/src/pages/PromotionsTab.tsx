@@ -141,23 +141,22 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
 
   const handleSavePromo = async () => {
     if (!promoName.trim()) return;
+    // Compute value: percentage uses promoPct, fixed uses promoFixed
+    const promoValue = promoType === 'percentage' ? (promoPct ? parseFloat(promoPct) : 0)
+      : promoType === 'fixed' ? (promoFixed ? parseFloat(promoFixed) : 0)
+      : 0;
     const { error } = await supabase.from('promotions').insert({
       tenant_id: tenant.id,
       name: promoName.trim(),
       type: promoType,
-      discount_pct: promoPct ? parseFloat(promoPct) : null,
-      discount_fixed: promoFixed ? parseFloat(promoFixed) : null,
+      value: promoValue,
       min_order_amount: promoMinOrder ? parseFloat(promoMinOrder) : null,
-      applicable_level: promoLevel || null,
       level_required: promoLevel || null,
       active_hours_start: promoStartTime || null,
       active_hours_end: promoEndTime || null,
-      start_time: promoStartTime || null,
-      end_time: promoEndTime || null,
       item_ids: selectedItemIds.length > 0 ? selectedItemIds : null,
       is_active: true,
       is_new_customer: promoNewOnly,
-      is_new_customer_only: promoNewOnly,
       is_reactivation: promoReactivation,
     });
     if (error) { console.error('Error saving promo:', error); return; }
@@ -171,13 +170,16 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
 
   const handleSaveCoupon = async () => {
     if (!couponCode.trim()) return;
+    // coupons table uses discount_type + discount_value
+    const couponDiscountType = couponPct ? 'percentage' : 'fixed';
+    const couponDiscountValue = couponPct ? parseFloat(couponPct) : (couponFixed ? parseFloat(couponFixed) : 0);
     const { error } = await supabase.from('coupons').insert({
       tenant_id: tenant.id,
       code: couponCode.trim().toUpperCase(),
-      discount_pct: couponPct ? parseFloat(couponPct) : null,
-      discount_fixed: couponFixed ? parseFloat(couponFixed) : null,
+      discount_type: couponDiscountType,
+      discount_value: couponDiscountValue,
       max_uses: couponMaxUses ? parseInt(couponMaxUses) : null,
-      expires_at: couponExpires || null,
+      valid_until: couponExpires || null,
       is_active: true,
       used_count: 0,
     });
@@ -439,10 +441,7 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                     <input value={couponPct} onChange={e => setCouponPct(e.target.value)} placeholder="Descuento %" type="number" className={inputCls} style={inputStyle} />
                     <input value={couponFixed} onChange={e => setCouponFixed(e.target.value)} placeholder="Descuento ₡" type="number" className={inputCls} style={inputStyle} />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input value={couponMaxUses} onChange={e => setCouponMaxUses(e.target.value)} placeholder="Usos máximos" type="number" className={inputCls} style={inputStyle} />
-                    <input value={couponExpires} onChange={e => setCouponExpires(e.target.value)} type="date" className={inputCls} style={inputStyle} />
-                  </div>
+                  <input value={couponMaxUses} onChange={e => setCouponMaxUses(e.target.value)} placeholder="Usos máximos (opcional)" type="number" className={inputCls} style={inputStyle} />
                   <div className="flex gap-2">
                     <button onClick={() => setShowCouponForm(false)} className="flex-1 py-2 rounded-xl text-sm text-slate-400">Cancelar</button>
                     <button onClick={handleSaveCoupon} className="flex-1 py-2 rounded-xl text-sm font-bold" style={{ background: '#F59E0B', color: '#000' }}>Guardar</button>
@@ -501,9 +500,14 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                       <div className="text-sm font-semibold text-[var(--text-primary)]">{r.name}</div>
                       <div className="text-xs text-slate-400">{r.points_required} puntos · ₡{r.reward_value} de valor</div>
                     </div>
-                    <button onClick={async () => { await supabase.from('loyalty_rewards').update({ is_active: !r.is_active }).eq('id', r.id); loadData(); }}>
-                      {r.is_active ? <ToggleRight size={22} className="text-amber-400" /> : <ToggleLeft size={22} className="text-slate-500" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={async () => { await supabase.from('loyalty_rewards').update({ is_active: !r.is_active }).eq('id', r.id); loadData(); }}>
+                        {r.is_active ? <ToggleRight size={22} className="text-amber-400" /> : <ToggleLeft size={22} className="text-slate-500" />}
+                      </button>
+                      <button onClick={async () => { if (!confirm('¿Eliminar esta recompensa?')) return; await supabase.from('loyalty_rewards').delete().eq('id', r.id); loadData(); }} className="p-1 rounded hover:bg-red-500/20 transition-colors">
+                        <Trash2 size={15} className="text-slate-500 hover:text-red-400" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
