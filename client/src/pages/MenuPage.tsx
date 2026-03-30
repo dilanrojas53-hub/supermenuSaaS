@@ -5,7 +5,7 @@
  * social proof toasts, upsell condicionado con delay,
  * carrito flotante con checkout SINPE/WhatsApp.
  */
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'wouter';
 import { motion } from 'framer-motion';
 import { MapPin, Loader2, Globe } from 'lucide-react';
@@ -29,6 +29,12 @@ import ActiveOrderFAB from '@/components/ActiveOrderFAB';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyRestaurantTheme } from '@/lib/themes';
+import BottomNav, { type BottomNavTab } from '@/components/BottomNav';
+import { useMenuConfig } from '@/hooks/useMenuConfig';
+import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
+import CategoryFullScreen from '@/components/CategoryFullScreen';
+import ProfileScreen from '@/components/ProfileScreen';
+import PhoneLoginSheet from '@/components/PhoneLoginSheet';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -43,9 +49,15 @@ function MenuContent() {
   // V19.0 Franjas Horarias
   const [menuSections, setMenuSections] = useState<{ id: string; name: string; icon: string; sort_order: number; is_active: boolean; itemIds: string[] }[]>([]);
   const [activeSection, setActiveSection] = useState<string | 'all'>('all');
+  const [bottomNavTab, setBottomNavTab] = useState<BottomNavTab>('menu');
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [fullScreenCatId, setFullScreenCatId] = useState<string | null>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
+  const { config: menuConfig } = useMenuConfig(data?.tenant.id);
+  // CustomerProfile — solo se usa si enable_profiles está activo
+  const { profile: customerProfile } = useCustomerProfile();
 
   // Dynamic translation of ALL DB content
   const { translatedData, isTranslating } = useMenuTranslation(
@@ -244,7 +256,7 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-28 relative z-[1]"
+      className="min-h-screen pb-36 relative z-[1]"
       style={{
         background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
@@ -497,15 +509,20 @@ function MenuContent() {
         </div>
       )}
 
-      {/* Menu Items by Category */}
-      <div className="px-4 mt-2">
+      {/* ── BLOQUES DE CATEGORÍA: preview horizontal + CTA "Ver todo" ── */}
+      <div className="px-4 mt-2 pb-4">
         {visibleCategories.map(cat => {
-          // Si hay sección activa, filtrar solo los platillos de esa sección
           const allCatItems = itemsByCategory[cat.id] || [];
           const catItems = activeSectionItemIds !== null
             ? allCatItems.filter(item => activeSectionItemIds.includes(item.id))
             : allCatItems;
           if (catItems.length === 0) return null;
+
+          // Modo preview horizontal (configurable)
+          const useHorizontalPreview = menuConfig.category_preview_horizontal;
+          const previewCount = menuConfig.category_preview_count;
+          const previewItems = catItems.slice(0, previewCount);
+          const hasMore = catItems.length > previewCount;
 
           return (
             <div
@@ -515,47 +532,91 @@ function MenuContent() {
               className="mb-8"
             >
               {/* Category header */}
-              <div className="mb-4 mt-2">
-                <h2
-                  className="text-2xl font-black"
-                  style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
-                >
-                  {cat.name}
-                </h2>
-                {cat.description && (
-                  <p className="text-sm mt-0.5" style={{ color: 'var(--menu-text)', opacity: 0.6 }}>
-                    {cat.description}
-                  </p>
+              <div className="flex items-end justify-between mb-3 mt-2">
+                <div>
+                  <h2
+                    className="text-2xl font-black leading-tight"
+                    style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
+                  >
+                    {cat.name}
+                  </h2>
+                  {cat.description && menuConfig.show_product_description && (
+                    <p className="text-xs mt-0.5 leading-snug" style={{ color: 'var(--menu-text)', opacity: 0.55 }}>
+                      {cat.description}
+                    </p>
+                  )}
+                </div>
+                {/* CTA Ver toda la categoría */}
+                {menuConfig.show_view_all_cta && hasMore && (
+                  <button
+                    onClick={() => setFullScreenCatId(cat.id)}
+                    className="text-xs font-bold flex-shrink-0 ml-3 px-3 py-1.5 rounded-full transition-all active:scale-95"
+                    style={{
+                      backgroundColor: 'var(--menu-accent)',
+                      color: '#fff',
+                      opacity: 0.9,
+                    }}
+                  >
+                    {`Ver todo (${catItems.length})`}
+                  </button>
                 )}
-                {/* Organic divider */}
-                <svg viewBox="0 0 200 8" className="w-20 mt-2 opacity-30" style={{ color: 'var(--menu-accent)' }}>
-                  <path
-                    d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                </svg>
               </div>
 
-              {/* Items */}
-              <div className={
-                theme.view_mode === 'grid'
-                  ? 'grid grid-cols-2 gap-3'
-                  : 'flex flex-col gap-3'
-              }>
-                {catItems.map(item => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    theme={theme}
-                    viewMode={theme.view_mode}
-                    allItems={data.menuItems}
-                    showBadges={features.neuroBadges}
-                    onOpenDetail={handleOpenDetail}
-                  />
-                ))}
-              </div>
+              {/* Organic divider */}
+              <svg viewBox="0 0 200 8" className="w-16 mb-3 opacity-25" style={{ color: 'var(--menu-accent)' }}>
+                <path d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4" fill="none" stroke="currentColor" strokeWidth="2" />
+              </svg>
+
+              {/* Items: preview horizontal o grid completo */}
+              {useHorizontalPreview && expandedCategory !== cat.id ? (
+                // Preview horizontal con scroll
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+                  {previewItems.map(item => (
+                    <div key={item.id} className="flex-shrink-0" style={{ width: '160px' }}>
+                      <MenuItemCard
+                        item={item}
+                        theme={theme}
+                        viewMode="grid"
+                        allItems={data.menuItems}
+                        showBadges={features.neuroBadges}
+                        onOpenDetail={handleOpenDetail}
+                      />
+                    </div>
+                  ))}
+                  {/* Tarjeta "Ver más" al final del scroll */}
+                  {hasMore && menuConfig.show_view_all_cta && (
+                    <div
+                      className="flex-shrink-0 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed cursor-pointer active:scale-95 transition-all"
+                      style={{ width: '100px', minHeight: '140px', borderColor: 'var(--menu-accent)', opacity: 0.6 }}
+                      onClick={() => setFullScreenCatId(cat.id)}
+                    >
+                      <span className="text-2xl mb-1">→</span>
+                      <span className="text-[10px] font-bold text-center px-2" style={{ color: 'var(--menu-text)' }}>
+                        {catItems.length - previewCount} más
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Vista completa: grid o lista según config
+                <div className={
+                  menuConfig.category_view_mode === 'grid' || theme.view_mode === 'grid'
+                    ? 'grid grid-cols-2 gap-3'
+                    : 'flex flex-col gap-3'
+                }>
+                  {catItems.map(item => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={item}
+                      theme={theme}
+                      viewMode={theme.view_mode}
+                      allItems={data.menuItems}
+                      showBadges={features.neuroBadges}
+                      onOpenDetail={handleOpenDetail}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -591,6 +652,43 @@ function MenuContent() {
         bgColor={theme.background_color}
         textColor={theme.text_color}
       />
+
+      {/* ── PANTALLA MI PERFIL ── */}
+      <ProfileScreen
+        isOpen={bottomNavTab === 'profile'}
+        onClose={() => setBottomNavTab('menu')}
+        theme={theme}
+        tenant={tenant}
+      />
+
+      {/* ── PANTALLA COMPLETA DE CATEGORÍA ── */}
+      {fullScreenCatId && (() => {
+        const fsCat = visibleCategories.find(c => c.id === fullScreenCatId);
+        const fsCatItems = fsCat ? (activeSectionItemIds !== null
+          ? (itemsByCategory[fsCat.id] || []).filter(i => activeSectionItemIds.includes(i.id))
+          : (itemsByCategory[fsCat.id] || [])) : [];
+        return fsCat ? (
+          <CategoryFullScreen
+            category={fsCat}
+            items={fsCatItems}
+            theme={theme}
+            tenant={tenant}
+            allItems={data.menuItems}
+            showBadges={features.neuroBadges}
+            onClose={() => setFullScreenCatId(null)}
+          />
+        ) : null;
+      })()}
+
+      {/* ── BOTTOM NAV ── */}
+      <BottomNav
+        activeTab={bottomNavTab}
+        onTabChange={setBottomNavTab}
+        onCartOpen={() => setCartOpen(true)}
+        accentColor={theme.primary_color || '#F59E0B'}
+        bgColor={theme.background_color}
+        textColor={theme.text_color}
+      />
     </div>
   );
 }
@@ -609,7 +707,9 @@ export default function MenuPage() {
   return (
     <I18nProvider>
       <CartProvider>
-        <MenuContent />
+        <CustomerProfileProvider>
+          <MenuContent />
+        </CustomerProfileProvider>
       </CartProvider>
     </I18nProvider>
   );

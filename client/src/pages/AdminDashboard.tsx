@@ -1162,6 +1162,110 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
 
       {/* Herramienta de limpieza de pedidos */}
       <OrderCleanupCard tenantId={tenant.id} />
+      {/* Configuración del Menú del Cliente */}
+      <MenuConfigCard tenant={tenant} />
+    </div>
+  );
+}
+
+// ─── MenuConfigCard — Configuración del menú del cliente ───
+function MenuConfigCard({ tenant }: { tenant: Tenant }) {
+  const [config, setConfig] = useState<Record<string, any>>({
+    enable_profiles: false, enable_phone_login: false, enable_points: false,
+    enable_favorites: false, enable_history: false, enable_addresses: false,
+    category_preview_horizontal: true, category_preview_count: 3,
+    show_view_all_cta: true, show_product_description: true,
+    category_view_mode: 'grid',
+  });
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase.from('menu_config').select('*').eq('tenant_id', tenant.id).maybeSingle()
+      .then(({ data }) => {
+        if (data) setConfig((prev: any) => ({ ...prev, ...data }));
+        setLoaded(true);
+      });
+  }, [tenant.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('menu_config').upsert(
+      { ...config, tenant_id: tenant.id, updated_at: new Date().toISOString() },
+      { onConflict: 'tenant_id' }
+    );
+    setSaving(false);
+    if (error) toast.error('Error: ' + error.message);
+    else toast.success('Configuración del menú guardada');
+  };
+
+  const toggle = (key: string) => setConfig((prev: any) => ({ ...prev, [key]: !prev[key] }));
+
+  if (!loaded) return null;
+
+  return (
+    <div className="mt-6 p-5 rounded-2xl border" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+      <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>📱 Configuración del Menú del Cliente</h3>
+      <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Personalizá cómo ven el menú tus clientes en el celular.</p>
+      <div className="space-y-3">
+        <div className="p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-page)' }}>
+          <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-secondary)' }}>PERFILES DE CLIENTE</p>
+          {([
+            { key: 'enable_profiles',    label: 'Activar perfiles de cliente' },
+            { key: 'enable_phone_login', label: 'Login rápido por teléfono' },
+            { key: 'enable_points',      label: 'Sistema de puntos y recompensas' },
+            { key: 'enable_favorites',   label: 'Favoritos' },
+            { key: 'enable_history',     label: 'Historial de pedidos' },
+            { key: 'enable_addresses',   label: 'Direcciones guardadas' },
+          ] as {key:string;label:string}[]).map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
+              <ToggleSwitch checked={!!config[key]} onChange={() => toggle(key)} label="" />
+            </div>
+          ))}
+        </div>
+        <div className="p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-page)' }}>
+          <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-secondary)' }}>PRESENTACIÓN DEL MENÚ</p>
+          {([
+            { key: 'category_preview_horizontal', label: 'Preview horizontal por categoría' },
+            { key: 'show_view_all_cta',           label: 'Botón “Ver todo” por categoría' },
+            { key: 'show_product_description',    label: 'Mostrar descripción de categoría' },
+          ] as {key:string;label:string}[]).map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
+              <ToggleSwitch checked={!!config[key]} onChange={() => toggle(key)} label="" />
+            </div>
+          ))}
+          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Platillos en preview</span>
+            <div className="flex items-center gap-2">
+              {[2, 3, 4, 5].map(n => (
+                <button key={n} onClick={() => setConfig((prev: any) => ({ ...prev, category_preview_count: n }))}
+                  className="w-8 h-8 rounded-lg text-sm font-bold transition-all"
+                  style={{ backgroundColor: config.category_preview_count === n ? 'var(--accent)' : 'var(--border)', color: config.category_preview_count === n ? '#fff' : 'var(--text-secondary)' }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Vista por defecto</span>
+            <div className="flex items-center gap-2">
+              {['grid', 'list'].map(v => (
+                <button key={v} onClick={() => setConfig((prev: any) => ({ ...prev, category_view_mode: v }))}
+                  className="px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                  style={{ backgroundColor: config.category_view_mode === v ? 'var(--accent)' : 'var(--border)', color: config.category_view_mode === v ? '#fff' : 'var(--text-secondary)' }}>
+                  {v === 'grid' ? '🔲 Grid' : '☰ Lista'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <button onClick={handleSave} disabled={saving}
+        className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors mt-4 disabled:opacity-50">
+        <Save size={16} /> {saving ? 'Guardando...' : 'Guardar configuración'}
+      </button>
     </div>
   );
 }
