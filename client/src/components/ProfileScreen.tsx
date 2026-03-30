@@ -4,7 +4,7 @@
  * puntos/nivel, historial real de pedidos, favoritos, direcciones, seguridad.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { X, Clock, Heart, MapPin, Shield, ChevronRight, LogOut, Loader2, Trash2, Plus, Edit2, Check } from 'lucide-react';
+import { X, Clock, Heart, MapPin, Shield, ChevronRight, LogOut, Loader2, Trash2, Plus, Edit2, Check, Fingerprint, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import { supabase } from '@/lib/supabase';
@@ -31,7 +31,7 @@ const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string;
 };
 
 export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: ProfileScreenProps) {
-  const { profile, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile } = useCustomerProfile();
+  const { profile, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey } = useCustomerProfile();
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'addresses' | 'security'>('overview');
   const [orders, setOrders] = useState<Order[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
@@ -42,6 +42,10 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const [pwMode, setPwMode] = useState<'none' | 'set' | 'change'>('none');
   const [pw1, setPw1] = useState(''); const [pw2, setPw2] = useState(''); const [oldPw, setOldPw] = useState('');
   const [pwMsg, setPwMsg] = useState('');
+  const [passkeys, setPasskeys] = useState<{ id: string; credential_id: string; friendly_name: string | null; created_at: string; last_used_at: string | null }[]>([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyMsg, setPasskeyMsg] = useState('');
+  const [passkeysLoaded, setPasskeysLoaded] = useState(false);
   // Address form
   const [addingAddr, setAddingAddr] = useState(false);
   const [addrLabel, setAddrLabel] = useState(''); const [addrText, setAddrText] = useState('');
@@ -432,7 +436,10 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
 
         {/* SECURITY */}
         {!loading && activeTab === 'security' && (
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-4">
+
+            {/* ── CONTRASEÑA ── */}
+            <p className="text-xs font-bold uppercase tracking-widest px-1" style={{ color: textColor, opacity: 0.4 }}>Contraseña</p>
             {[
               { mode: 'set' as const, label: 'Crear contraseña', icon: Shield },
               { mode: 'change' as const, label: 'Cambiar contraseña', icon: Shield },
@@ -442,9 +449,9 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                   className="w-full flex items-center justify-between px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <Icon size={18} style={{ color: accentColor }} />
-                    <span className="text-sm font-semibold">{label}</span>
+                    <span className="text-sm font-semibold" style={{ color: textColor }}>{label}</span>
                   </div>
-                  <ChevronRight size={16} className="opacity-40" />
+                  <ChevronRight size={16} className="opacity-40" style={{ color: textColor }} />
                 </button>
                 <AnimatePresence>
                   {pwMode === mode && (
@@ -469,9 +476,93 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                 </AnimatePresence>
               </div>
             ))}
+
+            {/* ── ACCESO RÁPIDO (PASSKEYS) ── */}
+            <p className="text-xs font-bold uppercase tracking-widest px-1 mt-2" style={{ color: textColor, opacity: 0.4 }}>Acceso rápido (Passkeys)</p>
+            {isWebAuthnSupported() ? (
+              <div className="rounded-xl" style={{ background: 'var(--menu-surface)' }}>
+                <div className="px-4 py-3.5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <Fingerprint size={18} style={{ color: accentColor }} />
+                      <span className="text-sm font-semibold" style={{ color: textColor }}>Dispositivos de confianza</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setPasskeyLoading(true); setPasskeyMsg('');
+                        const result = await registerPasskey();
+                        if (result.success) {
+                          const list = await getPasskeys();
+                          setPasskeys(list); setPasskeysLoaded(true);
+                          setPasskeyMsg('✅ Passkey registrada');
+                        } else if (result.error !== 'Operación cancelada') {
+                          setPasskeyMsg(result.error || 'Error');
+                        }
+                        setPasskeyLoading(false);
+                      }}
+                      disabled={passkeyLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50"
+                      style={{ background: accentColor + '22', color: accentColor }}>
+                      {passkeyLoading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                      Agregar
+                    </button>
+                  </div>
+                  {!passkeysLoaded && !passkeyLoading && (
+                    <button onClick={async () => {
+                      setPasskeyLoading(true);
+                      const list = await getPasskeys();
+                      setPasskeys(list); setPasskeysLoaded(true);
+                      setPasskeyLoading(false);
+                    }} className="text-xs mb-2" style={{ color: accentColor }}>Ver dispositivos registrados →</button>
+                  )}
+                  {passkeyLoading && <div className="flex justify-center py-2"><Loader2 size={16} className="animate-spin" style={{ color: accentColor }} /></div>}
+                  {passkeyMsg && <p className="text-xs mb-2" style={{ color: passkeyMsg.startsWith('✅') ? '#22c55e' : '#f87171' }}>{passkeyMsg}</p>}
+                  {passkeysLoaded && passkeys.length > 0 && (
+                    <div className="space-y-2">
+                      {passkeys.map(pk => (
+                        <div key={pk.id} className="flex items-center justify-between py-2 border-t" style={{ borderColor: 'var(--menu-border)' }}>
+                          <div className="flex items-center gap-2">
+                            <Smartphone size={14} style={{ color: textColor, opacity: 0.5 }} />
+                            <div>
+                              <p className="text-xs font-semibold" style={{ color: textColor }}>{pk.friendly_name || 'Dispositivo'}</p>
+                              <p className="text-[10px]" style={{ color: textColor, opacity: 0.4 }}>
+                                {pk.last_used_at
+                                  ? `Último uso: ${new Date(pk.last_used_at).toLocaleDateString('es-CR')}`
+                                  : `Registrado: ${new Date(pk.created_at).toLocaleDateString('es-CR')}`}
+                              </p>
+                            </div>
+                          </div>
+                          <button onClick={async () => {
+                            await deletePasskey(pk.credential_id);
+                            setPasskeys(prev => prev.filter(p => p.id !== pk.id));
+                          }} className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                            <Trash2 size={13} className="text-red-400" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {passkeysLoaded && passkeys.length === 0 && (
+                    <p className="text-xs" style={{ color: textColor, opacity: 0.4 }}>No hay dispositivos registrados aún.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl px-4 py-3" style={{ background: 'var(--menu-surface)' }}>
+                <p className="text-xs" style={{ color: textColor, opacity: 0.45 }}>Tu navegador no soporta passkeys (WebAuthn). Actualizá Chrome, Safari 16+ o Firefox 119+ para activar esta función.</p>
+              </div>
+            )}
+
+            {/* ── SESIÓN ── */}
+            <p className="text-xs font-bold uppercase tracking-widest px-1 mt-2" style={{ color: textColor, opacity: 0.4 }}>Sesión</p>
+            <button onClick={() => { logout(); onClose(); }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}>
+              <LogOut size={16} /> Cerrar sesión en este dispositivo
+            </button>
             <button onClick={() => { logoutAllDevices(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-red-400"
-              style={{ background: 'rgba(239,68,68,0.08)' }}>
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}>
               <LogOut size={16} /> Cerrar sesión en todos los dispositivos
             </button>
           </div>
