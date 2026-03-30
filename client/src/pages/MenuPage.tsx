@@ -35,6 +35,8 @@ import { useCustomerProfile, CustomerProfileProvider } from '@/contexts/Customer
 import CategoryFullScreen from '@/components/CategoryFullScreen';
 import ProfileScreen from '@/components/ProfileScreen';
 import PhoneLoginSheet from '@/components/PhoneLoginSheet';
+import PromosScreen from '@/components/PromosScreen';
+import HistoryScreen from '@/components/HistoryScreen';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -671,6 +673,23 @@ function MenuContent() {
       {/* ── PANTALLA MI PERFIL ── */}
       <ProfileScreen
         isOpen={bottomNavTab === 'profile'}
+        onClose={() => setBottomNavTab('menu')}
+        theme={theme}
+        tenant={tenant}
+        onOpenLogin={() => setShowLoginSheet(true)}
+      />
+
+      {/* ── PANTALLA PROMOS ── */}
+      <PromosScreen
+        isOpen={bottomNavTab === 'promos'}
+        onClose={() => setBottomNavTab('menu')}
+        theme={theme}
+        tenant={tenant}
+      />
+
+      {/* ── PANTALLA HISTORIAL ── */}
+      <HistoryScreen
+        isOpen={bottomNavTab === 'history'}
         onClose={() => setBottomNavTab('menu')}
         theme={theme}
         tenant={tenant}
