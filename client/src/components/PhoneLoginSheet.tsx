@@ -90,11 +90,11 @@ export default function PhoneLoginSheet({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+          <motion.div className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} />
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-[160] rounded-t-3xl p-6"
+            className="fixed bottom-0 left-0 right-0 z-[310] rounded-t-3xl p-6"
             style={{ backgroundColor: bgColor, paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}>
