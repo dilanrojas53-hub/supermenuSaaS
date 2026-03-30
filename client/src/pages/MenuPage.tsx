@@ -31,7 +31,7 @@ import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyRestaurantTheme } from '@/lib/themes';
 import BottomNav, { type BottomNavTab } from '@/components/BottomNav';
 import { useMenuConfig } from '@/hooks/useMenuConfig';
-import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
+import { useCustomerProfile, CustomerProfileProvider } from '@/contexts/CustomerProfileContext';
 import CategoryFullScreen from '@/components/CategoryFullScreen';
 import ProfileScreen from '@/components/ProfileScreen';
 import PhoneLoginSheet from '@/components/PhoneLoginSheet';
