@@ -48,8 +48,13 @@ interface CustomerProfileContextType {
 
 const CustomerProfileContext = createContext<CustomerProfileContextType | null>(null);
 
-const STORAGE_KEY = 'sm_customer_profile_id';
+const STORAGE_KEY_PREFIX = 'sm_customer_profile_id';
 const DEVICE_KEY = 'sm_device_fp';
+
+// Tenant-scoped storage key to prevent cross-tenant session leakage
+function getStorageKey(tenantId?: string): string {
+  return tenantId ? `${STORAGE_KEY_PREFIX}_${tenantId}` : STORAGE_KEY_PREFIX;
+}
 
 function getDeviceFingerprint(): string {
   let fp = localStorage.getItem(DEVICE_KEY);
@@ -64,22 +69,32 @@ function generateOTPCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export function CustomerProfileProvider({ children }: { children: ReactNode }) {
+export function CustomerProfileProvider({ children, tenantId }: { children: ReactNode; tenantId?: string }) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authStep, setAuthStep] = useState<AuthStep>('idle');
 
-  // Restore session on mount
+  // Restore session on mount — tenant-scoped to prevent cross-tenant leakage.
+  // Wait until tenantId is known to avoid double-run (undefined → uuid) that causes flicker.
   useEffect(() => {
-    const savedId = localStorage.getItem(STORAGE_KEY);
+    // If tenantId is not yet available, keep isLoading=true and wait for next render
+    if (tenantId === undefined) return;
+    const storageKey = getStorageKey(tenantId);
+    const savedId = localStorage.getItem(storageKey);
     if (!savedId) { setIsLoading(false); return; }
     supabase.from('customer_profiles').select('*').eq('id', savedId).maybeSingle()
       .then(({ data }) => {
-        if (data) { setProfile(data as CustomerProfile); setAuthStep('logged_in'); }
-        else localStorage.removeItem(STORAGE_KEY);
+        // Verify the profile belongs to the current tenant
+        if (data && data.tenant_id === tenantId) {
+          setProfile(data as CustomerProfile);
+          setAuthStep('logged_in');
+        } else {
+          // Profile belongs to a different tenant or not found — clear stale session
+          localStorage.removeItem(storageKey);
+        }
         setIsLoading(false);
       });
-  }, []);
+  }, [tenantId]);
 
   const sendOTP = useCallback(async (phone: string, tenantId: string) => {
     try {
@@ -127,7 +142,7 @@ export function CustomerProfileProvider({ children }: { children: ReactNode }) {
       await supabase.from('customer_profiles')
         .update({ last_login_at: new Date().toISOString() }).eq('id', existingProfile.id);
 
-      localStorage.setItem(STORAGE_KEY, existingProfile.id);
+      localStorage.setItem(getStorageKey(tenantId), existingProfile.id);
       setProfile(existingProfile as CustomerProfile);
       setAuthStep(isNew ? 'complete_profile' : 'logged_in');
       return { success: true, isNew };
@@ -148,18 +163,18 @@ export function CustomerProfileProvider({ children }: { children: ReactNode }) {
       await supabase.from('trusted_devices')
         .delete().eq('customer_id', profile.id).eq('device_fingerprint', fp);
     }
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(tenantId));
     setProfile(null);
     setAuthStep('idle');
-  }, [profile]);
+  }, [profile, tenantId]);
 
   const logoutAllDevices = useCallback(async () => {
     if (!profile) return;
     await supabase.from('trusted_devices').delete().eq('customer_id', profile.id);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(tenantId));
     setProfile(null);
     setAuthStep('idle');
-  }, [profile]);
+  }, [profile, tenantId]);
 
   const setPassword = useCallback(async (password: string) => {
     if (!profile) return { success: false, error: 'No hay sesión activa' };
@@ -214,7 +229,7 @@ export function CustomerProfileProvider({ children }: { children: ReactNode }) {
       { customer_id: data.id, device_fingerprint: fp, last_seen_at: new Date().toISOString() },
       { onConflict: 'customer_id,device_fingerprint' }
     );
-    localStorage.setItem(STORAGE_KEY, data.id);
+    localStorage.setItem(getStorageKey(tenantId), data.id);
     setProfile(data as CustomerProfile);
     setAuthStep('logged_in');
     return data as CustomerProfile;

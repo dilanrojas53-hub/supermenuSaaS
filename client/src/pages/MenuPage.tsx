@@ -54,6 +54,7 @@ function MenuContent() {
   const [fullScreenCatId, setFullScreenCatId] = useState<string | null>(null);
   // Fix 3: pedido activo para tab 'order'
   const [activeOrderData, setActiveOrderData] = useState<{ orderId: string; orderNumber: number; status: string } | null>(null);
+  const [showLoginSheet, setShowLoginSheet] = useState(false);
   useEffect(() => {
     const check = () => {
       try {
@@ -70,6 +71,8 @@ function MenuContent() {
   const { lang, toggleLang, t } = useI18n();
   const { config: menuConfig } = useMenuConfig(data?.tenant.id);
   // CustomerProfile — solo se usa si enable_profiles está activo
+  // NOTE: useCustomerProfile() is available here because CustomerProfileProvider
+  // is rendered below wrapping the actual content (see return statement)
   const { profile: customerProfile } = useCustomerProfile();
 
   // Dynamic translation of ALL DB content
@@ -671,6 +674,17 @@ function MenuContent() {
         onClose={() => setBottomNavTab('menu')}
         theme={theme}
         tenant={tenant}
+        onOpenLogin={() => setShowLoginSheet(true)}
+      />
+
+      {/* ── SHEET DE LOGIN OTP ── */}
+      <PhoneLoginSheet
+        isOpen={showLoginSheet}
+        onClose={() => setShowLoginSheet(false)}
+        tenantId={tenant.id}
+        accentColor={theme.primary_color || '#F59E0B'}
+        bgColor={theme.background_color || '#0a0a0a'}
+        textColor={theme.text_color || '#f0f0f0'}
       />
 
       {/* ── PANTALLA COMPLETA DE CATEGORÍA ── */}
@@ -715,6 +729,18 @@ function MenuContent() {
   );
 }
 
+// Inner wrapper that has access to tenant data and passes tenantId to the profile provider
+function MenuContentWithProfile() {
+  const params = useParams<{ slug: string }>();
+  const { data } = useTenantData(params.slug);
+  const tenantId = data?.tenant.id;
+  return (
+    <CustomerProfileProvider tenantId={tenantId}>
+      <MenuContent />
+    </CustomerProfileProvider>
+  );
+}
+
 // Helper: detectar si un color hex es claro
 function isLightColor(hex: string): boolean {
   const clean = hex.replace('#', '');
@@ -729,9 +755,7 @@ export default function MenuPage() {
   return (
     <I18nProvider>
       <CartProvider>
-        <CustomerProfileProvider>
-          <MenuContent />
-        </CustomerProfileProvider>
+        <MenuContentWithProfile />
       </CartProvider>
     </I18nProvider>
   );

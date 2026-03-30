@@ -52,7 +52,7 @@ function CustomerCard({ c, onClick }: { c: CustomerProfile; onClick: () => void 
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-sm text-white truncate">{c.name || 'Sin nombre'}</span>
+          <span className="font-semibold text-sm text-[var(--text-primary)] truncate">{c.name || 'Sin nombre'}</span>
           <span className="text-xs">{lvl.icon}</span>
         </div>
         <div className="text-xs text-slate-400">{c.phone}</div>
@@ -99,7 +99,7 @@ function CustomerDetail({ customer, onClose, tenantId }: { customer: CustomerPro
           <X size={18} />
         </button>
         <div className="flex-1">
-          <div className="font-black text-base text-white">{customer.name || 'Sin nombre'}</div>
+          <div className="font-black text-base text-[var(--text-primary)]">{customer.name || 'Sin nombre'}</div>
           <div className="text-xs text-slate-400">{customer.phone}</div>
         </div>
         <div className="text-right">
@@ -118,7 +118,7 @@ function CustomerDetail({ customer, onClose, tenantId }: { customer: CustomerPro
           ].map(s => (
             <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-surface)' }}>
               <div className="text-xl mb-1">{s.icon}</div>
-              <div className="text-lg font-black text-white">{s.value}</div>
+              <div className="text-lg font-black text-[var(--text-primary)]">{s.value}</div>
               <div className="text-[10px] text-slate-400">{s.label}</div>
             </div>
           ))}
@@ -132,7 +132,7 @@ function CustomerDetail({ customer, onClose, tenantId }: { customer: CustomerPro
               {topItems.map(([name, qty]) => (
                 <div key={name} className="flex items-center justify-between px-3 py-2 rounded-xl"
                   style={{ background: 'var(--bg-surface)' }}>
-                  <span className="text-sm text-white">{name}</span>
+                  <span className="text-sm text-[var(--text-primary)]">{name}</span>
                   <span className="text-xs font-bold text-amber-400">{qty}×</span>
                 </div>
               ))}
@@ -151,7 +151,7 @@ function CustomerDetail({ customer, onClose, tenantId }: { customer: CustomerPro
                 <div key={o.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                   style={{ background: 'var(--bg-surface)' }}>
                   <div>
-                    <div className="text-sm font-semibold text-white">Pedido #{o.order_number}</div>
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">Pedido #{o.order_number}</div>
                     <div className="text-xs text-slate-400">
                       {new Date(o.created_at).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
@@ -212,7 +212,7 @@ export default function CustomersTab({ tenant }: { tenant: Tenant }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-black text-white">Clientes</h2>
+        <h2 className="text-lg font-black text-[var(--text-primary)]">Clientes</h2>
         <span className="text-xs text-slate-400">{customers.length} registrados</span>
       </div>
 

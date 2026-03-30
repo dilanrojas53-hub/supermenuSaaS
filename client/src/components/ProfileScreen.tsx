@@ -31,7 +31,7 @@ const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string;
 };
 
 export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: ProfileScreenProps) {
-  const { profile, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile } = useCustomerProfile();
+  const { profile, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile } = useCustomerProfile();
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'addresses' | 'security'>('overview');
   const [orders, setOrders] = useState<Order[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
@@ -85,7 +85,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     setLoading(false);
   }, [profile, tenant.id]);
 
-  useEffect(() => { if (isOpen && profile) { loadData(); refreshProfile(); } }, [isOpen, profile]);
+  // Fix: solo cargar datos cuando el panel se abre (isOpen: false→true), no en cada cambio de profile
+  useEffect(() => { if (isOpen && profile) { loadData(); } }, [isOpen, loadData]);
 
   const levelKey = profile?.level || 'bronze';
   const lvl = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.bronze;
@@ -121,7 +122,16 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   };
 
   if (!isOpen) return null;
-
+  // Show spinner while context is restoring session (prevents flicker between guest/logged-in states)
+  if (contextLoading) return (
+    <motion.div className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
+      style={{ backgroundColor: bgColor }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <button onClick={onClose} className="absolute top-12 right-5 p-2 rounded-full"
+        style={{ background: 'rgba(255,255,255,0.08)' }}><X size={20} /></button>
+      <Loader2 size={28} className="animate-spin" style={{ color: accentColor }} />
+    </motion.div>
+  );
   // Not logged in
   if (!profile) return (
     <motion.div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-8"

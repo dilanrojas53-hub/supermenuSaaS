@@ -146,11 +146,11 @@ export function AdminSidebar({
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', boxShadow: '0 4px 14px rgba(245,158,11,0.4)' }}
         >
-          <UtensilsCrossed size={17} className="text-white" />
+          <UtensilsCrossed size={17} className="text-[var(--text-primary)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-black text-white leading-tight truncate">{tenantName}</p>
-          <p className="text-[10px] text-slate-500 font-mono">/{tenantSlug}</p>
+          <p className="text-sm font-black text-[var(--text-primary)] leading-tight truncate">{tenantName}</p>
+          <p className="text-[10px] text-[var(--text-secondary)] font-mono">/{tenantSlug}</p>
         </div>
       </div>
 
@@ -168,7 +168,7 @@ export function AdminSidebar({
                 onClick={() => toggleGroup(group.label)}
                 className="w-full flex items-center justify-between px-2 py-1.5 mb-1 group"
               >
-                <span className="text-[10px] font-black tracking-widest text-slate-500 group-hover:text-slate-400 transition-colors">
+                <span className="text-[10px] font-black tracking-widest text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                   {group.label}
                 </span>
                 {isCollapsed
@@ -241,7 +241,7 @@ export function AdminSidebar({
             (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
           }}
         >
-          <Eye size={16} className="text-slate-500" />
+          <Eye size={16} className="text-[var(--text-secondary)]" />
           <span>Ver menú</span>
           <ExternalLink size={11} className="ml-auto text-slate-600" />
         </a>
@@ -258,7 +258,7 @@ export function AdminSidebar({
             (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
           }}
         >
-          <LogOut size={16} className="text-slate-500" />
+          <LogOut size={16} className="text-[var(--text-secondary)]" />
           <span>Salir</span>
         </button>
       </div>

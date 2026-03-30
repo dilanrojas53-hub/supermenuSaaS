@@ -927,13 +927,13 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <UtensilsCrossed size={16} className="text-amber-400" />
-          <h3 className="text-sm font-black text-white">Mesas del Restaurante</h3>
-          <span className="text-xs text-slate-500">({tables.length} configuradas)</span>
+          <h3 className="text-sm font-black text-[var(--text-primary)]">Mesas del Restaurante</h3>
+          <span className="text-xs text-[var(--text-secondary)]">({tables.length} configuradas)</span>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => { setShowBulk(!showBulk); setShowAdd(false); }}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] transition-colors"
           >
             Crear en lote
           </button>
@@ -948,7 +948,7 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
 
       {/* Creación en lote */}
       {showBulk && (
-        <div className="mb-4 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
           <p className="text-xs text-slate-400 mb-3">Crea múltiples mesas numeradas automáticamente (Mesa 1, Mesa 2, etc.)</p>
           <div className="flex items-center gap-2">
             <input
@@ -956,7 +956,7 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
               value={bulkCount}
               onChange={e => setBulkCount(e.target.value)}
               placeholder="¿Cuántas mesas?"
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              className="flex-1 px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
             />
             <button
               onClick={handleBulkCreate}
@@ -971,34 +971,34 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
 
       {/* Formulario agregar mesa individual */}
       {showAdd && (
-        <div className="mb-4 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
           <div className="grid grid-cols-3 gap-2 mb-3">
             <div>
-              <label className="block text-[10px] text-slate-400 mb-1">Número *</label>
+              <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Número *</label>
               <input
                 value={newTable.table_number}
                 onChange={e => setNewTable({ ...newTable, table_number: e.target.value })}
                 placeholder="Ej: 5"
-                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+                className="w-full px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-[10px] text-slate-400 mb-1">Etiqueta</label>
+              <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Etiqueta</label>
               <input
                 value={newTable.label}
                 onChange={e => setNewTable({ ...newTable, label: e.target.value })}
                 placeholder="Ej: Terraza"
-                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+                className="w-full px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-[10px] text-slate-400 mb-1">Capacidad</label>
+              <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Capacidad</label>
               <input
                 type="number" min={1}
                 value={newTable.capacity}
                 onChange={e => setNewTable({ ...newTable, capacity: e.target.value })}
                 placeholder="Ej: 4"
-                className="w-full px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+                className="w-full px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
               />
             </div>
           </div>
@@ -1008,7 +1008,7 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
               {saving ? 'Guardando...' : 'Agregar'}
             </button>
             <button onClick={() => setShowAdd(false)}
-              className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:opacity-80 transition-colors">
               Cancelar
             </button>
           </div>
@@ -1023,17 +1023,17 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
       ) : tables.length === 0 ? (
         <div className="text-center py-8">
           <UtensilsCrossed size={28} className="text-slate-600 mx-auto mb-2" />
-          <p className="text-xs text-slate-500">No hay mesas configuradas. Agrega mesas para activar el sistema de ocupación.</p>
+          <p className="text-xs text-[var(--text-secondary)]">No hay mesas configuradas. Agrega mesas para activar el sistema de ocupación.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {tables.map(table => (
             <div key={table.id}
-              className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
+              className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
               <div>
-                <p className="text-sm font-bold text-white">Mesa {table.table_number}</p>
-                {table.label && <p className="text-[10px] text-slate-400">{table.label}</p>}
-                {table.capacity && <p className="text-[10px] text-slate-500">{table.capacity} pax</p>}
+                <p className="text-sm font-bold text-[var(--text-primary)]">Mesa {table.table_number}</p>
+                {table.label && <p className="text-[10px] text-[var(--text-secondary)]">{table.label}</p>}
+                {table.capacity && <p className="text-[10px] text-[var(--text-secondary)] opacity-70">{table.capacity} pax</p>}
               </div>
               <button
                 onClick={() => handleDeleteTable(table.id)}
@@ -3988,7 +3988,7 @@ function HistoryTab({ tenant }: { tenant: Tenant }) {
         <h3 className="text-sm font-bold text-red-400 mb-1 flex items-center gap-2">
           <Trash2 size={14} /> Limpiar pedidos del sistema
         </h3>
-        <p className="text-xs text-slate-400 mb-4">Elimina permanentemente pedidos completados o cancelados más antiguos que el período seleccionado. Esta acción no se puede deshacer.</p>
+        <p className="text-xs text-[var(--text-secondary)] mb-4">Elimina permanentemente pedidos completados o cancelados más antiguos que el período seleccionado. Esta acción no se puede deshacer.</p>
         <div className="flex flex-wrap gap-2">
           {[{ key: '7days' as const, label: 'Más de 7 días', days: 7 },
             { key: '30days' as const, label: 'Más de 30 días', days: 30 },
@@ -4861,7 +4861,7 @@ export default function AdminDashboard() {
           {activeTab === 'promotions' && <PromotionsTab tenant={tenant} />}
           {activeTab === 'tables' && (
             <div>
-              <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
                 <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
               </h2>
               <TablesMapPanel tenant={tenant} />
