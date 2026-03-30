@@ -132,6 +132,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const receiptCameraInputRef = useRef<HTMLInputElement>(null);
 
+  // Fix 2: autocompletar nombre y teléfono desde perfil autenticado cuando se abre el drawer
+  useEffect(() => {
+    if (isOpen && customerProfile) {
+      if (customerProfile.name && !customerName) setCustomerName(customerProfile.name);
+      if (customerProfile.phone && !customerPhone) setCustomerPhone(customerProfile.phone);
+    }
+  }, [isOpen, customerProfile]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── DELIVERY / LOGISTICA ───
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('dine_in');
   const [scheduledDate, setScheduledDate] = useState<'today' | 'tomorrow'>('today');

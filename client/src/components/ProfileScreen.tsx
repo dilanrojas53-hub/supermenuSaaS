@@ -45,9 +45,24 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   // Address form
   const [addingAddr, setAddingAddr] = useState(false);
   const [addrLabel, setAddrLabel] = useState(''); const [addrText, setAddrText] = useState('');
-  // Edit name
+  // Edit name / email / birthday
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [editingBirthday, setEditingBirthday] = useState(false);
+  const [newBirthday, setNewBirthday] = useState('');
+
+  const handleSaveEmail = async () => {
+    if (!newEmail.trim()) return;
+    await updateProfile({ email: newEmail.trim() });
+    setEditingEmail(false);
+  };
+  const handleSaveBirthday = async () => {
+    if (!newBirthday) return;
+    await updateProfile({ birthday: newBirthday });
+    setEditingBirthday(false);
+  };
 
   const accentColor = theme.primary_color || '#F59E0B';
   const bgColor = theme.background_color || 'var(--menu-bg)';
@@ -254,6 +269,53 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                 </div>
               </div>
             )}
+
+            {/* Edición de datos del perfil */}
+            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--menu-surface)' }}>
+              <h3 className="text-sm font-bold opacity-60">Mis datos</h3>
+              {/* Email */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-50 w-20 shrink-0">Email</span>
+                {editingEmail ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                      type="email" placeholder="tu@email.com"
+                      className="flex-1 bg-transparent border-b outline-none text-sm"
+                      style={{ borderColor: accentColor, color: textColor }} autoFocus />
+                    <button onClick={handleSaveEmail}><Check size={16} style={{ color: accentColor }} /></button>
+                    <button onClick={() => setEditingEmail(false)}><X size={16} className="opacity-40" /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-sm flex-1 opacity-80">{(profile as any).email || <span className="opacity-30">Sin email</span>}</span>
+                    <button onClick={() => { setEditingEmail(true); setNewEmail((profile as any).email || ''); }}>
+                      <Edit2 size={13} className="opacity-40" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Cumpleaños */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-50 w-20 shrink-0">Cumpleaños</span>
+                {editingBirthday ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input value={newBirthday} onChange={e => setNewBirthday(e.target.value)}
+                      type="date"
+                      className="flex-1 bg-transparent border-b outline-none text-sm"
+                      style={{ borderColor: accentColor, color: textColor }} autoFocus />
+                    <button onClick={handleSaveBirthday}><Check size={16} style={{ color: accentColor }} /></button>
+                    <button onClick={() => setEditingBirthday(false)}><X size={16} className="opacity-40" /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-sm flex-1 opacity-80">{(profile as any).birthday || <span className="opacity-30">Sin fecha</span>}</span>
+                    <button onClick={() => { setEditingBirthday(true); setNewBirthday((profile as any).birthday || ''); }}>
+                      <Edit2 size={13} className="opacity-40" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <button onClick={() => { logout(); onClose(); }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-red-400"

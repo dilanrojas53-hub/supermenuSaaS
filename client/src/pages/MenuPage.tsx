@@ -52,6 +52,19 @@ function MenuContent() {
   const [bottomNavTab, setBottomNavTab] = useState<BottomNavTab>('menu');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [fullScreenCatId, setFullScreenCatId] = useState<string | null>(null);
+  // Fix 3: pedido activo para tab 'order'
+  const [activeOrderData, setActiveOrderData] = useState<{ orderId: string; orderNumber: number; status: string } | null>(null);
+  useEffect(() => {
+    const check = () => {
+      try {
+        const raw = localStorage.getItem('active_order');
+        setActiveOrderData(raw ? JSON.parse(raw) : null);
+      } catch { setActiveOrderData(null); }
+    };
+    check();
+    const iv = setInterval(check, 3000);
+    return () => clearInterval(iv);
+  }, []);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
@@ -622,8 +635,7 @@ function MenuContent() {
         })}
       </div>
 
-      {/* Floating Cart */}
-      <FloatingCart theme={theme} onOpen={() => setCartOpen(true)} />
+      {/* Floating Cart — desactivado: el acceso al carrito vive en BottomNav tab 'order' */}
 
       {/* Cart Drawer */}
       <CartDrawer
@@ -644,8 +656,8 @@ function MenuContent() {
         tenant={tenant}
       />
 
-      {/* Active Order FAB */}
-      <ActiveOrderFAB />
+      {/* Active Order FAB — mini banner solo cuando el usuario está en tab menu */}
+      {bottomNavTab === 'menu' && <ActiveOrderFAB />}
 
       {/* Powered By Footer — V16.6: adaptado al tema del restaurante */}
       <PoweredByFooter
@@ -683,11 +695,21 @@ function MenuContent() {
       {/* ── BOTTOM NAV ── */}
       <BottomNav
         activeTab={bottomNavTab}
-        onTabChange={setBottomNavTab}
+        onTabChange={(tab) => {
+          if (tab === 'order') {
+            // Si hay pedido activo y carrito vacío, navegar al tracking
+            // Si hay items en carrito, abrir carrito
+            setCartOpen(true);
+            setBottomNavTab('order');
+          } else {
+            setBottomNavTab(tab);
+          }
+        }}
         onCartOpen={() => setCartOpen(true)}
         accentColor={theme.primary_color || '#F59E0B'}
         bgColor={theme.background_color}
         textColor={theme.text_color}
+        activeOrderData={activeOrderData}
       />
     </div>
   );

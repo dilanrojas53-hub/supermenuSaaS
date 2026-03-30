@@ -1,12 +1,13 @@
 /**
  * BottomNav — Barra de navegación inferior móvil
  * 5 tabs: Menú / Pedido / Promos / Historial / Perfil
- * Solo visible en la vista del cliente (MenuPage).
- * No afecta admin, staff ni kitchen.
+ * Fix: tab 'order' muestra badge de carrito O indicador de pedido activo.
+ * El click en 'order' abre el carrito si hay items, o navega al tracking si hay pedido activo.
  */
-import { ShoppingCart, UtensilsCrossed, Tag, Clock, User } from 'lucide-react';
+import { ShoppingCart, UtensilsCrossed, Tag, Clock, User, ChefHat } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
+import { useLocation } from 'wouter';
 
 export type BottomNavTab = 'menu' | 'order' | 'promos' | 'history' | 'profile';
 
@@ -17,6 +18,7 @@ interface BottomNavProps {
   accentColor?: string;
   bgColor?: string;
   textColor?: string;
+  activeOrderData?: { orderId: string; orderNumber: number; status: string } | null;
 }
 
 export default function BottomNav({
@@ -26,16 +28,30 @@ export default function BottomNav({
   accentColor = '#F59E0B',
   bgColor = 'var(--menu-surface)',
   textColor = 'var(--menu-text)',
+  activeOrderData,
 }: BottomNavProps) {
   const { totalItems } = useCart();
   const { profile } = useCustomerProfile();
+  const [, navigate] = useLocation();
+
+  const statusEmoji: Record<string, string> = {
+    pendiente: '⏳', pago_en_revision: '⏳', en_cocina: '🔥', listo: '✅', entregado: '📦',
+  };
 
   const tabs = [
     { key: 'menu' as const,    label: 'Menú',      Icon: UtensilsCrossed },
-    { key: 'order' as const,   label: 'Pedido',    Icon: ShoppingCart,   badge: totalItems > 0 ? totalItems : undefined },
+    {
+      key: 'order' as const,
+      label: 'Pedido',
+      Icon: totalItems > 0 ? ShoppingCart : (activeOrderData ? ChefHat : ShoppingCart),
+      badge: totalItems > 0 ? totalItems : undefined,
+      // Indicador de pedido activo cuando carrito está vacío
+      activeDot: !totalItems && !!activeOrderData,
+      activeEmoji: activeOrderData ? (statusEmoji[activeOrderData.status] || '🍳') : undefined,
+    },
     { key: 'promos' as const,  label: 'Promos',    Icon: Tag },
     { key: 'history' as const, label: 'Historial', Icon: Clock },
-    { key: 'profile' as const, label: 'Perfil',    Icon: User,           dot: !!profile },
+    { key: 'profile' as const, label: 'Perfil',    Icon: User, dot: !!profile },
   ];
 
   return (
@@ -48,11 +64,21 @@ export default function BottomNav({
         boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
       }}
     >
-      {tabs.map(({ key, label, Icon, badge, dot }) => {
+      {tabs.map(({ key, label, Icon, badge, dot, activeDot, activeEmoji }: any) => {
         const isActive = activeTab === key;
         const handleClick = () => {
-          if (key === 'order' && onCartOpen) {
-            onCartOpen();
+          if (key === 'order') {
+            if (totalItems > 0 && onCartOpen) {
+              // Hay items en carrito → abrir carrito
+              onCartOpen();
+            } else if (!totalItems && activeOrderData) {
+              // No hay carrito pero hay pedido activo → ir al tracking
+              navigate(`/order-status/${activeOrderData.orderId}`);
+            } else if (onCartOpen) {
+              // Carrito vacío y sin pedido activo → abrir carrito (estado vacío)
+              onCartOpen();
+            }
+            onTabChange('order');
           } else {
             onTabChange(key);
           }
@@ -65,7 +91,11 @@ export default function BottomNav({
             style={{ color: isActive ? accentColor : textColor, opacity: isActive ? 1 : 0.55 }}
           >
             <div className="relative">
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+              {activeDot && activeEmoji ? (
+                <span className="text-base leading-none">{activeEmoji}</span>
+              ) : (
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+              )}
               {badge !== undefined && (
                 <span
                   className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-white text-[9px] font-black px-0.5"
@@ -74,7 +104,7 @@ export default function BottomNav({
                   {badge}
                 </span>
               )}
-              {dot && !badge && (
+              {(dot || activeDot) && !badge && (
                 <span
                   className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border-2"
                   style={{ backgroundColor: accentColor, borderColor: bgColor }}
