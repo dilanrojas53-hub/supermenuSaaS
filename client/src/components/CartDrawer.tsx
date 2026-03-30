@@ -36,6 +36,7 @@ import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
+import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import { supabase } from '@/lib/supabase';
 import { initOrderLogistics } from '@/lib/DeliveryCommitEngine';
 
@@ -112,6 +113,7 @@ interface OpenTabOrder {
 export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [] }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
+  const { profile: customerProfile } = useCustomerProfile();
   const [, navigate] = useLocation();
   const [sinpeCopied, setSinpeCopied] = useState(false);
   const [step, setStep] = useState<Step>('cart');
@@ -706,6 +708,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           // Sesión de mesa: null al crear; el admin asigna sesión activa al primer pedido de la mesa
           session_id: null,
           table_archived: false,
+          customer_profile_id: customerProfile?.id ?? null,
         })
         .select('id, order_number')
         .single();
@@ -757,6 +760,25 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         }
 
         setStep('confirmation');
+        // Fidelización: otorgar puntos si el cliente tiene perfil
+        if (customerProfile?.id && orderData?.id) {
+          const pointsEarned = Math.floor(totalPrice / 100); // 1 punto por cada ₡100
+          const newPoints = (customerProfile.points || 0) + pointsEarned;
+          const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
+          supabase.from('customer_profiles').update({
+            points: newPoints,
+            level: newLevel,
+            total_spent: (customerProfile.total_spent || 0) + totalPrice,
+            total_orders: (customerProfile.total_orders || 0) + 1,
+          }).eq('id', customerProfile.id);
+          supabase.from('customer_rewards').insert({
+            customer_id: customerProfile.id,
+            type: 'earned',
+            amount: pointsEarned,
+            description: `Pedido #${orderData.order_number}`,
+            order_id: orderData.id,
+          });
+        }
       }
     } catch (err: unknown) {
       console.error('Unexpected error:', err);

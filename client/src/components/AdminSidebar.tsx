@@ -9,7 +9,7 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck, LayoutGrid,
+  Truck, LayoutGrid, UserCheck, Megaphone,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
@@ -19,8 +19,10 @@ export type TabKey =
   | 'menu' | 'categories' | 'modifiers'
   | 'analytics' | 'performance' | 'qr' | 'closing'
   | 'settings' | 'theme'
-  | 'delivery'  // Delivery OS add-on
-  | 'tables';   // Mesas del restaurante
+  | 'delivery'    // Delivery OS add-on
+  | 'tables'      // Mesas del restaurante
+  | 'customers'   // Módulo de clientes
+  | 'promotions'; // Motor de promociones
 
 interface NavItem {
   key: TabKey;
@@ -56,6 +58,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'analytics',   label: 'Analítica',    icon: <BarChart3 size={16} /> },
       { key: 'performance', label: 'Rendimiento',  icon: <TrendingUp size={16} /> },
+      { key: 'customers',   label: 'Clientes',     icon: <UserCheck size={16} /> },
+      { key: 'promotions',  label: 'Promociones',  icon: <Megaphone size={16} /> },
       { key: 'qr',          label: 'QR',           icon: <QrCode size={16} /> },
       { key: 'closing',     label: 'Corte / Cierre', icon: <Scissors size={16} /> },
     ],

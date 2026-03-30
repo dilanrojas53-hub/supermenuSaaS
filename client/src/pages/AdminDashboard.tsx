@@ -25,6 +25,8 @@ import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
 import { DeliveryOS } from '@/components/DeliveryOS';
 import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
 import TablesMapPanel from '@/components/TablesMapPanel';
+import CustomersTab from '@/pages/CustomersTab';
+import PromotionsTab from '@/pages/PromotionsTab';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -4855,6 +4857,8 @@ export default function AdminDashboard() {
           {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
           {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
           {activeTab === 'delivery' && <DeliveryOS tenant={tenant} />}
+          {activeTab === 'customers' && <CustomersTab tenant={tenant} />}
+          {activeTab === 'promotions' && <PromotionsTab tenant={tenant} />}
           {activeTab === 'tables' && (
             <div>
               <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
