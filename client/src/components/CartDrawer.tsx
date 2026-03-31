@@ -115,7 +115,7 @@ interface OpenTabOrder {
 export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [], pendingPromo }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
-  const { profile: customerProfile } = useCustomerProfile();
+  const { profile: customerProfile, refreshTenantStats } = useCustomerProfile();
   const [, navigate] = useLocation();
   const [sinpeCopied, setSinpeCopied] = useState(false);
   const [step, setStep] = useState<Step>('cart');
@@ -853,36 +853,65 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         // Fidelización: otorgar puntos POR TENANT (aislados por restaurante)
         if (customerProfile?.id && orderData?.id && tenant?.id) {
           const pointsEarned = Math.floor(snapshotFinalTotal / 100); // 1 punto por cada ₡100 (sobre total con descuento)
-          // Leer stats actuales de este tenant específico
-          supabase.from('tenant_customer_stats')
-            .select('points, total_spent, total_orders')
-            .eq('customer_id', customerProfile.id)
-            .eq('tenant_id', tenant.id)
-            .maybeSingle()
-            .then(({ data: stats }) => {
+          try {
+            // 1. Leer stats actuales de este tenant específico
+            const { data: stats, error: statsReadError } = await supabase
+              .from('tenant_customer_stats')
+              .select('points, total_spent, total_orders')
+              .eq('customer_id', customerProfile.id)
+              .eq('tenant_id', tenant.id)
+              .maybeSingle();
+
+            if (statsReadError) {
+              console.error('[Puntos] Error leyendo tenant_customer_stats:', statsReadError.message);
+            } else {
               const currentPoints = stats?.points || 0;
               const newPoints = currentPoints + pointsEarned;
               const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
-              // Upsert: crea o actualiza el registro para este (customer, tenant)
-              supabase.from('tenant_customer_stats').upsert({
+
+              // 2. Upsert con await — crea o actualiza el registro para este (customer, tenant)
+              const { error: upsertError } = await supabase
+                .from('tenant_customer_stats')
+                .upsert({
+                  customer_id: customerProfile.id,
+                  tenant_id: tenant.id,
+                  points: newPoints,
+                  level: newLevel,
+                  total_spent: (stats?.total_spent || 0) + snapshotFinalTotal,
+                  total_orders: (stats?.total_orders || 0) + 1,
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: 'customer_id,tenant_id' });
+
+              if (upsertError) {
+                console.error('[Puntos] Error en upsert tenant_customer_stats:', upsertError.message);
+              } else {
+                console.info(`[Puntos] +${pointsEarned} pts → total ${newPoints} pts (nivel: ${newLevel}) para customer ${customerProfile.id} en tenant ${tenant.id}`);
+                // 3. Refrescar tenantStats en el contexto para que el perfil muestre los puntos actualizados
+                await refreshTenantStats();
+              }
+            }
+
+            // 4. Registrar la transacción de puntos con await y manejo de error
+            const { error: rewardInsertError } = await supabase
+              .from('customer_rewards')
+              .insert({
                 customer_id: customerProfile.id,
                 tenant_id: tenant.id,
-                points: newPoints,
-                level: newLevel,
-                total_spent: (stats?.total_spent || 0) + snapshotFinalTotal,
-                total_orders: (stats?.total_orders || 0) + 1,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'customer_id,tenant_id' });
-            });
-          // Registrar la transacción de puntos con tenant_id
-          supabase.from('customer_rewards').insert({
-            customer_id: customerProfile.id,
-            tenant_id: tenant.id,
-            type: 'earned',
-            amount: pointsEarned,
-            description: `Pedido #${orderData.order_number}`,
-            order_id: orderData.id,
-          });
+                type: 'earned',
+                amount: pointsEarned,
+                description: `Pedido #${orderData.order_number}`,
+                order_id: orderData.id,
+              });
+
+            if (rewardInsertError) {
+              console.error('[Puntos] Error insertando customer_rewards:', rewardInsertError.message);
+            } else {
+              console.info(`[Puntos] Transacción registrada: earned ${pointsEarned} pts, pedido #${orderData.order_number}`);
+            }
+          } catch (loyaltyErr) {
+            // No fallar el pedido por error de fidelización
+            console.error('[Puntos] Error inesperado en fidelización:', loyaltyErr);
+          }
         }
       }
     } catch (err: unknown) {

@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, CheckCircle2, ChevronDown, ChevronUp, Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
+import { X, Clock, CheckCircle2, ChevronDown, ChevronUp, Loader2, ShoppingBag, AlertCircle, ChefHat, Bike } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import type { ThemeSettings, Tenant } from '@/lib/types';
@@ -36,12 +36,22 @@ interface HistoryScreenProps {
   onOpenLogin: () => void;
 }
 
+// Estados reales del sistema (en español, igual que OrderStatusPage)
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending:   { label: 'Pendiente',  color: '#F59E0B', icon: <Clock size={14} /> },
-  accepted:  { label: 'Aceptado',   color: '#3B82F6', icon: <CheckCircle2 size={14} /> },
-  ready:     { label: 'Listo',      color: '#10B981', icon: <CheckCircle2 size={14} /> },
-  completed: { label: 'Completado', color: '#6B7280', icon: <CheckCircle2 size={14} /> },
-  cancelled: { label: 'Cancelado',  color: '#EF4444', icon: <AlertCircle size={14} /> },
+  // Estados reales del sistema
+  pendiente:  { label: 'Pendiente',   color: '#F59E0B', icon: <Clock size={14} /> },
+  en_cocina:  { label: 'En cocina',   color: '#3B82F6', icon: <ChefHat size={14} /> },
+  listo:      { label: 'Listo',       color: '#10B981', icon: <CheckCircle2 size={14} /> },
+  entregado:  { label: 'Entregado',   color: '#6B7280', icon: <CheckCircle2 size={14} /> },
+  cancelado:  { label: 'Cancelado',   color: '#EF4444', icon: <AlertCircle size={14} /> },
+  // Aliases en inglés por compatibilidad con registros viejos
+  pending:    { label: 'Pendiente',   color: '#F59E0B', icon: <Clock size={14} /> },
+  accepted:   { label: 'En cocina',   color: '#3B82F6', icon: <ChefHat size={14} /> },
+  ready:      { label: 'Listo',       color: '#10B981', icon: <CheckCircle2 size={14} /> },
+  completed:  { label: 'Entregado',   color: '#6B7280', icon: <CheckCircle2 size={14} /> },
+  cancelled:  { label: 'Cancelado',   color: '#EF4444', icon: <AlertCircle size={14} /> },
+  // Delivery
+  en_camino:  { label: 'En camino',   color: '#8B5CF6', icon: <Bike size={14} /> },
 };
 
 const DELIVERY_LABELS: Record<string, string> = {
@@ -52,7 +62,7 @@ const DELIVERY_LABELS: Record<string, string> = {
 
 function OrderCard({ order, accentColor, textColor }: { order: Order; accentColor: string; textColor: string }) {
   const [expanded, setExpanded] = useState(false);
-  const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+  const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pendiente;
   const date = new Date(order.created_at);
   const dateStr = date.toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' });
   const timeStr = date.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });

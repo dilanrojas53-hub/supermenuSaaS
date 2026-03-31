@@ -31,7 +31,7 @@ const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string;
 };
 
 export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: ProfileScreenProps) {
-  const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey } = useCustomerProfile();
+  const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, refreshTenantStats, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey } = useCustomerProfile();
   const tenantPoints = tenantStats?.points ?? 0;
   const tenantLevel = (tenantStats?.level || 'bronze') as keyof typeof LEVEL_CONFIG;
   const tenantTotalOrders = tenantStats?.total_orders ?? 0;
@@ -42,6 +42,9 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [loading, setLoading] = useState(false);
+  // Canje de recompensas
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemMsg, setRedeemMsg] = useState<{ id: string; text: string; ok: boolean } | null>(null);
   // Security
   const [pwMode, setPwMode] = useState<'none' | 'set' | 'change'>('none');
   const [pw1, setPw1] = useState(''); const [pw2, setPw2] = useState(''); const [oldPw, setOldPw] = useState('');
@@ -270,17 +273,105 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                 <div className="space-y-2">
                   {rewards.map(r => {
                     const canRedeem = tenantPoints >= r.points_required;
+                    const isRedeeming = redeemingId === r.id;
+                    const msg = redeemMsg?.id === r.id ? redeemMsg : null;
                     return (
-                      <div key={r.id} className="flex items-center justify-between rounded-xl p-3"
-                        style={{ background: 'var(--menu-surface)', opacity: canRedeem ? 1 : 0.5 }}>
-                        <div>
-                          <div className="text-sm font-semibold">{r.name}</div>
-                          <div className="text-xs opacity-50">{r.points_required} puntos</div>
+                      <div key={r.id} className="rounded-xl p-3 space-y-2"
+                        style={{ background: 'var(--menu-surface)', opacity: canRedeem ? 1 : 0.55 }}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-semibold">{r.name}</div>
+                            <div className="text-xs opacity-50">{r.points_required} puntos • Descuento: ₡{r.reward_value.toLocaleString()}</div>
+                          </div>
+                          {canRedeem ? (
+                            <button
+                              disabled={isRedeeming}
+                              onClick={async () => {
+                                if (!profile?.id || !tenantStats) return;
+                                setRedeemingId(r.id);
+                                setRedeemMsg(null);
+                                try {
+                                  // 1. Verificar puntos suficientes en BD (fuente de verdad)
+                                  const { data: stats } = await supabase
+                                    .from('tenant_customer_stats')
+                                    .select('points')
+                                    .eq('customer_id', profile.id)
+                                    .eq('tenant_id', tenant.id)
+                                    .maybeSingle();
+                                  const currentPoints = stats?.points ?? 0;
+                                  if (currentPoints < r.points_required) {
+                                    setRedeemMsg({ id: r.id, text: 'Puntos insuficientes. Recarga la página.', ok: false });
+                                    return;
+                                  }
+                                  // 2. Descontar puntos
+                                  const newPoints = currentPoints - r.points_required;
+                                  const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
+                                  const { error: deductErr } = await supabase
+                                    .from('tenant_customer_stats')
+                                    .update({ points: newPoints, level: newLevel, updated_at: new Date().toISOString() })
+                                    .eq('customer_id', profile.id)
+                                    .eq('tenant_id', tenant.id);
+                                  if (deductErr) throw new Error('Error al descontar puntos: ' + deductErr.message);
+                                  // 3. Generar código de cupón único
+                                  const rewardCode = `REWARD-${profile.id.slice(0,6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+                                  // 4. Insertar registro en customer_rewards (type='redeemed')
+                                  const { error: rewardErr } = await supabase
+                                    .from('customer_rewards')
+                                    .insert({
+                                      customer_id: profile.id,
+                                      tenant_id: tenant.id,
+                                      type: 'redeemed',
+                                      amount: r.points_required,
+                                      description: `Canje: ${r.name} (código: ${rewardCode})`,
+                                    });
+                                  if (rewardErr) console.error('[Canje] Error insertando customer_rewards:', rewardErr.message);
+                                  // 5. Crear cupón de un solo uso en tabla promotions
+                                  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 días
+                                  const { error: couponErr } = await supabase
+                                    .from('promotions')
+                                    .insert({
+                                      tenant_id: tenant.id,
+                                      name: `Recompensa: ${r.name}`,
+                                      type: 'fixed',
+                                      value: r.reward_value,
+                                      coupon_code: rewardCode,
+                                      is_active: true,
+                                      max_uses: 1,
+                                      current_uses: 0,
+                                      min_order_amount: 0,
+                                      expires_at: expiresAt,
+                                      description: `Cupón generado por canje de ${r.points_required} puntos`,
+                                    });
+                                  if (couponErr) console.error('[Canje] Error creando cupón:', couponErr.message);
+                                  // 6. Refrescar tenantStats en contexto
+                                  await refreshTenantStats();
+                                  setRedeemMsg({ id: r.id, text: `¡Canjeado! Tu código: ${rewardCode}`, ok: true });
+                                } catch (err: any) {
+                                  console.error('[Canje] Error inesperado:', err);
+                                  setRedeemMsg({ id: r.id, text: 'Error al canjear. Intenta de nuevo.', ok: false });
+                                } finally {
+                                  setRedeemingId(null);
+                                }
+                              }}
+                              className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1"
+                              style={{ background: accentColor, color: '#000', opacity: isRedeeming ? 0.6 : 1 }}>
+                              {isRedeeming ? (
+                                <><span className="animate-spin inline-block w-3 h-3 border-2 border-black border-t-transparent rounded-full" /> Canjeando...</>
+                              ) : '¡Canjear!'}
+                            </button>
+                          ) : (
+                            <div className="text-xs font-bold px-2 py-1 rounded-full"
+                              style={{ background: 'rgba(255,255,255,0.05)', color: textColor }}>
+                              Faltan {r.points_required - tenantPoints}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs font-bold px-2 py-1 rounded-full"
-                          style={{ background: canRedeem ? accentColor + '22' : 'rgba(255,255,255,0.05)', color: canRedeem ? accentColor : textColor }}>
-                          {canRedeem ? '¡Canjear!' : `Faltan ${r.points_required - tenantPoints}`}
-                        </div>
+                        {msg && (
+                          <div className="text-xs rounded-lg px-3 py-2 font-semibold"
+                            style={{ background: msg.ok ? accentColor + '22' : '#EF444422', color: msg.ok ? accentColor : '#EF4444' }}>
+                            {msg.text}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

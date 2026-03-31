@@ -57,6 +57,7 @@ interface CustomerProfileContextType {
   isLoading: boolean;
   authStep: AuthStep;
   setAuthStep: (step: AuthStep) => void;
+  refreshTenantStats: () => Promise<void>;  // refresca puntos/nivel desde BD
   // Nuevo flujo: contraseña
   checkPhone: (phone: string, tenantId: string) => Promise<{ exists: boolean; hasPasskey: boolean }>;
   registerWithPassword: (data: {
@@ -153,6 +154,28 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
           total_orders: data.total_orders ?? 0,
         } : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 });
       });
+  }, [profile?.id, tenantId]);
+
+  // Método explícito para refrescar tenantStats desde la BD (llamado post-orden y post-canje)
+  const refreshTenantStats = useCallback(async () => {
+    if (!profile?.id || !tenantId) return;
+    const { data, error } = await supabase
+      .from('tenant_customer_stats')
+      .select('points, level, total_spent, total_orders')
+      .eq('customer_id', profile.id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error) {
+      console.error('[CustomerProfileContext] refreshTenantStats error:', error.message);
+      return;
+    }
+    setTenantStats(data ? {
+      points: data.points ?? 0,
+      level: data.level ?? 'bronze',
+      total_spent: data.total_spent ?? 0,
+      total_orders: data.total_orders ?? 0,
+    } : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 });
+    console.info('[CustomerProfileContext] tenantStats refrescado:', data?.points ?? 0, 'pts');
   }, [profile?.id, tenantId]);
 
   useEffect(() => {
@@ -459,7 +482,7 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
       profile, tenantStats, isGuest: !profile, isLoading, authStep, setAuthStep,
       checkPhone, registerWithPassword, loginWithPassword, changePassword,
       isWebAuthnSupported, registerPasskey, loginWithPasskey, getPasskeys, deletePasskey,
-      updateProfile, refreshProfile, logout, logoutAllDevices,
+      updateProfile, refreshProfile, refreshTenantStats, logout, logoutAllDevices,
       sendOTP, verifyOTP, completeProfile, setPassword, login,
     }}>
       {children}
