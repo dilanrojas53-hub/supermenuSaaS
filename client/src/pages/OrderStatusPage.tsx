@@ -900,25 +900,57 @@ export default function OrderStatusPage() {
           </div>
           <div className="my-4 border-t" style={{ borderColor: th.border }} />
           <div className="space-y-2">
-            {isDelivery && (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: th.muted }}>Subtotal</span>
-                  <span style={{ color: th.muted }}>{formatPrice(order.total - ((order as any).delivery_fee_final || 0))}</span>
-                </div>
-                {((order as any).delivery_fee_final || (order as any).delivery_fee_pending) && (
-                  <div className="flex justify-between text-sm">
-                    <span style={{ color: th.muted }}>Envío</span>
-                    <span style={{ color: (order as any).delivery_fee_pending ? '#F59E0B' : th.muted }}>
-                      {(order as any).delivery_fee_pending ? 'Por confirmar' : formatPrice((order as any).delivery_fee_final)}
-                    </span>
-                  </div>
-                )}
-              </>
+            {/* Subtotal line (always show if there's a discount or delivery fee) */}
+            {((order as any).discount_amount > 0 || isDelivery) && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: th.muted }}>Subtotal</span>
+                <span style={{ color: th.muted }}>{formatPrice((order as any).subtotal || order.total)}</span>
+              </div>
+            )}
+            {/* Promo applied */}
+            {(order as any).promo_label && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 15%, transparent)', color: th.accent }}>🎁 {(order as any).promo_label}</span>
+                </span>
+                <span className="font-semibold" style={{ color: '#4ADE80' }}>
+                  {(order as any).promo_type === 'bogo' || (order as any).promo_type === 'free_item' ? '✓ Aplicada' : `-${formatPrice((order as any).discount_amount - ((order as any).coupon_discount || 0))}`}
+                </span>
+              </div>
+            )}
+            {/* Coupon applied */}
+            {(order as any).coupon_code && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>🎟️ {(order as any).coupon_code}</span>
+                </span>
+                <span className="font-semibold" style={{ color: '#4ADE80' }}>-{formatPrice((order as any).discount_amount > 0 ? (order as any).discount_amount : 0)}</span>
+              </div>
+            )}
+            {/* Total discount line */}
+            {(order as any).discount_amount > 0 && (
+              <div className="flex justify-between text-sm font-semibold">
+                <span style={{ color: '#4ADE80' }}>Descuento total</span>
+                <span style={{ color: '#4ADE80' }}>-{formatPrice((order as any).discount_amount)}</span>
+              </div>
+            )}
+            {/* Delivery fee */}
+            {isDelivery && ((order as any).delivery_fee_final || (order as any).delivery_fee_pending) && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: th.muted }}>Envío</span>
+                <span style={{ color: (order as any).delivery_fee_pending ? '#F59E0B' : th.muted }}>
+                  {(order as any).delivery_fee_pending ? 'Por confirmar' : formatPrice((order as any).delivery_fee_final)}
+                </span>
+              </div>
             )}
             <div className="flex justify-between items-center pt-1">
               <span className="text-base font-black" style={{ color: th.text }}>Total</span>
-              <span className="text-xl font-black" style={{ color: th.accent }}>{formatPrice(order.total)}</span>
+              <div className="flex items-center gap-2">
+                {(order as any).discount_amount > 0 && (
+                  <span className="text-sm line-through" style={{ color: th.muted }}>{formatPrice((order as any).subtotal || order.total)}</span>
+                )}
+                <span className="text-xl font-black" style={{ color: th.accent }}>{formatPrice(order.total)}</span>
+              </div>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t flex items-center justify-between gap-3" style={{ borderColor: th.border }}>

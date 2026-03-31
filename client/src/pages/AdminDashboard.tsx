@@ -2771,28 +2771,34 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </div>
         )}
         {/* ── Descuento / Promo / Cupón ── */}
-        {((order as any).discount_amount > 0 || (order as any).coupon_code || (order as any).promotion_id) && (
+        {((order as any).discount_amount > 0 || (order as any).coupon_code || (order as any).promo_label || (order as any).promotion_id) && (
           <div className="mb-1.5 px-2 py-1.5 rounded-lg space-y-0.5" style={{ backgroundColor: '#F59E0B10', border: '1px solid #F59E0B25' }}>
+            {/* Promo label (new field) */}
+            {(order as any).promo_label && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-amber-300">🏷️ {(order as any).promo_label}</span>
+                <span className="text-[10px] text-amber-300 font-bold">
+                  {(order as any).promo_type === 'bogo' || (order as any).promo_type === 'free_item' ? '✓ Aplicada' : ''}
+                </span>
+              </div>
+            )}
+            {/* Coupon code */}
             {(order as any).coupon_code && (
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-amber-300">🎟️ Cupón: <span className="font-mono font-bold">{(order as any).coupon_code}</span></span>
               </div>
             )}
-            {(order as any).promotion_id && !
-              (order as any).coupon_code && (
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-amber-300">🏷️ Promo aplicada</span>
-              </div>
-            )}
+            {/* Discount amount */}
             {(order as any).discount_amount > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-amber-400 font-bold">Descuento</span>
                 <span className="text-[10px] text-amber-400 font-bold">-{formatPrice((order as any).discount_amount)}</span>
               </div>
             )}
+            {/* Subtotal vs total */}
             {(order as any).subtotal && (order as any).subtotal !== order.total && (
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[var(--text-secondary)]">Subtotal</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Precio original</span>
                 <span className="text-[10px] text-[var(--text-secondary)] line-through">{formatPrice((order as any).subtotal)}</span>
               </div>
             )}
@@ -3632,7 +3638,7 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
       </div>
 
       {/* ── Picos de Venta + Top 3 con filtro dinámico ── */}
-      <div className="bg-card/80 border border-[var(--border)] rounded-3xl p-5 shadow-xl space-y-5">
+      <div className="border border-[var(--border)] rounded-3xl p-5 shadow-xl space-y-5" style={{ backgroundColor: 'var(--bg-surface)' }}>
         {/* Filtro de tiempo */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -4736,8 +4742,8 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
                   value={arqueoValues[key]}
                   onChange={e => { setArqueoValues(prev => ({ ...prev, [key]: e.target.value })); setArqueoSaved(false); }}
                   placeholder="0"
-                  className="w-full bg-card/60 border border-[var(--border)] rounded-xl pl-7 pr-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-1 transition-all"
-                  style={{ color }}
+                  className="w-full border border-[var(--border)] rounded-xl pl-7 pr-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-1 transition-all"
+                  style={{ color, backgroundColor: 'var(--bg-surface)' }}
                 />
               </div>
             </div>

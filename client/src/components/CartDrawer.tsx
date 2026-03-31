@@ -736,6 +736,17 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         pos_externo: 'pendiente', // dine-in/takeout: cobro externo, pedido entra directo a cocina
       };
 
+      // ─── SNAPSHOT de descuentos al momento del insert (fuente de verdad) ───
+      const snapshotSubtotal = totalPrice;
+      const snapshotPromoDiscount = appliedPromo?.discountAmount ?? 0;
+      const snapshotCouponDiscount = appliedCoupon?.discountAmount ?? 0;
+      const snapshotDiscountAmount = snapshotPromoDiscount + snapshotCouponDiscount;
+      const snapshotFinalTotal = Math.max(0, snapshotSubtotal - snapshotDiscountAmount);
+      const snapshotPromoLabel = appliedPromo?.name ?? null;
+      const snapshotPromoType = appliedPromo?.type ?? null;
+      const snapshotCouponCode = appliedCoupon?.code ?? null;
+      const snapshotPromotionId = appliedPromo?.id ?? null;
+
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -744,11 +755,13 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           customer_phone: customerPhone.trim() || '',
           customer_table: customerTable.trim() || '',
           items: newOrderItems,
-          subtotal: totalPrice,
-          total: finalTotal,
-          discount_amount: discountAmount,
-          coupon_code: appliedCoupon?.code || null,
-          promotion_id: appliedPromo?.id || null,
+          subtotal: snapshotSubtotal,
+          total: snapshotFinalTotal,
+          discount_amount: snapshotDiscountAmount,
+          coupon_code: snapshotCouponCode,
+          promotion_id: snapshotPromotionId,
+          promo_label: snapshotPromoLabel,
+          promo_type: snapshotPromoType,
           status: statusMap[method],
           payment_method: method,
           payment_status: 'pending',
@@ -839,7 +852,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setStep('confirmation');
         // Fidelización: otorgar puntos POR TENANT (aislados por restaurante)
         if (customerProfile?.id && orderData?.id && tenant?.id) {
-          const pointsEarned = Math.floor(finalTotal / 100); // 1 punto por cada ₡100 (sobre total con descuento)
+          const pointsEarned = Math.floor(snapshotFinalTotal / 100); // 1 punto por cada ₡100 (sobre total con descuento)
           // Leer stats actuales de este tenant específico
           supabase.from('tenant_customer_stats')
             .select('points, total_spent, total_orders')
@@ -856,7 +869,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 tenant_id: tenant.id,
                 points: newPoints,
                 level: newLevel,
-                total_spent: (stats?.total_spent || 0) + finalTotal,
+                total_spent: (stats?.total_spent || 0) + snapshotFinalTotal,
                 total_orders: (stats?.total_orders || 0) + 1,
                 updated_at: new Date().toISOString(),
               }, { onConflict: 'customer_id,tenant_id' });
