@@ -253,7 +253,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Pedidos', value: tenantTotalOrders, icon: '🛒' },
-                { label: 'Total gastado', value: `₡${(tenantTotalSpent / 1000).toFixed(0)}k`, icon: '💰' },
+                { label: 'Puntos', value: tenantPoints, icon: '⭐' },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: 'var(--menu-surface)' }}>
                   <div className="text-2xl mb-1">{s.icon}</div>

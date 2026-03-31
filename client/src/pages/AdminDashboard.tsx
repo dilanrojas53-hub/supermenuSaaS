@@ -2762,6 +2762,42 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             </div>
           ))}
         </div>
+        {/* ── Upsells en el pedido ── */}
+        {(order as any).upsell_accepted && (order as any).upsell_revenue > 0 && (
+          <div className="flex items-center gap-1.5 mb-1.5 px-2 py-1 rounded-lg" style={{ backgroundColor: '#34d39915', border: '1px solid #34d39930' }}>
+            <span className="text-[10px] font-bold text-emerald-400">⚡ UPSELL</span>
+            <span className="text-[10px] text-emerald-300">+{formatPrice((order as any).upsell_revenue)}</span>
+            {(order as any).ai_upsell_revenue > 0 && <span className="text-[9px] text-emerald-400/70">✨ IA</span>}
+          </div>
+        )}
+        {/* ── Descuento / Promo / Cupón ── */}
+        {((order as any).discount_amount > 0 || (order as any).coupon_code || (order as any).promotion_id) && (
+          <div className="mb-1.5 px-2 py-1.5 rounded-lg space-y-0.5" style={{ backgroundColor: '#F59E0B10', border: '1px solid #F59E0B25' }}>
+            {(order as any).coupon_code && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-amber-300">🎟️ Cupón: <span className="font-mono font-bold">{(order as any).coupon_code}</span></span>
+              </div>
+            )}
+            {(order as any).promotion_id && !
+              (order as any).coupon_code && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-amber-300">🏷️ Promo aplicada</span>
+              </div>
+            )}
+            {(order as any).discount_amount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-amber-400 font-bold">Descuento</span>
+                <span className="text-[10px] text-amber-400 font-bold">-{formatPrice((order as any).discount_amount)}</span>
+              </div>
+            )}
+            {(order as any).subtotal && (order as any).subtotal !== order.total && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[var(--text-secondary)]">Subtotal</span>
+                <span className="text-[10px] text-[var(--text-secondary)] line-through">{formatPrice((order as any).subtotal)}</span>
+              </div>
+            )}
+          </div>
+        )}
         {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">📝 {order.notes}</div>}
 
         {/* ── Delivery / Takeout info ── */}
@@ -3281,6 +3317,13 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     }, 0);
     const staticUpsellRevenue = upsellRevenue - aiUpsellRevenue;
 
+    // Promo & coupon analytics
+    const promoOrders = month.filter(o => (o as any).promotion_id);
+    const couponOrders = month.filter(o => (o as any).coupon_code);
+    const totalDiscountGiven = month.reduce((s, o) => s + ((o as any).discount_amount || 0), 0);
+    const promoConversionRate = totalOrders > 0 ? Math.round((promoOrders.length / totalOrders) * 100) : 0;
+    const couponConversionRate = totalOrders > 0 ? Math.round((couponOrders.length / totalOrders) * 100) : 0;
+
     // Item counts
     const itemCounts: Record<string, { name: string; count: number; revenue: number }> = {};
     valid.forEach(o => {
@@ -3319,6 +3362,8 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     // timeBlocks and top3 are computed separately based on analyticsFilter
     return { totalRevenue, totalOrders, upsellRevenue, upsellRate, upsellOrders: upsellOrders.length,
       aiUpsellRevenue, staticUpsellRevenue,
+      promoOrders: promoOrders.length, couponOrders: couponOrders.length,
+      totalDiscountGiven, promoConversionRate, couponConversionRate,
       top5, hourlyData, trendData,
       avgTicket: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
       visits: tenant.visit_count || 0 };
@@ -3509,6 +3554,36 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
             </div>
           ))}
         </div>
+
+        {/* Promo & Coupon Analytics */}
+        {(stats.promoOrders > 0 || stats.couponOrders > 0 || stats.totalDiscountGiven > 0) && (
+          <div className="grid grid-cols-3 gap-3 mt-2">
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-amber-400">🏷️</span>
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold">Promos aplicadas</p>
+              </div>
+              <p className="text-xl font-black text-amber-400">{stats.promoOrders}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{stats.promoConversionRate}% de pedidos</p>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-purple-400">🎟️</span>
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold">Cupones usados</p>
+              </div>
+              <p className="text-xl font-black text-purple-400">{stats.couponOrders}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{stats.couponConversionRate}% de pedidos</p>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-red-400">💸</span>
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold">Descuento total</p>
+              </div>
+              <p className="text-xl font-black text-red-400">-{formatPrice(stats.totalDiscountGiven)}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">en descuentos dados</p>
+            </div>
+          </div>
+        )}
 
         {/* Revenue trend chart */}
         {stats.trendData.length > 0 && (

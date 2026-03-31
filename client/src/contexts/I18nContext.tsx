@@ -30,6 +30,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'cart.subtotal': { es: 'Subtotal', en: 'Subtotal' },
   'cart.total': { es: 'Total', en: 'Total' },
   'cart.proceed': { es: 'Proceder al pago', en: 'Proceed to checkout' },
+  'cart.checkout': { es: 'Confirmar pedido', en: 'Confirm order' },
   'cart.items': { es: 'artículos', en: 'items' },
 
   // Checkout
