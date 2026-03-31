@@ -433,7 +433,11 @@ async function startServer() {
   const server = createServer(app);
   app.use(express.json({ limit: "1mb" }));
 
-  // ─── AI Upsell Endpoint (V18.0: 6 capas gastronómicas) ───────────────────
+  // ─── AI Upsell Endpoint ──────────────────────────────────────────────────
+  // IMPORTANTE: En producción (Vercel), /api/generate-upsell es manejado
+  // directamente por api/generate-upsell.ts (V19 — Hard Constraints Edition).
+  // Este handler solo corre en desarrollo local con Express.
+  // NO agregar lógica de negocio aquí — mantener sincronizado con api/generate-upsell.ts.
   app.post("/api/generate-upsell", async (req, res) => {
     const startTime = Date.now();
     try {
