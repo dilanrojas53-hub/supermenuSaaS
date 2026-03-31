@@ -64,6 +64,7 @@ export interface ThemeSettings {
   wordmark_url: string | null;
   wordmark_max_width: number | null;
   wordmark_align: 'left' | 'center' | 'right' | null;
+  wordmark_shape: 'rounded' | 'circle' | 'square';
   theme_animation: ThemeAnimation | null;
   created_at: string;
   updated_at: string;

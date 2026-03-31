@@ -363,6 +363,7 @@ function MenuContent() {
                 filter: 'drop-shadow(0 2px 12px rgba(0,0,0,0.6))',
                 marginLeft: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? 'auto' : '0',
                 marginRight: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? '0' : 'auto',
+                borderRadius: (theme as any).wordmark_shape === 'circle' ? '50%' : (theme as any).wordmark_shape === 'square' ? '6px' : (theme as any).wordmark_shape === 'rounded' ? '12px' : undefined,
               }}
             />
           ) : (

@@ -2008,7 +2008,8 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     wordmark_url:     theme.wordmark_url      || '',
     wordmark_max_width: theme.wordmark_max_width ?? 280,
     wordmark_align:   theme.wordmark_align    || 'left',
-    theme_preset_key: (theme as any).theme_preset_key || '',
+    wordmark_shape:   (theme as any).wordmark_shape   || 'rounded',
+    theme_preset_key: (theme as any).theme_preset_key || ''
   });
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>(getThemeCategories()[0]);
@@ -2064,6 +2065,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
       wordmark_url:     form.wordmark_url || null,
       wordmark_max_width: form.wordmark_max_width || 280,
       wordmark_align:   form.wordmark_align || 'left',
+      wordmark_shape:   (form as any).wordmark_shape || 'rounded',
       theme_preset_key: form.theme_preset_key || null,
       updated_at:       new Date().toISOString(),
     };
@@ -2287,6 +2289,36 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                   marginRight: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? '0' : 'auto',
                 }}
               />
+            </div>
+            {/* Forma del wordmark */}
+            <div>
+              <label className="block text-xs text-[var(--text-secondary)] mb-2">Forma del wordmark</label>
+              <div className="flex gap-3 items-center">
+                {(['rounded', 'circle', 'square'] as const).map(shape => (
+                  <button
+                    key={shape}
+                    type="button"
+                    onClick={() => setForm({ ...form, wordmark_shape: shape } as any)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all ${
+                      (form as any).wordmark_shape === shape
+                        ? 'border-amber-500 bg-amber-500/10'
+                        : 'border-[var(--border)] hover:border-amber-500/50'
+                    }`}
+                  >
+                    <img
+                      src={form.wordmark_url!}
+                      alt="preview"
+                      className="w-10 h-10 object-cover"
+                      style={{
+                        borderRadius: shape === 'circle' ? '50%' : shape === 'square' ? '4px' : '12px',
+                      }}
+                    />
+                    <span className="text-[10px] text-[var(--text-secondary)] capitalize">
+                      {shape === 'rounded' ? 'Redondeado' : shape === 'circle' ? 'Circular' : 'Cuadrado'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
