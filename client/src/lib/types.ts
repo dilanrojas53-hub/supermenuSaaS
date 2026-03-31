@@ -19,6 +19,7 @@ export interface Tenant {
   name: string;
   description: string | null;
   logo_url: string | null;
+  logo_shape: 'rounded' | 'circle' | 'square';
   phone: string | null;
   whatsapp_number: string | null;
   address: string | null;

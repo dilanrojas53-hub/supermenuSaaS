@@ -1054,10 +1054,30 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
 function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void }) {
   const [form, setForm] = useState({
     name: tenant.name, description: tenant.description || '', logo_url: tenant.logo_url || '',
+    logo_shape: (tenant.logo_shape || 'rounded') as 'rounded' | 'circle' | 'square',
     phone: tenant.phone || '', whatsapp_number: tenant.whatsapp_number || '',
     address: tenant.address || '', sinpe_number: tenant.sinpe_number || '',
     sinpe_owner: tenant.sinpe_owner || '', is_open: tenant.is_open ?? true
   });
+  // Fix: sincronizar form cuando el tenant prop cambia (después de onRefresh)
+  // Sin esto, logo_url queda con el valor del primer render aunque la BD ya tenga el nuevo.
+  useEffect(() => {
+    setForm(prev => ({
+      ...prev,
+      name: tenant.name,
+      description: tenant.description || '',
+      logo_url: tenant.logo_url || '',
+      logo_shape: (tenant.logo_shape || 'rounded') as 'rounded' | 'circle' | 'square',
+      phone: tenant.phone || '',
+      whatsapp_number: tenant.whatsapp_number || '',
+      address: tenant.address || '',
+      sinpe_number: tenant.sinpe_number || '',
+      sinpe_owner: tenant.sinpe_owner || '',
+      is_open: tenant.is_open ?? true,
+    }));
+  }, [tenant.id, tenant.logo_url, tenant.logo_shape, tenant.name, tenant.description,
+      tenant.phone, tenant.whatsapp_number, tenant.address, tenant.sinpe_number,
+      tenant.sinpe_owner, tenant.is_open]);
   const [saving, setSaving] = useState(false);
 
   const handleToggleOpen = async () => {
@@ -1073,6 +1093,7 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
     setSaving(true);
     const { error } = await supabase.from('tenants').update({
       name: form.name, description: form.description || null, logo_url: form.logo_url || null,
+      logo_shape: form.logo_shape,
       phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
       address: form.address || null, sinpe_number: form.sinpe_number || null,
       sinpe_owner: form.sinpe_owner || null, is_open: form.is_open,
@@ -1109,7 +1130,40 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
               className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
           </div>
           <div>
-            <ImageUpload bucket="logos" currentUrl={form.logo_url} onUpload={(url) => setForm({ ...form, logo_url: url })} label="Logo del restaurante" previewSize="sm" />
+            <div className="space-y-3">
+              <ImageUpload bucket="logos" currentUrl={form.logo_url} onUpload={(url) => setForm({ ...form, logo_url: url })} label="Logo del restaurante" previewSize="sm" />
+              {form.logo_url && (
+                <div>
+                  <label className="block text-xs text-[var(--text-secondary)] mb-2">Forma del logo</label>
+                  <div className="flex gap-3 items-center">
+                    {(['rounded', 'circle', 'square'] as const).map(shape => (
+                      <button
+                        key={shape}
+                        type="button"
+                        onClick={() => setForm({ ...form, logo_shape: shape })}
+                        className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all ${
+                          form.logo_shape === shape
+                            ? 'border-amber-500 bg-amber-500/10'
+                            : 'border-[var(--border)] hover:border-amber-500/50'
+                        }`}
+                      >
+                        <img
+                          src={form.logo_url}
+                          alt="preview"
+                          className="w-10 h-10 object-cover"
+                          style={{
+                            borderRadius: shape === 'circle' ? '50%' : shape === 'square' ? '4px' : '12px',
+                          }}
+                        />
+                        <span className="text-[10px] text-[var(--text-secondary)] capitalize">
+                          {shape === 'rounded' ? 'Redondeado' : shape === 'circle' ? 'Circular' : 'Cuadrado'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs text-[var(--text-secondary)] mb-1">Descripción</label>

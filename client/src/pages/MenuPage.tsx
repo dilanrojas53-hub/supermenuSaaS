@@ -341,8 +341,11 @@ function MenuContent() {
             <img
               src={tenant.logo_url}
               alt={`${tenant.name} logo`}
-              className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-2xl"
-              style={{ border: '2.5px solid rgba(255,255,255,0.35)' }}
+              className="w-16 h-16 object-cover mb-3 shadow-2xl"
+              style={{
+                border: '2.5px solid rgba(255,255,255,0.35)',
+                borderRadius: (rawTenant.logo_shape === 'circle') ? '50%' : (rawTenant.logo_shape === 'square') ? '6px' : '16px',
+              }}
             />
           )}
           {theme.wordmark_url ? (
