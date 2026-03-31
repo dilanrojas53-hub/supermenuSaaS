@@ -933,7 +933,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const handleProceedDirect = useCallback(async (_allMenuItemsArg?: MenuItem[]) => {
     const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
     await handleSubmitOrderWithMethod(defaultMethod);
-  }, [deliveryType, customerName, openTab, items, totalPrice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deliveryType, customerName, openTab, items, totalPrice, appliedPromo, appliedCoupon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const paymentMethodLabel = (method: PaymentMethod | null): string => {
     if (!method) return '';
