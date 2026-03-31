@@ -102,6 +102,20 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   // Fix: solo cargar datos cuando el panel se abre (isOpen: false→true), no en cada cambio de profile
   useEffect(() => { if (isOpen && profile) { loadData(); } }, [isOpen, loadData]);
 
+  // IMPORTANTE: este useEffect DEBE estar ANTES de cualquier return condicional.
+  // Tenerlo después viola las Reglas de Hooks de React y causa el error #310
+  // ("Rendered more hooks than during the previous render") cuando el usuario
+  // inicia sesión y el componente pasa de renderizar el return de !profile
+  // al return principal con todos los hooks.
+  useEffect(() => {
+    if (activeTab !== 'my_restaurants' || !profile) return;
+    setLoadingTenants(true);
+    loadCustomerTenants().then(data => {
+      setCustomerTenants(data);
+      setLoadingTenants(false);
+    });
+  }, [activeTab, profile, loadCustomerTenants]);
+
   const levelKey = tenantLevel;
   const lvl = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.bronze;
   const nextLvlKey = Object.keys(LEVEL_CONFIG)[Object.keys(LEVEL_CONFIG).indexOf(levelKey) + 1];
@@ -173,16 +187,6 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     { key: 'addresses',      label: 'Direcciones',      icon: '📍' },
     { key: 'security',       label: 'Seguridad',        icon: '🔒' },
   ] as const;
-
-  // Cargar mis restaurantes al abrir ese tab
-  useEffect(() => {
-    if (activeTab !== 'my_restaurants' || !profile) return;
-    setLoadingTenants(true);
-    loadCustomerTenants().then(data => {
-      setCustomerTenants(data);
-      setLoadingTenants(false);
-    });
-  }, [activeTab, profile, loadCustomerTenants]);
 
   return (
     <motion.div className="fixed inset-0 z-[200] flex flex-col"
