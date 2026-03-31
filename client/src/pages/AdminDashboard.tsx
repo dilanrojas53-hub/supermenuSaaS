@@ -1059,6 +1059,8 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
     address: tenant.address || '', sinpe_number: tenant.sinpe_number || '',
     sinpe_owner: tenant.sinpe_owner || '', is_open: tenant.is_open ?? true
   });
+  // Flag: el usuario borró el logo manualmente — no dejar que useEffect lo restaure
+  const logoClearedRef = useRef(false);
   // Fix: sincronizar form cuando el tenant prop cambia (después de onRefresh)
   // Sin esto, logo_url queda con el valor del primer render aunque la BD ya tenga el nuevo.
   useEffect(() => {
@@ -1066,7 +1068,8 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
       ...prev,
       name: tenant.name,
       description: tenant.description || '',
-      logo_url: tenant.logo_url || '',
+      // Si el usuario borró el logo, respetar su intención hasta que se guarde
+      logo_url: logoClearedRef.current ? '' : (tenant.logo_url || ''),
       logo_shape: (tenant.logo_shape || 'rounded') as 'rounded' | 'circle' | 'square',
       phone: tenant.phone || '',
       whatsapp_number: tenant.whatsapp_number || '',
@@ -1075,6 +1078,8 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
       sinpe_owner: tenant.sinpe_owner || '',
       is_open: tenant.is_open ?? true,
     }));
+    // Resetear el flag cuando la BD confirma que logo_url es null (post-save exitoso)
+    if (!tenant.logo_url) logoClearedRef.current = false;
   }, [tenant.id, tenant.logo_url, tenant.logo_shape, tenant.name, tenant.description,
       tenant.phone, tenant.whatsapp_number, tenant.address, tenant.sinpe_number,
       tenant.sinpe_owner, tenant.is_open]);
@@ -1131,7 +1136,11 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
           </div>
           <div>
             <div className="space-y-3">
-              <ImageUpload bucket="logos" currentUrl={form.logo_url} onUpload={(url) => setForm({ ...form, logo_url: url })} label="Logo del restaurante" previewSize="sm" />
+              <ImageUpload bucket="logos" currentUrl={form.logo_url} onUpload={(url) => {
+                if (!url) logoClearedRef.current = true; // usuario borró el logo
+                else logoClearedRef.current = false;     // usuario subió logo nuevo
+                setForm(prev => ({ ...prev, logo_url: url }));
+              }} label="Logo del restaurante" previewSize="sm" />
               {form.logo_url && (
                 <div>
                   <label className="block text-xs text-[var(--text-secondary)] mb-2">Forma del logo</label>
