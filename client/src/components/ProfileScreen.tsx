@@ -107,14 +107,19 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   // ("Rendered more hooks than during the previous render") cuando el usuario
   // inicia sesión y el componente pasa de renderizar el return de !profile
   // al return principal con todos los hooks.
+  //
+  // Fix: usamos profile?.id (string estable) en lugar de profile (objeto) para
+  // evitar re-renders infinitos. loadCustomerTenants se estabiliza con useCallback
+  // en el contexto, pero depende de profile?.id, así que solo necesitamos ese.
+  const profileId = profile?.id;
   useEffect(() => {
-    if (activeTab !== 'my_restaurants' || !profile) return;
+    if (activeTab !== 'my_restaurants' || !profileId) return;
     setLoadingTenants(true);
     loadCustomerTenants().then(data => {
       setCustomerTenants(data);
       setLoadingTenants(false);
     });
-  }, [activeTab, profile, loadCustomerTenants]);
+  }, [activeTab, profileId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const levelKey = tenantLevel;
   const lvl = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.bronze;
@@ -224,8 +229,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 px-3 py-2 overflow-x-auto shrink-0" style={{ borderBottom: '1px solid var(--menu-border)' }}>
+      {/* Tabs — scrollable horizontal en móvil, sin scrollbar visible */}
+      <div className="flex gap-1 px-3 py-2 shrink-0" style={{ borderBottom: '1px solid var(--menu-border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
@@ -292,6 +297,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                   {rewards.map(r => {
                     const canRedeem = tenantPoints >= r.points_required;
                     const isRedeeming = redeemingId === r.id;
+                    // Protección anti-doble-canje: deshabilitar TODOS los botones mientras hay un canje activo
+                    const anyRedeeming = redeemingId !== null;
                     const msg = redeemMsg?.id === r.id ? redeemMsg : null;
                     return (
                       <div key={r.id} className="rounded-xl p-3 space-y-2"
@@ -303,7 +310,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                           </div>
                           {canRedeem ? (
                             <button
-                              disabled={isRedeeming}
+                              disabled={anyRedeeming}
                               onClick={async () => {
                                 if (!profile?.id || !tenantStats) return;
                                 setRedeemingId(r.id);
