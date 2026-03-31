@@ -1,7 +1,8 @@
 /**
- * PromosScreen — Pantalla de promociones activas para el cliente.
- * Muestra las promos vigentes del tenant actual, filtradas por nivel del cliente.
- * v2.0: Tarjetas clickeables para aplicar descuento al carrito.
+ * PromosScreen v3.0 — Todas las promos son interactivas.
+ * - percentage / fixed: aplican descuento monetario al carrito
+ * - bogo / free_item: se marcan en el pedido como promo activa (sin descuento monetario)
+ * - Al tocar una promo disponible → se aplica y se abre el carrito
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,7 +54,7 @@ const LEVEL_LABELS: Record<string, string> = {
 function formatValue(promo: Promotion): string {
   if (promo.type === 'percentage') return `${promo.value}% de descuento`;
   if (promo.type === 'fixed') return `₡${promo.value.toLocaleString()} de descuento`;
-  if (promo.type === 'bogo') return '2x1 en productos seleccionados';
+  if (promo.type === 'bogo') return '2x1 — paga uno, lleva dos';
   if (promo.type === 'free_item') return 'Producto gratis incluido';
   return promo.description || promo.name;
 }
@@ -84,6 +85,7 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
   useEffect(() => {
     if (!isOpen || !tenant.id) return;
     setLoading(true);
+    setSelectedPromoId(null);
     const now = new Date().toISOString();
     supabase
       .from('promotions')
@@ -98,7 +100,6 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
       });
   }, [isOpen, tenant.id]);
 
-  // Filtrar promos visibles: las de nivel requerido <= nivel del cliente
   const LEVEL_ORDER = ['bronze', 'silver', 'gold', 'vip'];
   const visiblePromos = promos.filter(p => {
     if (!p.level_required) return true;
@@ -107,7 +108,6 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
     return cusIdx >= reqIdx;
   });
 
-  // Promos bloqueadas por nivel (para mostrar como "desbloquea con nivel X")
   const lockedPromos = promos.filter(p => {
     if (!p.level_required) return false;
     const reqIdx = LEVEL_ORDER.indexOf(p.level_required);
@@ -115,15 +115,16 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
     return cusIdx < reqIdx;
   });
 
+  // Todas las promos son aplicables si hay callback
+  const isApplicable = (promo: Promotion) => !!onPromoSelect;
+
   const handlePromoClick = (promo: Promotion) => {
-    // Solo promos de tipo porcentaje o fijo son aplicables al carrito
-    if ((promo.type !== 'percentage' && promo.type !== 'fixed') || !promo.value) return;
     if (!onPromoSelect) return;
     setSelectedPromoId(promo.id);
     setTimeout(() => {
       onPromoSelect({ id: promo.id, name: promo.name, type: promo.type, value: promo.value });
       onClose();
-    }, 400);
+    }, 350);
   };
 
   return (
@@ -139,22 +140,23 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-12 pb-4"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ borderBottom: `1px solid ${textColor}12` }}>
             <div className="flex items-center gap-2">
               <Tag size={20} style={{ color: accentColor }} />
               <h1 className="text-lg font-black">Promociones</h1>
             </div>
             <button onClick={onClose}
               className="w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.08)' }}>
+              style={{ background: `${textColor}12` }}>
               <X size={18} />
             </button>
           </div>
 
           {/* Hint */}
-          {onPromoSelect && visiblePromos.some(p => p.type === 'percentage' || p.type === 'fixed') && (
-            <div className="px-4 py-2 text-xs opacity-60 text-center" style={{ color: textColor }}>
-              Toca una promoción para aplicarla a tu carrito
+          {onPromoSelect && visiblePromos.length > 0 && (
+            <div className="px-4 py-2.5 text-xs text-center font-medium"
+              style={{ color: `${textColor}60`, background: `${accentColor}08` }}>
+              👆 Toca una promoción para aplicarla a tu carrito
             </div>
           )}
 
@@ -172,34 +174,33 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
               </div>
             ) : (
               <>
-                {/* Promos disponibles */}
                 {visiblePromos.length > 0 && (
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-2">
+                    <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-3">
                       Disponibles para ti
                     </div>
                     <div className="space-y-3">
                       {visiblePromos.map(promo => {
                         const remaining = timeLeft(promo.active_until);
                         const isUrgent = remaining && remaining.includes('m restantes');
-                        const isApplicable = (promo.type === 'percentage' || promo.type === 'fixed') && promo.value > 0 && !!onPromoSelect;
+                        const canApply = isApplicable(promo);
                         const isSelected = selectedPromoId === promo.id;
                         return (
                           <motion.div
                             key={promo.id}
-                            whileTap={isApplicable ? { scale: 0.97 } : {}}
-                            className={`rounded-2xl p-4 relative overflow-hidden transition-all ${isApplicable ? 'cursor-pointer' : ''}`}
+                            whileTap={canApply ? { scale: 0.97 } : {}}
+                            className={`rounded-2xl p-4 relative overflow-hidden transition-all ${canApply ? 'cursor-pointer' : ''}`}
                             style={{
-                              background: isSelected ? `${accentColor}30` : `${accentColor}15`,
-                              border: `1px solid ${isSelected ? accentColor : `${accentColor}30`}`,
+                              background: isSelected ? `${accentColor}28` : `${accentColor}12`,
+                              border: `1.5px solid ${isSelected ? accentColor : `${accentColor}28`}`,
                             }}
-                            onClick={isApplicable ? () => handlePromoClick(promo) : undefined}
+                            onClick={canApply ? () => handlePromoClick(promo) : undefined}
                           >
                             {/* Accent stripe */}
                             <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
                               style={{ backgroundColor: accentColor }} />
-                            <div className="pl-2">
-                              <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="pl-3">
+                              <div className="flex items-start justify-between gap-2 mb-1.5">
                                 <div className="flex items-center gap-2">
                                   <span style={{ color: accentColor }}>{TYPE_ICONS[promo.type] || <Tag size={18} />}</span>
                                   <span className="font-black text-sm">{promo.name}</span>
@@ -207,18 +208,18 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   {promo.level_required && (
                                     <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                      style={{ background: `${accentColor}22`, color: accentColor }}>
+                                      style={{ background: `${accentColor}20`, color: accentColor }}>
                                       {LEVEL_LABELS[promo.level_required] || promo.level_required}
                                     </span>
                                   )}
-                                  {isApplicable && (
+                                  {canApply && (
                                     isSelected
                                       ? <Check size={16} style={{ color: accentColor }} />
-                                      : <ChevronRight size={16} style={{ color: `${textColor}50` }} />
+                                      : <ChevronRight size={16} style={{ color: `${textColor}40` }} />
                                   )}
                                 </div>
                               </div>
-                              <div className="text-sm font-bold mb-1" style={{ color: accentColor }}>
+                              <div className="text-sm font-bold mb-1.5" style={{ color: accentColor }}>
                                 {formatValue(promo)}
                               </div>
                               {promo.description && (
@@ -232,7 +233,7 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                                 )}
                                 {remaining && (
                                   <span className="flex items-center gap-1 text-[11px]"
-                                    style={{ color: isUrgent ? '#EF4444' : 'rgba(255,255,255,0.5)' }}>
+                                    style={{ color: isUrgent ? '#EF4444' : `${textColor}50` }}>
                                     <Clock size={11} />
                                     {remaining}
                                   </span>
@@ -242,9 +243,14 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                                     {promo.usage_limit - promo.used_count} usos restantes
                                   </span>
                                 )}
-                                {isApplicable && (
-                                  <span className="text-[11px] font-semibold" style={{ color: accentColor }}>
+                                {canApply && !isSelected && (
+                                  <span className="text-[11px] font-bold" style={{ color: accentColor }}>
                                     Toca para aplicar →
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="text-[11px] font-bold text-green-400">
+                                    ✓ Aplicada — abriendo carrito...
                                   </span>
                                 )}
                               </div>
@@ -256,7 +262,6 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                   </div>
                 )}
 
-                {/* Promos bloqueadas */}
                 {lockedPromos.length > 0 && (
                   <div className="mt-4">
                     <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-2">
@@ -265,15 +270,15 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                     <div className="space-y-2">
                       {lockedPromos.map(promo => (
                         <div key={promo.id}
-                          className="rounded-2xl p-4 relative overflow-hidden opacity-50"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          className="rounded-2xl p-4 relative overflow-hidden opacity-40"
+                          style={{ background: `${textColor}06`, border: `1px solid ${textColor}10` }}>
                           <div className="flex items-center justify-between gap-2">
                             <div>
                               <div className="font-bold text-sm mb-0.5">{promo.name}</div>
                               <div className="text-xs opacity-60">{formatValue(promo)}</div>
                             </div>
                             <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-full flex-shrink-0"
-                              style={{ background: 'rgba(255,255,255,0.08)' }}>
+                              style={{ background: `${textColor}10` }}>
                               🔒 {LEVEL_LABELS[promo.level_required!] || promo.level_required}
                             </div>
                           </div>
@@ -283,10 +288,9 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSe
                   </div>
                 )}
 
-                {/* CTA si no está logueado */}
                 {!profile && (
                   <div className="mt-4 rounded-2xl p-4 text-center"
-                    style={{ background: `${accentColor}15`, border: `1px solid ${accentColor}30` }}>
+                    style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}25` }}>
                     <div className="text-sm font-bold mb-1">¡Inicia sesión para más beneficios!</div>
                     <div className="text-xs opacity-60">Acumula puntos y desbloquea promos exclusivas.</div>
                   </div>

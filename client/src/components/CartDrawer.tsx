@@ -916,7 +916,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     items.forEach(item => {
       message += `• ${item.quantity}x ${item.menuItem.name} — ${formatPrice(item.menuItem.price * item.quantity)}\n`;
     });
-    message += `\n💰 *${t('cart.total')}: ${formatPrice(totalPrice)}*\n`;
+    if (discountAmount > 0) {
+      message += `\n🏷️ Subtotal: ${formatPrice(totalPrice)}\n`;
+      if (appliedPromo) message += `🎁 Promo: ${appliedPromo.name}${appliedPromo.discountAmount > 0 ? ` (-${formatPrice(appliedPromo.discountAmount)})` : ''}\n`;
+      if (appliedCoupon) message += `🎟️ Cupón: ${appliedCoupon.code} (-${formatPrice(appliedCoupon.discountAmount)})\n`;
+      message += `💰 *${t('cart.total')}: ${formatPrice(finalTotal)}*\n`;
+    } else {
+      message += `\n💰 *${t('cart.total')}: ${formatPrice(totalPrice)}*\n`;
+    }
     message += `💳 ${paymentMethodLabel(paymentMethod)}`;
     if (notes) message += `\n📝 ${lang === 'es' ? 'Notas' : 'Notes'}: ${notes}`;
     if (paymentMethod === 'sinpe') {
@@ -1218,10 +1225,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     {appliedPromo && (
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>🏷️ {appliedPromo.name}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>
+                            {appliedPromo.type === 'bogo' ? '🎁' : appliedPromo.type === 'free_item' ? '🎁' : '🏷️'} {appliedPromo.name}
+                          </span>
                           <button onClick={() => setAppliedPromo(null)} className="text-xs opacity-50 hover:opacity-100">✕</button>
                         </div>
-                        <span className="text-sm font-semibold text-green-400">-{formatPrice(appliedPromo.discountAmount)}</span>
+                        {appliedPromo.discountAmount > 0
+                          ? <span className="text-sm font-semibold text-green-400">-{formatPrice(appliedPromo.discountAmount)}</span>
+                          : <span className="text-xs font-semibold text-green-400">✓ Aplicada</span>
+                        }
                       </div>
                     )}
                     {/* Cupón aplicado */}
