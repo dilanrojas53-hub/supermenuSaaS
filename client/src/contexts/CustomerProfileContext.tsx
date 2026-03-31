@@ -1,24 +1,35 @@
 /**
- * CustomerProfileContext — v3.0
- * Auth: teléfono + contraseña (sin OTP/SMS) + WebAuthn/passkey opcional.
- * Hashing: SHA-256 via SubtleCrypto (nativo en todos los navegadores modernos).
- * WebAuthn: registro y autenticación 100% en el cliente usando la Web Authentication API.
- * Aislamiento multi-tenant: STORAGE_KEY incluye tenantId.
+ * CustomerProfileContext — v4.0 GLOBAL IDENTITY
+ *
+ * Arquitectura:
+ * - customer_profiles: identidad GLOBAL (phone único, sin tenant_id en auth)
+ * - tenant_customer_stats: puntos/nivel/stats AISLADOS por tenant
+ *
+ * Helpers globales:
+ * - findGlobalCustomerByPhone()   → busca por phone sin tenant_id
+ * - ensureTenantMembership()      → crea vínculo cliente↔tenant si no existe
+ * - loginGlobalCustomer()         → autentica globalmente y vincula al tenant actual
+ * - registerGlobalCustomer()      → crea cuenta global y vincula al tenant actual
+ * - loadTenantStats()             → carga stats del tenant actual
+ * - loadCustomerTenants()         → carga todos los tenants donde el cliente tiene actividad
+ *
+ * Compatibilidad: los métodos legacy (checkPhone, loginWithPassword, etc.)
+ * siguen funcionando pero ya no filtran por tenant_id en auth.
  */
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export interface CustomerProfile {
   id: string;
-  tenant_id: string;
+  tenant_id?: string | null; // legacy, ya no se usa en auth
   phone: string | null;
   email: string | null;
   name: string | null;
   avatar_url: string | null;
-  points: number;
-  level: string;
-  total_spent: number;
-  total_orders: number;
+  points: number;       // legacy, usar tenantStats.points
+  level: string;        // legacy, usar tenantStats.level
+  total_spent: number;  // legacy, usar tenantStats.total_spent
+  total_orders: number; // legacy, usar tenantStats.total_orders
   birthday: string | null;
   has_password?: boolean;
   created_at: string;
@@ -30,6 +41,15 @@ export interface TenantStats {
   level: string;
   total_spent: number;
   total_orders: number;
+}
+
+export interface CustomerTenantEntry {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_logo_url: string | null;
+  points: number;
+  total_orders: number;
+  last_seen_at: string | null;
 }
 
 export type AuthStep =
@@ -52,13 +72,13 @@ export interface WebAuthnCredentialInfo {
 
 interface CustomerProfileContextType {
   profile: CustomerProfile | null;
-  tenantStats: TenantStats | null;  // puntos/nivel aislados por tenant
+  tenantStats: TenantStats | null;
   isGuest: boolean;
   isLoading: boolean;
   authStep: AuthStep;
   setAuthStep: (step: AuthStep) => void;
-  refreshTenantStats: () => Promise<void>;  // refresca puntos/nivel desde BD
-  // Nuevo flujo: contraseña
+  refreshTenantStats: () => Promise<void>;
+  // Flujo global
   checkPhone: (phone: string, tenantId: string) => Promise<{ exists: boolean; hasPasskey: boolean }>;
   registerWithPassword: (data: {
     phone: string; password: string; name: string;
@@ -77,7 +97,9 @@ interface CustomerProfileContextType {
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   logoutAllDevices: () => Promise<void>;
-  // Legacy compat (usado en checkout y otros componentes)
+  // Mis restaurantes
+  loadCustomerTenants: () => Promise<CustomerTenantEntry[]>;
+  // Legacy compat
   sendOTP: (phone: string, tenantId: string) => Promise<{ success: boolean; error?: string }>;
   verifyOTP: (phone: string, code: string, tenantId: string) => Promise<{ success: boolean; error?: string; isNew?: boolean }>;
   completeProfile: (data: { name: string; email?: string; birthday?: string }) => Promise<void>;
@@ -87,12 +109,9 @@ interface CustomerProfileContextType {
 
 const CustomerProfileContext = createContext<CustomerProfileContextType | null>(null);
 
-const STORAGE_KEY_PREFIX = 'sm_customer_profile_id';
+// Sesión global: una sola key, no por tenant
+const GLOBAL_STORAGE_KEY = 'sm_customer_global_id';
 const DEVICE_KEY = 'sm_device_fp';
-
-function getStorageKey(tenantId?: string): string {
-  return tenantId ? `${STORAGE_KEY_PREFIX}_${tenantId}` : STORAGE_KEY_PREFIX;
-}
 
 function getDeviceFingerprint(): string {
   let fp = localStorage.getItem(DEVICE_KEY);
@@ -132,126 +151,176 @@ function base64urlToBuffer(base64url: string): Uint8Array {
   return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
 }
 
+// ─── HELPERS GLOBALES ─────────────────────────────────────────────────────────
+
+/** Busca un cliente por teléfono en la identidad global (sin filtrar por tenant) */
+async function findGlobalCustomerByPhone(phone: string) {
+  const clean = phone.replace(/\D/g, '');
+  const { data } = await supabase
+    .from('customer_profiles')
+    .select('*')
+    .eq('phone', clean)
+    .maybeSingle();
+  return data;
+}
+
+/** Crea el vínculo cliente↔tenant en tenant_customer_stats si no existe */
+async function ensureTenantMembership(customerId: string, tenantId: string) {
+  const { data: existing } = await supabase
+    .from('tenant_customer_stats')
+    .select('id')
+    .eq('customer_id', customerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  if (!existing) {
+    const { error } = await supabase.from('tenant_customer_stats').insert({
+      customer_id: customerId,
+      tenant_id: tenantId,
+      points: 0,
+      level: 'bronze',
+      total_spent: 0,
+      total_orders: 0,
+      last_seen_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('[ensureTenantMembership] error:', error.message);
+    } else {
+      console.info('[ensureTenantMembership] vínculo creado:', customerId, '↔', tenantId);
+    }
+  } else {
+    // Actualizar last_seen_at
+    await supabase
+      .from('tenant_customer_stats')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('customer_id', customerId)
+      .eq('tenant_id', tenantId);
+  }
+}
+
+/** Carga stats del tenant actual para un cliente */
+async function loadTenantStats(customerId: string, tenantId: string): Promise<TenantStats> {
+  const { data } = await supabase
+    .from('tenant_customer_stats')
+    .select('points, level, total_spent, total_orders')
+    .eq('customer_id', customerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  return data
+    ? { points: data.points ?? 0, level: data.level ?? 'bronze', total_spent: data.total_spent ?? 0, total_orders: data.total_orders ?? 0 }
+    : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 };
+}
+
+// ─── PROVIDER ─────────────────────────────────────────────────────────────────
+
 export function CustomerProfileProvider({ children, tenantId }: { children: ReactNode; tenantId?: string }) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authStep, setAuthStep] = useState<AuthStep>('idle');
 
-  // Cargar stats del tenant cuando cambia el perfil o el tenantId
+  // Cargar sesión global al iniciar
   useEffect(() => {
-    if (!profile?.id || !tenantId) { setTenantStats(null); return; }
-    supabase.from('tenant_customer_stats')
-      .select('points, level, total_spent, total_orders')
-      .eq('customer_id', profile.id)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-      .then(({ data }) => {
-        setTenantStats(data ? {
-          points: data.points ?? 0,
-          level: data.level ?? 'bronze',
-          total_spent: data.total_spent ?? 0,
-          total_orders: data.total_orders ?? 0,
-        } : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 });
-      });
-  }, [profile?.id, tenantId]);
-
-  // Método explícito para refrescar tenantStats desde la BD (llamado post-orden y post-canje)
-  const refreshTenantStats = useCallback(async () => {
-    if (!profile?.id || !tenantId) return;
-    const { data, error } = await supabase
-      .from('tenant_customer_stats')
-      .select('points, level, total_spent, total_orders')
-      .eq('customer_id', profile.id)
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-    if (error) {
-      console.error('[CustomerProfileContext] refreshTenantStats error:', error.message);
-      return;
-    }
-    setTenantStats(data ? {
-      points: data.points ?? 0,
-      level: data.level ?? 'bronze',
-      total_spent: data.total_spent ?? 0,
-      total_orders: data.total_orders ?? 0,
-    } : { points: 0, level: 'bronze', total_spent: 0, total_orders: 0 });
-    console.info('[CustomerProfileContext] tenantStats refrescado:', data?.points ?? 0, 'pts');
-  }, [profile?.id, tenantId]);
-
-  useEffect(() => {
-    if (tenantId === undefined) return;
-    const storageKey = getStorageKey(tenantId);
-    const savedId = localStorage.getItem(storageKey);
+    const savedId = localStorage.getItem(GLOBAL_STORAGE_KEY);
     if (!savedId) { setIsLoading(false); return; }
-    supabase.from('customer_profiles').select('*').eq('id', savedId).eq('tenant_id', tenantId).maybeSingle()
+    supabase.from('customer_profiles')
+      .select('*')
+      .eq('id', savedId)
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setProfile(data as CustomerProfile);
           setAuthStep('logged_in');
         } else {
-          localStorage.removeItem(storageKey);
+          localStorage.removeItem(GLOBAL_STORAGE_KEY);
         }
         setIsLoading(false);
       });
-  }, [tenantId]);
+  }, []);
 
-  // ─── CHECK PHONE ────────────────────────────────────────────────────────────
-  const checkPhone = useCallback(async (phone: string, tid: string) => {
-    const clean = phone.replace(/\D/g, '');
-    const { data } = await supabase.from('customer_profiles')
-      .select('id').eq('phone', clean).eq('tenant_id', tid).maybeSingle();
+  // Cargar/refrescar tenantStats cuando cambia el perfil o el tenantId
+  useEffect(() => {
+    if (!profile?.id || !tenantId) { setTenantStats(null); return; }
+    // Asegurar vínculo y cargar stats
+    ensureTenantMembership(profile.id, tenantId).then(() => {
+      loadTenantStats(profile.id, tenantId).then(setTenantStats);
+    });
+  }, [profile?.id, tenantId]);
+
+  // Método explícito para refrescar tenantStats (post-orden, post-canje)
+  const refreshTenantStats = useCallback(async () => {
+    if (!profile?.id || !tenantId) return;
+    const stats = await loadTenantStats(profile.id, tenantId);
+    setTenantStats(stats);
+    console.info('[CustomerProfileContext] tenantStats refrescado:', stats.points, 'pts');
+  }, [profile?.id, tenantId]);
+
+  // ─── CHECK PHONE (global) ────────────────────────────────────────────────
+  const checkPhone = useCallback(async (phone: string, _tid: string) => {
+    // _tid se ignora: la identidad es global
+    const data = await findGlobalCustomerByPhone(phone);
     if (!data) return { exists: false, hasPasskey: false };
     const { data: creds } = await supabase.from('webauthn_credentials')
       .select('id').eq('user_id', data.id).limit(1);
     return { exists: true, hasPasskey: (creds?.length ?? 0) > 0 };
   }, []);
 
-  // ─── REGISTRO CON CONTRASEÑA ─────────────────────────────────────────────
+  // ─── REGISTRO GLOBAL ─────────────────────────────────────────────────────
   const registerWithPassword = useCallback(async ({
     phone, password, name, email, birthday, tenantId: tid,
   }: { phone: string; password: string; name: string; email?: string; birthday?: string; tenantId: string }) => {
     const clean = phone.replace(/\D/g, '');
-    const { data: existing } = await supabase.from('customer_profiles')
-      .select('id').eq('phone', clean).eq('tenant_id', tid).maybeSingle();
+    // Verificar si ya existe globalmente
+    const existing = await findGlobalCustomerByPhone(clean);
     if (existing) return { success: false, error: 'Ya existe una cuenta con este número' };
+    // Crear identidad global (sin tenant_id)
     const { data: created, error } = await supabase.from('customer_profiles').insert({
       phone: clean, name, email: email || null, birthday: birthday || null,
-      tenant_id: tid, points: 0, level: 'bronze', total_spent: 0, total_orders: 0,
       has_password: true,
+      // Legacy fields para compatibilidad
+      points: 0, level: 'bronze', total_spent: 0, total_orders: 0,
     }).select().single();
-    if (error || !created) return { success: false, error: 'Error al crear la cuenta' };
+    if (error || !created) {
+      console.error('[registerGlobalCustomer] error:', error?.message);
+      return { success: false, error: 'Error al crear la cuenta' };
+    }
     const realHash = await hashPassword(password, created.id);
     await supabase.from('customer_profiles').update({ password_hash: realHash }).eq('id', created.id);
+    // Crear vínculo con el tenant actual
+    await ensureTenantMembership(created.id, tid);
+    // Registrar dispositivo
     const fp = getDeviceFingerprint();
     await supabase.from('trusted_devices').upsert(
       { customer_id: created.id, device_fingerprint: fp, last_seen_at: new Date().toISOString() },
       { onConflict: 'customer_id,device_fingerprint' }
     );
-    localStorage.setItem(getStorageKey(tid), created.id);
+    localStorage.setItem(GLOBAL_STORAGE_KEY, created.id);
     setProfile({ ...created, has_password: true } as CustomerProfile);
     setAuthStep('passkey_prompt');
+    console.info('[registerGlobalCustomer] cuenta global creada:', created.id);
     return { success: true };
   }, []);
 
-  // ─── LOGIN CON CONTRASEÑA ────────────────────────────────────────────────
+  // ─── LOGIN GLOBAL ────────────────────────────────────────────────────────
   const loginWithPassword = useCallback(async (phone: string, password: string, tid: string) => {
-    const clean = phone.replace(/\D/g, '');
-    const { data } = await supabase.from('customer_profiles')
-      .select('*').eq('phone', clean).eq('tenant_id', tid).maybeSingle();
+    // Buscar globalmente (sin tenant_id)
+    const data = await findGlobalCustomerByPhone(phone);
     if (!data) return { success: false, error: 'No existe una cuenta con este número' };
     if (!data.password_hash) return { success: false, error: 'Esta cuenta no tiene contraseña. Contacta soporte.' };
     const hash = await hashPassword(password, data.id);
     if (hash !== data.password_hash) return { success: false, error: 'Contraseña incorrecta' };
+    // Crear vínculo con el tenant actual si no existe
+    await ensureTenantMembership(data.id, tid);
     const fp = getDeviceFingerprint();
     await supabase.from('trusted_devices').upsert(
       { customer_id: data.id, device_fingerprint: fp, last_seen_at: new Date().toISOString() },
       { onConflict: 'customer_id,device_fingerprint' }
     );
     await supabase.from('customer_profiles').update({ last_login_at: new Date().toISOString() }).eq('id', data.id);
-    localStorage.setItem(getStorageKey(tid), data.id);
+    localStorage.setItem(GLOBAL_STORAGE_KEY, data.id);
     setProfile(data as CustomerProfile);
     const { data: creds } = await supabase.from('webauthn_credentials').select('id').eq('user_id', data.id).limit(1);
     setAuthStep((creds?.length ?? 0) === 0 ? 'passkey_prompt' : 'logged_in');
+    console.info('[loginGlobalCustomer] sesión iniciada globalmente:', data.id, '→ tenant:', tid);
     return { success: true };
   }, []);
 
@@ -337,9 +406,8 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
   const loginWithPasskey = useCallback(async (phone: string, tid: string) => {
     if (!isWebAuthnSupported()) return { success: false, error: 'Tu dispositivo no soporta passkeys' };
     try {
-      const clean = phone.replace(/\D/g, '');
-      const { data: profileData } = await supabase.from('customer_profiles')
-        .select('*').eq('phone', clean).eq('tenant_id', tid).maybeSingle();
+      // Buscar globalmente
+      const profileData = await findGlobalCustomerByPhone(phone);
       if (!profileData) return { success: false, error: 'No existe una cuenta con este número' };
       const { data: creds } = await supabase.from('webauthn_credentials')
         .select('credential_id').eq('user_id', profileData.id);
@@ -366,13 +434,15 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
       const usedCredId = bufferToBase64url(assertion.rawId);
       await supabase.from('webauthn_credentials')
         .update({ last_used_at: new Date().toISOString() }).eq('credential_id', usedCredId);
+      // Crear vínculo con el tenant actual
+      await ensureTenantMembership(profileData.id, tid);
       const fp = getDeviceFingerprint();
       await supabase.from('trusted_devices').upsert(
         { customer_id: profileData.id, device_fingerprint: fp, last_seen_at: new Date().toISOString() },
         { onConflict: 'customer_id,device_fingerprint' }
       );
       await supabase.from('customer_profiles').update({ last_login_at: new Date().toISOString() }).eq('id', profileData.id);
-      localStorage.setItem(getStorageKey(tid), profileData.id);
+      localStorage.setItem(GLOBAL_STORAGE_KEY, profileData.id);
       setProfile(profileData as CustomerProfile);
       setAuthStep('logged_in');
       return { success: true };
@@ -411,24 +481,50 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
     if (data) setProfile(data as CustomerProfile);
   }, [profile]);
 
+  // ─── MIS RESTAURANTES ────────────────────────────────────────────────────
+  const loadCustomerTenants = useCallback(async (): Promise<CustomerTenantEntry[]> => {
+    if (!profile?.id) return [];
+    const { data, error } = await supabase
+      .from('tenant_customer_stats')
+      .select('tenant_id, points, total_orders, last_seen_at')
+      .eq('customer_id', profile.id)
+      .order('last_seen_at', { ascending: false });
+    if (error || !data?.length) return [];
+    // Cargar info de los tenants
+    const tenantIds = data.map(d => d.tenant_id);
+    const { data: tenants } = await supabase
+      .from('tenants')
+      .select('id, name, logo_url')
+      .in('id', tenantIds);
+    const tenantMap = Object.fromEntries((tenants ?? []).map(t => [t.id, t]));
+    return data.map(d => ({
+      tenant_id: d.tenant_id,
+      tenant_name: tenantMap[d.tenant_id]?.name ?? 'Restaurante',
+      tenant_logo_url: tenantMap[d.tenant_id]?.logo_url ?? null,
+      points: d.points ?? 0,
+      total_orders: d.total_orders ?? 0,
+      last_seen_at: d.last_seen_at ?? null,
+    }));
+  }, [profile?.id]);
+
   // ─── LOGOUT ──────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
     const fp = getDeviceFingerprint();
     if (profile) {
       await supabase.from('trusted_devices').delete().eq('customer_id', profile.id).eq('device_fingerprint', fp);
     }
-    localStorage.removeItem(getStorageKey(tenantId));
+    localStorage.removeItem(GLOBAL_STORAGE_KEY);
     setProfile(null);
     setAuthStep('idle');
-  }, [profile, tenantId]);
+  }, [profile]);
 
   const logoutAllDevices = useCallback(async () => {
     if (!profile) return;
     await supabase.from('trusted_devices').delete().eq('customer_id', profile.id);
-    localStorage.removeItem(getStorageKey(tenantId));
+    localStorage.removeItem(GLOBAL_STORAGE_KEY);
     setProfile(null);
     setAuthStep('idle');
-  }, [profile, tenantId]);
+  }, [profile]);
 
   // ─── LEGACY COMPAT ────────────────────────────────────────────────────────
   const sendOTP = useCallback(async (phone: string, tid: string) => {
@@ -456,33 +552,38 @@ export function CustomerProfileProvider({ children, tenantId }: { children: Reac
     return { success: true };
   }, [profile]);
 
+  // Legacy login: busca globalmente y crea vínculo con el tenant
   const login = useCallback(async (phone: string, tid: string): Promise<CustomerProfile | null> => {
-    let { data } = await supabase.from('customer_profiles')
-      .select('*').eq('phone', phone).eq('tenant_id', tid).maybeSingle();
+    let data = await findGlobalCustomerByPhone(phone);
     if (!data) {
+      // Crear cuenta global mínima (sin tenant_id)
       const { data: created } = await supabase.from('customer_profiles')
-        .insert({ phone, tenant_id: tid, points: 0, level: 'bronze', total_spent: 0, total_orders: 0, has_password: false })
+        .insert({ phone: phone.replace(/\D/g, ''), has_password: false, points: 0, level: 'bronze', total_spent: 0, total_orders: 0 })
         .select().single();
       data = created;
     }
     if (!data) return null;
+    // Crear vínculo con el tenant actual
+    await ensureTenantMembership(data.id, tid);
     const fp = getDeviceFingerprint();
     await supabase.from('trusted_devices').upsert(
       { customer_id: data.id, device_fingerprint: fp, last_seen_at: new Date().toISOString() },
       { onConflict: 'customer_id,device_fingerprint' }
     );
-    localStorage.setItem(getStorageKey(tenantId), data.id);
+    localStorage.setItem(GLOBAL_STORAGE_KEY, data.id);
     setProfile(data as CustomerProfile);
     setAuthStep('logged_in');
     return data as CustomerProfile;
-  }, [tenantId]);
+  }, []);
 
   return (
     <CustomerProfileContext.Provider value={{
       profile, tenantStats, isGuest: !profile, isLoading, authStep, setAuthStep,
+      refreshTenantStats,
       checkPhone, registerWithPassword, loginWithPassword, changePassword,
       isWebAuthnSupported, registerPasskey, loginWithPasskey, getPasskeys, deletePasskey,
-      updateProfile, refreshProfile, refreshTenantStats, logout, logoutAllDevices,
+      updateProfile, refreshProfile, logout, logoutAllDevices,
+      loadCustomerTenants,
       sendOTP, verifyOTP, completeProfile, setPassword, login,
     }}>
       {children}

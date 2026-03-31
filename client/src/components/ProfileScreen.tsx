@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Clock, Heart, MapPin, Shield, ChevronRight, LogOut, Loader2, Trash2, Plus, Edit2, Check, Fingerprint, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
+import type { CustomerTenantEntry } from '@/contexts/CustomerProfileContext';
 import { supabase } from '@/lib/supabase';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 
@@ -31,12 +32,14 @@ const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string;
 };
 
 export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: ProfileScreenProps) {
-  const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, refreshTenantStats, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey } = useCustomerProfile();
+  const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, refreshTenantStats, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey, loadCustomerTenants } = useCustomerProfile();
   const tenantPoints = tenantStats?.points ?? 0;
   const tenantLevel = (tenantStats?.level || 'bronze') as keyof typeof LEVEL_CONFIG;
   const tenantTotalOrders = tenantStats?.total_orders ?? 0;
   const tenantTotalSpent = tenantStats?.total_spent ?? 0;
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'addresses' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'my_restaurants' | 'addresses' | 'security'>('overview');
+  const [customerTenants, setCustomerTenants] = useState<CustomerTenantEntry[]>([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -163,12 +166,23 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   );
 
   const tabs = [
-    { key: 'overview',   label: 'Inicio',      icon: '⭐' },
-    { key: 'history',    label: 'Historial',   icon: '🕐' },
-    { key: 'favorites',  label: 'Favoritos',   icon: '❤️' },
-    { key: 'addresses',  label: 'Direcciones', icon: '📍' },
-    { key: 'security',   label: 'Seguridad',   icon: '🔒' },
+    { key: 'overview',       label: 'Inicio',           icon: '⭐' },
+    { key: 'history',        label: 'Historial',        icon: '🕐' },
+    { key: 'favorites',      label: 'Favoritos',        icon: '❤️' },
+    { key: 'my_restaurants', label: 'Mis restaurantes', icon: '🍽️' },
+    { key: 'addresses',      label: 'Direcciones',      icon: '📍' },
+    { key: 'security',       label: 'Seguridad',        icon: '🔒' },
   ] as const;
+
+  // Cargar mis restaurantes al abrir ese tab
+  useEffect(() => {
+    if (activeTab !== 'my_restaurants' || !profile) return;
+    setLoadingTenants(true);
+    loadCustomerTenants().then(data => {
+      setCustomerTenants(data);
+      setLoadingTenants(false);
+    });
+  }, [activeTab, profile, loadCustomerTenants]);
 
   return (
     <motion.div className="fixed inset-0 z-[200] flex flex-col"
@@ -512,6 +526,53 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                     >
                       <Heart size={13} fill="#ef4444" stroke="#ef4444" strokeWidth={2} />
                     </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MIS RESTAURANTES */}
+        {!loading && activeTab === 'my_restaurants' && (
+          <div className="p-4">
+            {loadingTenants ? (
+              <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin opacity-40" /></div>
+            ) : customerTenants.length === 0 ? (
+              <div className="text-center py-12 opacity-40">
+                <span className="text-4xl block mb-3">🍽️</span>
+                <p className="text-sm">Aún no has visitado ningún restaurante</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs opacity-50 mb-3">Tu cuenta funciona en todos estos restaurantes con los mismos datos de acceso.</p>
+                {customerTenants.map(t => (
+                  <div key={t.tenant_id} className="rounded-2xl p-4 flex items-center gap-3"
+                    style={{
+                      background: 'var(--menu-surface)',
+                      border: t.tenant_id === tenant.id ? `1px solid ${accentColor}` : '1px solid rgba(255,255,255,0.06)'
+                    }}>
+                    {t.tenant_logo_url ? (
+                      <img src={t.tenant_logo_url} alt={t.tenant_name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.08)' }}>🍽️</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm truncate">{t.tenant_name}</div>
+                      {t.tenant_id === tenant.id && (
+                        <div className="text-[10px] mb-0.5" style={{ color: accentColor }}>Restaurante actual</div>
+                      )}
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs opacity-60">⭐ {t.points} pts</span>
+                        <span className="text-xs opacity-60">🛒 {t.total_orders} pedidos</span>
+                      </div>
+                    </div>
+                    {t.last_seen_at && (
+                      <div className="text-[10px] opacity-30 text-right flex-shrink-0">
+                        {new Date(t.last_seen_at).toLocaleDateString('es-CR', { month: 'short', day: 'numeric' })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
