@@ -37,6 +37,7 @@ import ProfileScreen from '@/components/ProfileScreen';
 import PhoneLoginSheet from '@/components/PhoneLoginSheet';
 import PromosScreen from '@/components/PromosScreen';
 import HistoryScreen from '@/components/HistoryScreen';
+import { useFavorites } from '@/hooks/useFavorites';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -77,6 +78,12 @@ function MenuContent() {
   // NOTE: useCustomerProfile() is available here because CustomerProfileProvider
   // is rendered below wrapping the actual content (see return statement)
   const { profile: customerProfile } = useCustomerProfile();
+
+  // Favoritos del cliente
+  const { isFavorite, toggleFavorite } = useFavorites({
+    customerId: customerProfile?.id ?? null,
+    tenantId: data?.tenant?.id ?? '',
+  });
 
   // Dynamic translation of ALL DB content
   const { translatedData, isTranslating } = useMenuTranslation(
@@ -599,6 +606,8 @@ function MenuContent() {
                         allItems={data.menuItems}
                         showBadges={features.neuroBadges}
                         onOpenDetail={handleOpenDetail}
+                        isFavorite={isFavorite(item.id)}
+                        onToggleFavorite={toggleFavorite}
                       />
                     </div>
                   ))}
@@ -632,6 +641,8 @@ function MenuContent() {
                       allItems={data.menuItems}
                       showBadges={features.neuroBadges}
                       onOpenDetail={handleOpenDetail}
+                      isFavorite={isFavorite(item.id)}
+                      onToggleFavorite={toggleFavorite}
                     />
                   ))}
                 </div>

@@ -6,7 +6,7 @@
  */
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Check, GlassWater, Wine, UtensilsCrossed, ChevronRight } from 'lucide-react';
+import { Plus, Check, GlassWater, Wine, UtensilsCrossed, Heart } from 'lucide-react';
 import type { MenuItem, ThemeSettings, SelectedModifier } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -37,9 +37,11 @@ interface MenuItemCardProps {
   allItems?: MenuItem[];
   showBadges?: boolean;
   onOpenDetail?: (item: MenuItem) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (item: MenuItem) => void;
 }
 
-export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail }: MenuItemCardProps) {
+export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail, isFavorite = false, onToggleFavorite }: MenuItemCardProps) {
   const { addItem, addItemAdvanced } = useCart();
   const { t } = useI18n();
   const [justAdded, setJustAdded] = useState(false);
@@ -85,6 +87,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
   const hasImage = Boolean(item.image_url);
   const accentColor = 'var(--menu-accent)';
+
+  const handleToggleFavorite = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleFavorite) onToggleFavorite(item);
+  }, [onToggleFavorite, item]);
 
   // ── LIST VIEW V11.0 ──
   if (viewMode === 'list') {
@@ -133,13 +140,29 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                 {getPlaceholderIcon(item.name)}
               </div>
             )}
-            {/* Badge */}
-            {showBadges && item.badge && (
-              <div className="absolute top-1.5 left-1.5 z-10">
-                <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
-              </div>
-            )}
-          </div>
+          {/* Badge */}
+          {showBadges && item.badge && (
+            <div className="absolute top-1.5 left-1.5 z-10">
+              <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
+            </div>
+          )}
+          {/* Botón favorito — list view */}
+          {onToggleFavorite && (
+            <button
+              onClick={handleToggleFavorite}
+              className="absolute top-1.5 right-1.5 z-10 p-1.5 rounded-full transition-all duration-150 active:scale-90"
+              style={{ background: isFavorite ? 'rgba(239,68,68,0.18)' : 'rgba(0,0,0,0.35)' }}
+              aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            >
+              <Heart
+                size={14}
+                fill={isFavorite ? '#ef4444' : 'none'}
+                stroke={isFavorite ? '#ef4444' : 'rgba(255,255,255,0.7)'}
+                strokeWidth={2.5}
+              />
+            </button>
+          )}
+        </div>
 
           {/* Contenido */}
           <div className="flex-1 min-w-0 flex flex-col justify-between py-3 px-3">
@@ -274,6 +297,22 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <div className="absolute top-2.5 left-2.5 z-10">
             <SocialProofBadge badge={item.badge} theme={theme} itemId={item.id} compact />
           </div>
+        )}
+        {/* Botón favorito — grid view */}
+        {onToggleFavorite && (
+          <button
+            onClick={handleToggleFavorite}
+            className="absolute top-2.5 right-2.5 z-10 p-2 rounded-full transition-all duration-150 active:scale-90"
+            style={{ background: isFavorite ? 'rgba(239,68,68,0.22)' : 'rgba(0,0,0,0.45)' }}
+            aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+          >
+            <Heart
+              size={16}
+              fill={isFavorite ? '#ef4444' : 'none'}
+              stroke={isFavorite ? '#ef4444' : 'rgba(255,255,255,0.8)'}
+              strokeWidth={2.5}
+            />
+          </button>
         )}
       </div>
 

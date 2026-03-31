@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import type { ThemeSettings, Tenant } from '@/lib/types';
 
 interface Order { id: string; order_number: number; total: number; status: string; created_at: string; items: { name: string; quantity: number }[]; }
-interface Favorite { id: string; item_id: string; }
+interface Favorite { id: string; item_id: string; item_name?: string | null; item_price?: number | null; item_image_url?: string | null; }
 interface Address { id: string; label: string; address: string; instructions?: string; is_default: boolean; }
 interface LoyaltyReward { id: string; name: string; points_required: number; reward_value: number; }
 
@@ -85,7 +85,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     const [ordRes, favRes, addrRes, rewRes] = await Promise.all([
       supabase.from('orders').select('id,order_number,total,status,created_at,items')
         .eq('customer_profile_id', profile.id).order('created_at', { ascending: false }).limit(20),
-      supabase.from('customer_favorites').select('id,item_id').eq('customer_id', profile.id).eq('tenant_id', tenant.id),
+      supabase.from('customer_favorites').select('id,item_id,item_name,item_price,item_image_url').eq('customer_id', profile.id).eq('tenant_id', tenant.id).order('created_at', { ascending: false }),
       supabase.from('customer_addresses').select('*').eq('customer_id', profile.id).order('is_default', { ascending: false }),
       supabase.from('loyalty_rewards').select('id,name,points_required,reward_value').eq('tenant_id', tenant.id).eq('is_active', true),
     ]);
@@ -476,8 +476,42 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {favorites.map(f => (
-                  <div key={f.id} className="rounded-xl p-3" style={{ background: 'var(--menu-surface)' }}>
-                    <div className="text-sm font-semibold">{f.item_id}</div>
+                  <div key={f.id} className="rounded-xl overflow-hidden relative" style={{ background: 'var(--menu-surface)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    {/* Imagen */}
+                    {f.item_image_url ? (
+                      <div className="relative" style={{ height: '7rem' }}>
+                        <img src={f.item_image_url} alt={f.item_name || ''} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
+                        {f.item_price != null && (
+                          <span className="absolute bottom-2 left-2.5 text-[14px] font-black text-white" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+                            ₡{f.item_price.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center" style={{ height: '5rem', background: 'rgba(255,255,255,0.04)' }}>
+                        <span className="text-3xl opacity-30">🍽️</span>
+                      </div>
+                    )}
+                    {/* Info */}
+                    <div className="px-2.5 py-2">
+                      <p className="text-[13px] font-black leading-snug" style={{ color: 'var(--menu-text)' }}>{f.item_name || 'Platillo'}</p>
+                      {!f.item_image_url && f.item_price != null && (
+                        <p className="text-[12px] font-bold mt-0.5" style={{ color: accentColor }}>₡{f.item_price.toLocaleString()}</p>
+                      )}
+                    </div>
+                    {/* Botón quitar favorito */}
+                    <button
+                      onClick={async () => {
+                        await supabase.from('customer_favorites').delete().eq('id', f.id);
+                        setFavorites(prev => prev.filter(x => x.id !== f.id));
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-full"
+                      style={{ background: 'rgba(239,68,68,0.22)' }}
+                      aria-label="Quitar de favoritos"
+                    >
+                      <Heart size={13} fill="#ef4444" stroke="#ef4444" strokeWidth={2} />
+                    </button>
                   </div>
                 ))}
               </div>
