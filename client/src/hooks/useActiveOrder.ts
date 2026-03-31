@@ -62,7 +62,15 @@ export interface ActiveOrderData {
   items: any[];
 
   // Financiero
+  subtotal: number | null;
   total: number;
+  discount_amount: number | null;
+  coupon_code: string | null;
+  promo_label: string | null;
+  promo_type: string | null;
+  promotion_id: string | null;
+  delivery_fee_final: number | null;
+  delivery_fee_pending: boolean | null;
   payment_method: string;
   payment_status: string | null;
 
@@ -158,7 +166,15 @@ function normalizeOrder(raw: any): ActiveOrderData {
     delivery_eta_minutes: raw.delivery_eta_minutes ?? null,
     delivery_distance_km: raw.delivery_distance_km ?? null,
     items: Array.isArray(raw.items) ? raw.items : [],
+    subtotal: raw.subtotal ?? null,
     total: raw.total ?? 0,
+    discount_amount: raw.discount_amount ?? null,
+    coupon_code: raw.coupon_code ?? null,
+    promo_label: raw.promo_label ?? null,
+    promo_type: raw.promo_type ?? null,
+    promotion_id: raw.promotion_id ?? null,
+    delivery_fee_final: raw.delivery_fee_final ?? null,
+    delivery_fee_pending: raw.delivery_fee_pending ?? null,
     payment_method: raw.payment_method ?? '',
     payment_status: raw.payment_status ?? null,
     created_at: raw.created_at,
@@ -197,7 +213,10 @@ const ORDER_SELECT = `
   delivery_address, delivery_formatted_address,
   delivery_lat, delivery_lon,
   delivery_eta_minutes, delivery_distance_km,
-  total, payment_method, payment_status,
+  subtotal, total, discount_amount, coupon_code,
+  promo_label, promo_type, promotion_id,
+  delivery_fee_final, delivery_fee_pending,
+  payment_method, payment_status,
   items,
   created_at, updated_at,
   rider_profiles(id, name, phone, vehicle_type, current_lat, current_lon, last_location_at)

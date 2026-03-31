@@ -1779,15 +1779,48 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {/* Order total summary */}
                   <div
-                    className="rounded-2xl p-4 flex items-center justify-between"
+                    className="rounded-2xl p-4 space-y-2"
                     style={{ backgroundColor: `${theme.primary_color}08`, border: `1px solid ${theme.primary_color}15` }}
                   >
-                    <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
-                      {t('cart.total')}
-                    </span>
-                    <span className="text-2xl font-bold" style={{ color: theme.primary_color }}>
-                      {formatPrice(totalPrice)}
-                    </span>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-sm" style={{ color: `${theme.text_color}70` }}>
+                        <span>Subtotal</span>
+                        <span>{formatPrice(totalPrice)}</span>
+                      </div>
+                    )}
+                    {appliedPromo && (
+                      <div className="flex justify-between text-sm">
+                        <span className="flex items-center gap-1">
+                          <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>
+                            🎁 {appliedPromo.name}
+                          </span>
+                        </span>
+                        <span className="font-semibold text-green-400">
+                          {appliedPromo.discountAmount > 0 ? `-${formatPrice(appliedPromo.discountAmount)}` : '✓ Aplicada'}
+                        </span>
+                      </div>
+                    )}
+                    {appliedCoupon && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>
+                          🎟️ {appliedCoupon.code}
+                        </span>
+                        <span className="font-semibold text-green-400">-{formatPrice(appliedCoupon.discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-1" style={{ borderTop: discountAmount > 0 ? `1px solid ${theme.primary_color}20` : 'none', paddingTop: discountAmount > 0 ? '8px' : '0' }}>
+                      <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
+                        {t('cart.total')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {discountAmount > 0 && (
+                          <span className="text-sm line-through" style={{ color: `${theme.text_color}50` }}>{formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}</span>
+                        )}
+                        <span className="text-2xl font-bold" style={{ color: theme.primary_color }}>
+                          {formatPrice(finalTotal + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Nota de pago diferido: solo para dine-in */}
@@ -1934,16 +1967,41 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               <>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {/* Order summary */}
-                  <div className="rounded-2xl p-4" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
+                  <div className="rounded-2xl p-4 space-y-1" style={{ backgroundColor: `${theme.primary_color}06`, border: `1px solid ${theme.primary_color}12` }}>
                     {items.map(ci => (
                       <div key={ci.menuItem.id} className="flex justify-between text-sm py-1" style={{ color: theme.text_color }}>
                         <span className="opacity-70">{ci.quantity}x {ci.menuItem.name}</span>
                         <span className="font-semibold">{formatPrice(ci.menuItem.price * ci.quantity)}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between pt-3 mt-3 border-t text-lg font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
+                    {discountAmount > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm pt-2 mt-2 border-t" style={{ borderColor: `${theme.text_color}10`, color: `${theme.text_color}70` }}>
+                          <span>Subtotal</span>
+                          <span>{formatPrice(totalPrice)}</span>
+                        </div>
+                        {appliedPromo && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>🎁 {appliedPromo.name}</span>
+                            <span className="font-semibold text-green-400">{appliedPromo.discountAmount > 0 ? `-${formatPrice(appliedPromo.discountAmount)}` : '✓'}</span>
+                          </div>
+                        )}
+                        {appliedCoupon && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>🎟️ {appliedCoupon.code}</span>
+                            <span className="font-semibold text-green-400">-{formatPrice(appliedCoupon.discountAmount)}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="flex justify-between pt-3 mt-2 border-t text-lg font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
                       <span>{t('cart.total')}</span>
-                      <span>{formatPrice(totalPrice)}</span>
+                      <div className="flex items-center gap-2">
+                        {discountAmount > 0 && (
+                          <span className="text-sm line-through font-normal" style={{ color: `${theme.text_color}50` }}>{formatPrice(totalPrice)}</span>
+                        )}
+                        <span>{formatPrice(finalTotal)}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -2134,16 +2192,41 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     )}
 
                     {/* Order summary */}
-                    <div className="rounded-2xl p-4 text-left mb-4" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
+                    <div className="rounded-2xl p-4 text-left mb-4 space-y-1" style={{ backgroundColor: `${theme.text_color}04`, border: `1px solid ${theme.text_color}10` }}>
                       {items.map(ci => (
                         <div key={ci.menuItem.id} className="flex justify-between text-sm py-1" style={{ color: theme.text_color }}>
                           <span className="opacity-70">{ci.quantity}x {ci.menuItem.name}</span>
                           <span className="font-semibold">{formatPrice(ci.menuItem.price * ci.quantity)}</span>
                         </div>
                       ))}
-                      <div className="flex justify-between pt-3 mt-3 border-t font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
+                      {discountAmount > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm pt-2 mt-1 border-t" style={{ borderColor: `${theme.text_color}10`, color: `${theme.text_color}70` }}>
+                            <span>Subtotal</span>
+                            <span>{formatPrice(totalPrice)}</span>
+                          </div>
+                          {appliedPromo && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>🎁 {appliedPromo.name}</span>
+                              <span className="font-semibold text-green-400">{appliedPromo.discountAmount > 0 ? `-${formatPrice(appliedPromo.discountAmount)}` : '✓ Aplicada'}</span>
+                            </div>
+                          )}
+                          {appliedCoupon && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#818CF8' }}>🎟️ {appliedCoupon.code}</span>
+                              <span className="font-semibold text-green-400">-{formatPrice(appliedCoupon.discountAmount)}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div className="flex justify-between pt-3 mt-2 border-t font-bold" style={{ borderColor: `${theme.text_color}10`, color: theme.primary_color }}>
                         <span>{t('cart.total')}</span>
-                        <span>{formatPrice(totalPrice)}</span>
+                        <div className="flex items-center gap-2">
+                          {discountAmount > 0 && (
+                            <span className="text-sm line-through font-normal" style={{ color: `${theme.text_color}50` }}>{formatPrice(totalPrice)}</span>
+                          )}
+                          <span>{formatPrice(finalTotal)}</span>
+                        </div>
                       </div>
                       {paymentMethod && (
                         <div className="flex justify-between pt-2 text-sm" style={{ color: `${theme.text_color}70` }}>
