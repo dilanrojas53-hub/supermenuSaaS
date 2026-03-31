@@ -1,10 +1,11 @@
 /**
  * PromosScreen — Pantalla de promociones activas para el cliente.
  * Muestra las promos vigentes del tenant actual, filtradas por nivel del cliente.
+ * v2.0: Tarjetas clickeables para aplicar descuento al carrito.
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Tag, Clock, Percent, Gift, Zap, ChevronRight, Loader2 } from 'lucide-react';
+import { X, Tag, Clock, Percent, Gift, Zap, ChevronRight, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import type { ThemeSettings, Tenant } from '@/lib/types';
@@ -31,6 +32,7 @@ interface PromosScreenProps {
   onClose: () => void;
   theme: ThemeSettings;
   tenant: Tenant;
+  onPromoSelect?: (promo: { id: string; name: string; type: string; value: number }) => void;
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -68,10 +70,11 @@ function timeLeft(until: string | null): string | null {
   return `${mins}m restantes`;
 }
 
-export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosScreenProps) {
+export default function PromosScreen({ isOpen, onClose, theme, tenant, onPromoSelect }: PromosScreenProps) {
   const { profile, tenantStats } = useCustomerProfile();
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
 
   const accentColor = theme.primary_color || '#F59E0B';
   const bgColor = theme.background_color || '#0a0a0a';
@@ -112,6 +115,17 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosS
     return cusIdx < reqIdx;
   });
 
+  const handlePromoClick = (promo: Promotion) => {
+    // Solo promos de tipo porcentaje o fijo son aplicables al carrito
+    if ((promo.type !== 'percentage' && promo.type !== 'fixed') || !promo.value) return;
+    if (!onPromoSelect) return;
+    setSelectedPromoId(promo.id);
+    setTimeout(() => {
+      onPromoSelect({ id: promo.id, name: promo.name, type: promo.type, value: promo.value });
+      onClose();
+    }, 400);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -137,6 +151,13 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosS
             </button>
           </div>
 
+          {/* Hint */}
+          {onPromoSelect && visiblePromos.some(p => p.type === 'percentage' || p.type === 'fixed') && (
+            <div className="px-4 py-2 text-xs opacity-60 text-center" style={{ color: textColor }}>
+              Toca una promoción para aplicarla a tu carrito
+            </div>
+          )}
+
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {loading ? (
@@ -161,10 +182,19 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosS
                       {visiblePromos.map(promo => {
                         const remaining = timeLeft(promo.active_until);
                         const isUrgent = remaining && remaining.includes('m restantes');
+                        const isApplicable = (promo.type === 'percentage' || promo.type === 'fixed') && promo.value > 0 && !!onPromoSelect;
+                        const isSelected = selectedPromoId === promo.id;
                         return (
-                          <div key={promo.id}
-                            className="rounded-2xl p-4 relative overflow-hidden"
-                            style={{ background: `${accentColor}15`, border: `1px solid ${accentColor}30` }}>
+                          <motion.div
+                            key={promo.id}
+                            whileTap={isApplicable ? { scale: 0.97 } : {}}
+                            className={`rounded-2xl p-4 relative overflow-hidden transition-all ${isApplicable ? 'cursor-pointer' : ''}`}
+                            style={{
+                              background: isSelected ? `${accentColor}30` : `${accentColor}15`,
+                              border: `1px solid ${isSelected ? accentColor : `${accentColor}30`}`,
+                            }}
+                            onClick={isApplicable ? () => handlePromoClick(promo) : undefined}
+                          >
                             {/* Accent stripe */}
                             <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
                               style={{ backgroundColor: accentColor }} />
@@ -174,12 +204,19 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosS
                                   <span style={{ color: accentColor }}>{TYPE_ICONS[promo.type] || <Tag size={18} />}</span>
                                   <span className="font-black text-sm">{promo.name}</span>
                                 </div>
-                                {promo.level_required && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0"
-                                    style={{ background: `${accentColor}22`, color: accentColor }}>
-                                    {LEVEL_LABELS[promo.level_required] || promo.level_required}
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {promo.level_required && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                      style={{ background: `${accentColor}22`, color: accentColor }}>
+                                      {LEVEL_LABELS[promo.level_required] || promo.level_required}
+                                    </span>
+                                  )}
+                                  {isApplicable && (
+                                    isSelected
+                                      ? <Check size={16} style={{ color: accentColor }} />
+                                      : <ChevronRight size={16} style={{ color: `${textColor}50` }} />
+                                  )}
+                                </div>
                               </div>
                               <div className="text-sm font-bold mb-1" style={{ color: accentColor }}>
                                 {formatValue(promo)}
@@ -205,9 +242,14 @@ export default function PromosScreen({ isOpen, onClose, theme, tenant }: PromosS
                                     {promo.usage_limit - promo.used_count} usos restantes
                                   </span>
                                 )}
+                                {isApplicable && (
+                                  <span className="text-[11px] font-semibold" style={{ color: accentColor }}>
+                                    Toca para aplicar →
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>

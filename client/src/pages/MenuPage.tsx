@@ -57,6 +57,7 @@ function MenuContent() {
   // Fix 3: pedido activo para tab 'order'
   const [activeOrderData, setActiveOrderData] = useState<{ orderId: string; orderNumber: number; status: string } | null>(null);
   const [showLoginSheet, setShowLoginSheet] = useState(false);
+  const [pendingPromo, setPendingPromo] = useState<{ id: string; name: string; type: string; value: number } | null>(null);
   useEffect(() => {
     const check = () => {
       try {
@@ -645,11 +646,12 @@ function MenuContent() {
       {/* Cart Drawer */}
       <CartDrawer
         isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
+        onClose={() => { setCartOpen(false); setPendingPromo(null); }}
         theme={theme}
         tenant={tenant}
         allMenuItems={data.menuItems}
         allCategories={data.categories}
+        pendingPromo={pendingPromo}
       />
 
       {/* Product Detail Modal */}
@@ -685,6 +687,11 @@ function MenuContent() {
         onClose={() => setBottomNavTab('menu')}
         theme={theme}
         tenant={tenant}
+        onPromoSelect={(promo) => {
+          setPendingPromo(promo);
+          setBottomNavTab('menu');
+          setCartOpen(true);
+        }}
       />
 
       {/* ── PANTALLA HISTORIAL ── */}

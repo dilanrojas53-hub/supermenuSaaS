@@ -34,6 +34,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey } = useCustomerProfile();
   const tenantPoints = tenantStats?.points ?? 0;
   const tenantLevel = (tenantStats?.level || 'bronze') as keyof typeof LEVEL_CONFIG;
+  const tenantTotalOrders = tenantStats?.total_orders ?? 0;
+  const tenantTotalSpent = tenantStats?.total_spent ?? 0;
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'addresses' | 'security'>('overview');
   const [orders, setOrders] = useState<Order[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);

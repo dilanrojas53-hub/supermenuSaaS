@@ -49,6 +49,8 @@ interface CartDrawerProps {
   allMenuItems?: MenuItem[];
   /** All categories — used for smart cross-selling by category type */
   allCategories?: Category[];
+  /** Promo pre-aplicada desde la pantalla de Promos */
+  pendingPromo?: { id: string; name: string; type: string; value: number } | null;
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta' | 'pos_externo';
@@ -110,7 +112,7 @@ interface OpenTabOrder {
   existingAiUpsellRevenue: number;
 }
 
-export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [] }: CartDrawerProps) {
+export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [], pendingPromo }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { t, lang } = useI18n();
   const { profile: customerProfile } = useCustomerProfile();
@@ -132,6 +134,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const receiptCameraInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── PROMOCIONES Y CUPONES (declarados aquí para que estén disponibles en los useEffects) ───
+  interface AppliedPromo { id: string; name: string; type: string; value: number; discountAmount: number; }
+  interface AppliedCoupon { id: string; code: string; discount_type: string; discount_value: number; discountAmount: number; }
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
   // Fix 2: autocompletar nombre y teléfono desde perfil autenticado cuando se abre el drawer
   useEffect(() => {
     if (isOpen && customerProfile) {
@@ -139,6 +150,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       if (customerProfile.phone && !customerPhone) setCustomerPhone(customerProfile.phone);
     }
   }, [isOpen, customerProfile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Aplicar promo pendiente cuando se abre el carrito (inline calc para evitar hoisting)
+  useEffect(() => {
+    if (isOpen && pendingPromo && pendingPromo.id) {
+      const discAmt = pendingPromo.type === 'percentage'
+        ? Math.round(totalPrice * pendingPromo.value / 100)
+        : Math.min(pendingPromo.value, totalPrice);
+      setAppliedPromo({ ...pendingPromo, discountAmount: discAmt });
+    }
+  }, [isOpen, pendingPromo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── DELIVERY / LOGISTICA ───
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('dine_in');
@@ -269,6 +290,51 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   // ─── CUENTA ABIERTA (Open Tab) ───
   const [openTab, setOpenTab] = useState<OpenTabOrder | null>(null);
+
+  // ─── FUNCIONES DE DESCUENTO ───
+  const calcPromoDiscount = (type: string, value: number, subtotal: number): number => {
+    if (type === 'percentage') return Math.round(subtotal * value / 100);
+    if (type === 'fixed') return Math.min(value, subtotal);
+    return 0;
+  };
+
+  const applyPromoToCart = (promo: { id: string; name: string; type: string; value: number }) => {
+    const discAmt = calcPromoDiscount(promo.type, promo.value, totalPrice);
+    setAppliedPromo({ ...promo, discountAmount: discAmt });
+  };
+
+  const applyCouponCode = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    setCouponLoading(true);
+    setCouponError('');
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('code', code)
+      .eq('is_active', true)
+      .or(`valid_until.is.null,valid_until.gte.${now}`)
+      .maybeSingle();
+    setCouponLoading(false);
+    if (error || !data) { setCouponError(lang === 'es' ? 'Cupón no válido o expirado' : 'Invalid or expired coupon'); return; }
+    if (data.max_uses && data.used_count >= data.max_uses) { setCouponError(lang === 'es' ? 'Este cupón ya alcanzó su límite de usos' : 'Coupon usage limit reached'); return; }
+    const discAmt = data.discount_type === 'percentage'
+      ? Math.round(totalPrice * data.discount_value / 100)
+      : Math.min(data.discount_value, totalPrice);
+    setAppliedCoupon({ id: data.id, code: data.code, discount_type: data.discount_type, discount_value: data.discount_value, discountAmount: discAmt });
+    setCouponInput('');
+  };
+
+  const discountAmount = React.useMemo(() => {
+    let d = 0;
+    if (appliedPromo) d += appliedPromo.discountAmount;
+    if (appliedCoupon) d += appliedCoupon.discountAmount;
+    return Math.min(d, totalPrice);
+  }, [appliedPromo, appliedCoupon, totalPrice]);
+
+  const finalTotal = Math.max(0, totalPrice - discountAmount);
 
   // Detect open tab order from localStorage when drawer opens
   useEffect(() => {
@@ -679,7 +745,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           customer_table: customerTable.trim() || '',
           items: newOrderItems,
           subtotal: totalPrice,
-          total: totalPrice,
+          total: finalTotal,
+          discount_amount: discountAmount,
+          coupon_code: appliedCoupon?.code || null,
+          promotion_id: appliedPromo?.id || null,
           status: statusMap[method],
           payment_method: method,
           payment_status: 'pending',
@@ -770,7 +839,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setStep('confirmation');
         // Fidelización: otorgar puntos POR TENANT (aislados por restaurante)
         if (customerProfile?.id && orderData?.id && tenant?.id) {
-          const pointsEarned = Math.floor(totalPrice / 100); // 1 punto por cada ₡100
+          const pointsEarned = Math.floor(finalTotal / 100); // 1 punto por cada ₡100 (sobre total con descuento)
           // Leer stats actuales de este tenant específico
           supabase.from('tenant_customer_stats')
             .select('points, total_spent, total_orders')
@@ -787,7 +856,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 tenant_id: tenant.id,
                 points: newPoints,
                 level: newLevel,
-                total_spent: (stats?.total_spent || 0) + totalPrice,
+                total_spent: (stats?.total_spent || 0) + finalTotal,
                 total_orders: (stats?.total_orders || 0) + 1,
                 updated_at: new Date().toISOString(),
               }, { onConflict: 'customer_id,tenant_id' });
@@ -973,8 +1042,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl max-h-[92vh] flex flex-col"
+            className="fixed left-0 right-0 z-[150] rounded-t-3xl flex flex-col"
             style={{
+              bottom: '64px',
+              maxHeight: 'calc(92vh - 64px)',
               backgroundColor: 'var(--bg-surface)',
               borderTop: '1px solid rgba(255,255,255,0.05)',
               boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
@@ -1133,7 +1204,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 </div>
 
                 {items.length > 0 && (
-                  <div className="p-5 border-t space-y-3" style={{ borderColor: `${theme.text_color}10` }}>
+                  <div className="p-5 border-t space-y-3 flex-shrink-0" style={{ borderColor: `${theme.text_color}10` }}>
                     {/* Subtotal */}
                     <div className="flex justify-between items-center">
                       <span className="text-sm" style={{ color: `${theme.text_color}80` }}>
@@ -1143,6 +1214,50 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         {formatPrice(totalPrice)}
                       </span>
                     </div>
+                    {/* Promo aplicada */}
+                    {appliedPromo && (
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>🏷️ {appliedPromo.name}</span>
+                          <button onClick={() => setAppliedPromo(null)} className="text-xs opacity-50 hover:opacity-100">✕</button>
+                        </div>
+                        <span className="text-sm font-semibold text-green-400">-{formatPrice(appliedPromo.discountAmount)}</span>
+                      </div>
+                    )}
+                    {/* Cupón aplicado */}
+                    {appliedCoupon && (
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-mono" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>🎟️ {appliedCoupon.code}</span>
+                          <button onClick={() => setAppliedCoupon(null)} className="text-xs opacity-50 hover:opacity-100">✕</button>
+                        </div>
+                        <span className="text-sm font-semibold text-green-400">-{formatPrice(appliedCoupon.discountAmount)}</span>
+                      </div>
+                    )}
+                    {/* Campo para ingresar cupón */}
+                    {!appliedCoupon && (
+                      <div className="space-y-1">
+                        <div className="flex gap-2">
+                          <input
+                            value={couponInput}
+                            onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                            onKeyDown={e => e.key === 'Enter' && applyCouponCode()}
+                            placeholder={lang === 'es' ? 'Código de cupón' : 'Coupon code'}
+                            className="flex-1 px-3 py-2 rounded-xl text-sm bg-transparent outline-none"
+                            style={{ border: `1px solid ${theme.text_color}20`, color: theme.text_color }}
+                          />
+                          <button
+                            onClick={applyCouponCode}
+                            disabled={couponLoading || !couponInput.trim()}
+                            className="px-3 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
+                            style={{ backgroundColor: theme.primary_color, color: 'var(--menu-accent-contrast)' }}
+                          >
+                            {couponLoading ? '...' : (lang === 'es' ? 'Aplicar' : 'Apply')}
+                          </button>
+                        </div>
+                        {couponError && <p className="text-xs text-red-400 px-1">{couponError}</p>}
+                      </div>
+                    )}
                     {/* Tarifa de delivery estimada */}
                     {deliveryType === 'delivery' && deliveryPricing && (
                       <div className="space-y-1">
@@ -1164,14 +1279,26 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         )}
                       </div>
                     )}
+                    {/* Descuento total */}
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-green-400">{lang === 'es' ? 'Descuento total' : 'Total discount'}</span>
+                        <span className="text-sm font-bold text-green-400">-{formatPrice(discountAmount)}</span>
+                      </div>
+                    )}
                     {/* Total final */}
                     <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                       <span className="text-base font-semibold" style={{ color: theme.text_color }}>
                         {t('cart.total')}
                       </span>
-                      <span className="text-xl font-bold" style={{ color: theme.primary_color }}>
-                        {formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}
-                      </span>
+                      <div className="text-right">
+                        {discountAmount > 0 && (
+                          <div className="text-xs line-through opacity-40" style={{ color: theme.text_color }}>{formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}</div>
+                        )}
+                        <span className="text-xl font-bold" style={{ color: theme.primary_color }}>
+                          {formatPrice(finalTotal + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}
+                        </span>
+                      </div>
                     </div>
                     {openTab && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-2" style={{ backgroundColor: '#F59E0B15', border: '1px solid #F59E0B30' }}>

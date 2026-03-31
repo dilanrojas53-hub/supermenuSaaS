@@ -207,6 +207,11 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
     const { error } = await supabase.from('promotions').update({ is_active: !current }).eq('id', id);
     if (!error) setPromotions(prev => prev.map(p => p.id === id ? { ...p, is_active: !current } : p));
   };
+  const deletePromo = async (id: string) => {
+    if (!confirm('¿Eliminar esta promoción? Esta acción no se puede deshacer.')) return;
+    const { error } = await supabase.from('promotions').delete().eq('id', id);
+    if (!error) setPromotions(prev => prev.filter(p => p.id !== id));
+  };
 
   const toggleAutomation = async (triggerKey: string) => {
     setSavingAuto(triggerKey);
@@ -417,9 +422,14 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                           {itemCount > 0 ? ` · ${itemCount} platillo${itemCount > 1 ? 's' : ''}` : ''}
                         </div>
                       </div>
-                      <button onClick={() => togglePromo(p.id, p.is_active)}>
-                        {p.is_active ? <ToggleRight size={22} className="text-amber-400" /> : <ToggleLeft size={22} className="text-slate-500" />}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => togglePromo(p.id, p.is_active)}>
+                          {p.is_active ? <ToggleRight size={22} className="text-amber-400" /> : <ToggleLeft size={22} className="text-slate-500" />}
+                        </button>
+                        <button onClick={() => deletePromo(p.id)} className="p-1 rounded hover:bg-red-500/20 transition-colors">
+                          <Trash2 size={15} className="text-slate-500 hover:text-red-400" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
