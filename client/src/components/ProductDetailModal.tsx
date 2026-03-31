@@ -1,9 +1,10 @@
 /*
- * ProductDetailModal — V17.0: 2 recomendaciones IA con aprendizaje
+ * ProductDetailModal — V18.0: 6 capas gastronómicas de upsell
  * - Large photo, full description, quantity selector
- * - 2 sugerencias IA de categorías distintas
- * - Cada sugerencia se puede agregar independientemente
- * - Feedback (accepted/rejected) se envía al backend para aprendizaje
+ * - 2 sugerencias IA de categorías distintas (lógica gastronómica real)
+ * - Subtítulo contextual basado en el rol del trigger
+ * - image_url real en las tarjetas de sugerencia
+ * - Feedback (accepted/rejected/ignored) para aprendizaje continuo
  */
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,6 +81,8 @@ export default function ProductDetailModal({
   const [mainAdded, setMainAdded] = useState(false);
   // Track which suggestions were shown (for "ignored" feedback on close)
   const [shownSuggestionIds, setShownSuggestionIds] = useState<string[]>([]);
+  // V18: Subtítulo contextual del servidor (basado en rol del trigger)
+  const [upsellSubtitle, setUpsellSubtitle] = useState<string>('');
 
   // Reset state when item changes
   useEffect(() => {
@@ -92,6 +95,7 @@ export default function ProductDetailModal({
       setSuggestionAdded({});
       setMainAdded(false);
       setShownSuggestionIds([]);
+      setUpsellSubtitle('');
     }
   }, [item?.id, isOpen]);
 
@@ -118,6 +122,8 @@ export default function ProductDetailModal({
         if (response.ok) {
           const data = await response.json();
           if (!data.fallback && data.suggested_items?.length > 0) {
+            // V18: Guardar subtítulo contextual del servidor (CAPA 5)
+            if (data.subtitle) setUpsellSubtitle(data.subtitle);
             const suggestions: AISuggestion[] = data.suggested_items.slice(0, 2).map((s: any) => ({
               id: s.id,
               name: s.name,
@@ -413,7 +419,7 @@ export default function ProductDetailModal({
                           className="text-xs font-bold tracking-widest uppercase"
                           style={{ color: theme.primary_color }}
                         >
-                          {lang === 'es' ? 'Recomendado para ti' : 'Recommended for you'}
+                          {upsellSubtitle || (lang === 'es' ? 'Recomendado para ti' : 'Recommended for you')}
                         </span>
                       </div>
 
