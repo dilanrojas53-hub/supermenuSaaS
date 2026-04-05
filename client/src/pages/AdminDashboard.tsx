@@ -2393,6 +2393,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
 // ─── Orders Tab — Kanban V3 (sub-tabs + badges) ───
 type OrderSubTab = 'DINE_IN' | 'DELIVERY' | 'TAKEOUT';
 type PaymentTab = 'pending' | 'paid';
+type HistoryFilterType = 'today' | 'day' | 'week' | 'month' | 'year';
 
 function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -2401,6 +2402,20 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
   const [activeStatusTab, setActiveStatusTab] = useState<'nuevos' | 'en_cocina' | 'listos' | 'cobro'>('nuevos');
+  // ── Modal de confirmación de cobro con selector de método de pago ──
+  const [payModal, setPayModal] = useState<{ orderId: string; orderNumber: number; currentMethod: string } | null>(null);
+  const [selectedPayMethod, setSelectedPayMethod] = useState<string>('efectivo');
+  // ── Filtros de historial de cobrados ──
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilterType>('today');
+  const [historyDate, setHistoryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [historyWeek, setHistoryWeek] = useState<string>(() => {
+    const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const mon = new Date(d); mon.setDate(diff); return mon.toISOString().slice(0, 10);
+  });
+  const [historyMonth, setHistoryMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [historyYear, setHistoryYear] = useState<number>(() => new Date().getFullYear());
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const prevActiveIdsRef = useRef<Set<string>>(new Set());
   const { playBell, stopAlarm, isAlarming } = useKitchenBell();
   // sinpe_block_mode: cargado de delivery_settings para respetar la config del admin
@@ -2475,14 +2490,17 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   };
 
 
-  // V17.2: Marcar orden como pagada
-  const handleMarkPaid = async (orderId: string) => {
+  // V17.2: Marcar orden como pagada con método de pago confirmado
+  const handleMarkPaid = async (orderId: string, paymentMethod?: string) => {
+    const updatePayload: Record<string, string> = { payment_status: 'paid', updated_at: new Date().toISOString() };
+    if (paymentMethod) updatePayload.payment_method = paymentMethod;
     const { error } = await supabase
       .from('orders')
-      .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', orderId);
     if (error) { toast.error('Error: ' + error.message); return; }
-    toast.success('✅ Marcado como pagado');
+    setPayModal(null);
+    toast.success('Cobro registrado');
     // ── WhatsApp contextual: solo al verificar pago SINPE ──
     const order = orders.find(o => o.id === orderId);
     if (order && order.payment_method === 'sinpe') {
@@ -2666,13 +2684,62 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
   const elapsedMin = (dateStr: string) => Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
-  // Formatea minutos en formato legible: 18 min, 1 h 12 min, 2 h
+  // Formatea minutos en formato legible con lógica de días/semanas/meses/años
   const formatElapsed = (min: number): string => {
     if (min < 60) return `${min} min`;
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return m === 0 ? `${h} h` : `${h} h ${m} min`;
+    if (min < 1440) { // menos de 1 día
+      const h = Math.floor(min / 60); const m = min % 60;
+      return m === 0 ? `${h} h` : `${h} h ${m} min`;
+    }
+    const days = Math.floor(min / 1440);
+    if (days < 7) return days === 1 ? '1 día' : `${days} días`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return weeks === 1 ? '1 semana' : `${weeks} semanas`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return months === 1 ? '1 mes' : `${months} meses`;
+    const years = Math.floor(days / 365);
+    return years === 1 ? '1 año' : `${years} años`;
   };
+  // Formatea una fecha como tiempo relativo desde ahora (para cobrados)
+  const timeAgoFromDate = (dateStr: string): string => {
+    const min = elapsedMin(dateStr);
+    return formatElapsed(min);
+  };
+  // Carga el historial de cobrados según el filtro activo
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    let from: string, to: string;
+    const now = new Date();
+    if (historyFilter === 'today') {
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+    } else if (historyFilter === 'day') {
+      const d = new Date(historyDate + 'T00:00:00');
+      from = d.toISOString();
+      to = new Date(d.getTime() + 86400000).toISOString();
+    } else if (historyFilter === 'week') {
+      const mon = new Date(historyWeek + 'T00:00:00');
+      from = mon.toISOString();
+      to = new Date(mon.getTime() + 7 * 86400000).toISOString();
+    } else if (historyFilter === 'month') {
+      const [y, m] = historyMonth.split('-').map(Number);
+      from = new Date(y, m - 1, 1).toISOString();
+      to = new Date(y, m, 1).toISOString();
+    } else { // year
+      from = new Date(historyYear, 0, 1).toISOString();
+      to = new Date(historyYear + 1, 0, 1).toISOString();
+    }
+    const { data } = await supabase.from('orders').select('*')
+      .eq('tenant_id', tenant.id).eq('payment_status', 'paid')
+      .gte('created_at', from).lt('created_at', to)
+      .order('created_at', { ascending: false }).limit(200);
+    setHistoryOrders((data as Order[]) || []);
+    setHistoryLoading(false);
+  }, [tenant.id, historyFilter, historyDate, historyWeek, historyMonth, historyYear]);
+  // Cargar historial cuando cambia el filtro o se abre el tab cobrados
+  useEffect(() => {
+    if (paymentTab === 'paid') loadHistory();
+  }, [paymentTab, loadHistory]);
   // Severidad del cronómetro: normal < 15, warning 15-25, critical > 25
   const timerSeverity = (min: number): 'normal' | 'warning' | 'critical' => {
     if (min >= 25) return 'critical';
@@ -2818,16 +2885,16 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         {isEfectivoOrTarjeta && order.status === 'pendiente' && (
           <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/30">
             <span className="text-green-300 text-xs font-bold">
-              {order.payment_method === 'efectivo' ? '💵 COBRAR EN MESA / CAJA' : '💳 COBRAR CON TARJETA'}
+              {order.payment_method === 'efectivo' ? 'Cobrar en mesa / caja' : 'Cobrar con tarjeta'}
             </span>
           </div>
         )}
         {/* Fila 1: número + cliente/mesa + timer — todo en 1 línea */}
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="text-sm font-black text-[var(--text-primary)] flex-shrink-0">#{order.order_number}</span>
-          {order.customer_name && <span className="text-[11px] text-[var(--text-secondary)] truncate flex-1">👤 {order.customer_name}</span>}
-          {!order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-1">🪑 {order.customer_table}</span>}
-          {order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-shrink-0">🪑 {order.customer_table}</span>}
+          {order.customer_name && <span className="text-[11px] text-[var(--text-secondary)] truncate flex-1">{order.customer_name}</span>}
+          {!order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-1">Mesa {order.customer_table}</span>}
+          {order.customer_name && order.customer_table && <span className="text-[11px] text-[var(--text-secondary)] flex-shrink-0">Mesa {order.customer_table}</span>}
           <div className="ml-auto flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
             style={{ background: timerColors.bg, color: timerColors.text, border: `1px solid ${timerColors.border}` }}>
             <Timer size={9} /> {formatElapsed(elapsed)}
@@ -2899,7 +2966,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             )}
           </div>
         )}
-        {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">📝 {order.notes}</div>}
+        {order.notes && <div className="text-xs text-amber-400/80 italic mb-2">Nota: {order.notes}</div>}
 
         {/* ── Delivery / Takeout info ── */}
         {(isDelivery || (order as any).delivery_type === 'takeout') && (
@@ -3002,7 +3069,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             <span className={`text-xs font-black uppercase tracking-wider ${
               isDeliveredUrgent ? 'text-red-300' : 'text-yellow-300'
             }`}>
-              {isDeliveredUrgent ? '⚠️ COBRAR YA' : '⏰ PENDIENTE COBRO'}
+              {isDeliveredUrgent ? 'COBRAR YA' : 'PENDIENTE COBRO'}
             </span>
             <span className="ml-auto text-xs font-bold text-[var(--text-secondary)]">
               Hace {formatElapsed(deliveredElapsed)}
@@ -3022,7 +3089,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           <span className="text-sm font-bold text-amber-400">{formatPrice(order.total)}</span>
           <div className="flex items-center gap-1.5">
             {isDelivery && <Bike size={11} className="text-blue-400" />}
-            <span className="text-[10px] text-[var(--text-secondary)] uppercase">{order.payment_method}</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-medium">
+              {order.payment_method === 'efectivo' ? 'Efectivo' :
+               order.payment_method === 'tarjeta' ? 'Tarjeta' :
+               order.payment_method === 'sinpe' ? 'SINPE' :
+               order.payment_method === 'mixto' ? 'Mixto' :
+               order.payment_method ? order.payment_method : 'Tipo de pago'}
+            </span>
           </div>
         </div>
         {/* ── Costo de envío: ajuste manual por pedido ── */}
@@ -3035,14 +3108,14 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           />
         )}
         <div className="flex flex-col gap-2">
-          {/* V17.2: Botón Marcar como Pagado — visible en Por Cobrar */}
+          {/* Botón Cobrar — abre modal con selector de método de pago */}
           {showPayBtn && !isPaid && (
             <button
-              onClick={() => handleMarkPaid(order.id)}
+              onClick={() => { setSelectedPayMethod(order.payment_method || 'efectivo'); setPayModal({ orderId: order.id, orderNumber: order.order_number, currentMethod: order.payment_method || 'efectivo' }); }}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all active:scale-[0.97] touch-manipulation"
               style={{ backgroundColor: '#10B98120', color: '#10B981', border: '2px solid #10B98140' }}
             >
-              <CheckCircle2 size={16} /> Marcar como Pagado
+              <CheckCircle2 size={16} /> Registrar cobro
             </button>
           )}
           {/* Delivery: botón "Entregar al Rider" cuando está listo y el rider ya está asignado */}
@@ -3203,10 +3276,10 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
       {/* ── ROW 4: TABS DE ESTADO — el corazón del panel ── */}
       {(() => {
         const statusTabs = [
-          { key: 'nuevos' as const,    label: 'Nuevos',      icon: '🔔', color: '#F59E0B', count: nuevos.length },
-          { key: 'en_cocina' as const, label: 'En prep.',    icon: '👨‍🍳', color: '#3B82F6', count: enCocina.length },
-          { key: 'listos' as const,    label: 'Listos',      icon: '✅',    color: '#10B981', count: listos.length },
-          { key: 'cobro' as const,     label: 'Cobro',       icon: '💰',    color: '#A78BFA', count: porCobrar.length + cobrados.length },
+          { key: 'nuevos' as const,    label: 'Nuevos',      icon: 'bell',    color: '#F59E0B', count: nuevos.length },
+          { key: 'en_cocina' as const, label: 'En prep.',    icon: 'chef',    color: '#3B82F6', count: enCocina.length },
+          { key: 'listos' as const,    label: 'Listos',      icon: 'check',   color: '#10B981', count: listos.length },
+          { key: 'cobro' as const,     label: 'Cobro',       icon: 'dollar',  color: '#A78BFA', count: porCobrar.length + cobrados.length },
         ];
         const currentOrders =
           activeStatusTab === 'nuevos'    ? nuevos :
@@ -3229,7 +3302,12 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                     }`}
                     style={isActive ? { background: `${st.color}18`, borderColor: `${st.color}60`, color: st.color } : { color: 'var(--text-secondary)' }}
                   >
-                    <span className="text-base leading-none">{st.icon}</span>
+                    <span className="text-base leading-none">
+                      {st.icon === 'bell' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>}
+                      {st.icon === 'chef' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/><line x1="6" y1="13" x2="18" y2="13"/></svg>}
+                      {st.icon === 'check' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                      {st.icon === 'dollar' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
+                    </span>
                     <span className="text-[9px] font-bold mt-0.5 leading-none">{st.label}</span>
                     <span className={`text-sm font-black mt-0.5 leading-none ${
                       isActive ? '' : st.count > 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
@@ -3253,13 +3331,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                     className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all border ${
                       paymentTab === 'pending' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' : 'border-transparent text-[var(--text-secondary)]'
                     }`}>
-                    💰 Por cobrar ({porCobrar.length})
+                    Por cobrar ({porCobrar.length})
                   </button>
                   <button onClick={() => setPaymentTab('paid')}
                     className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all border ${
                       paymentTab === 'paid' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'border-transparent text-[var(--text-secondary)]'
                     }`}>
-                    ✅ Cobrados ({cobrados.length})
+                    Cobrados
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -3268,9 +3346,60 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                       ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin cuentas pendientes</div>
                       : porCobrar.map(o => <KanbanCard key={o.id} order={o} showPayBtn={true} />)
                   ) : (
-                    cobrados.length === 0
-                      ? <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin cobrados hoy</div>
-                      : cobrados.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)
+                    /* ── Historial de cobrados con filtros de fecha ── */
+                    <div>
+                      {/* Selector de tipo de filtro */}
+                      <div className="flex gap-1 mb-2 flex-wrap">
+                        {(['today','day','week','month','year'] as HistoryFilterType[]).map(f => (
+                          <button key={f} onClick={() => setHistoryFilter(f)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                              historyFilter === f ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'border-[var(--border)] text-[var(--text-secondary)] bg-[var(--bg-surface)]'
+                            }`}>
+                            {f === 'today' ? 'Hoy' : f === 'day' ? 'Día' : f === 'week' ? 'Semana' : f === 'month' ? 'Mes' : 'Año'}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Selector de fecha según el tipo */}
+                      {historyFilter === 'day' && (
+                        <div className="mb-2">
+                          <input type="date" value={historyDate} onChange={e => setHistoryDate(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg text-xs border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+                        </div>
+                      )}
+                      {historyFilter === 'week' && (
+                        <div className="mb-2">
+                          <label className="text-[10px] text-[var(--text-secondary)] block mb-1">Lunes de inicio de semana</label>
+                          <input type="date" value={historyWeek} onChange={e => setHistoryWeek(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg text-xs border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+                        </div>
+                      )}
+                      {historyFilter === 'month' && (
+                        <div className="mb-2">
+                          <input type="month" value={historyMonth} onChange={e => setHistoryMonth(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg text-xs border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)]" />
+                        </div>
+                      )}
+                      {historyFilter === 'year' && (
+                        <div className="mb-2 flex items-center gap-2">
+                          <button onClick={() => setHistoryYear(y => y - 1)} className="px-2 py-1 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-xs">-</button>
+                          <span className="flex-1 text-center text-sm font-bold text-[var(--text-primary)]">{historyYear}</span>
+                          <button onClick={() => setHistoryYear(y => y + 1)} className="px-2 py-1 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-xs">+</button>
+                        </div>
+                      )}
+                      {/* Resumen de totales */}
+                      {!historyLoading && historyOrders.length > 0 && (
+                        <div className="mb-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                          <span className="text-[11px] text-emerald-300 font-bold">{historyOrders.length} cobros</span>
+                          <span className="text-[11px] text-emerald-300 font-bold">{formatPrice(historyOrders.reduce((s, o) => s + o.total, 0))}</span>
+                        </div>
+                      )}
+                      {/* Lista de cobrados */}
+                      {historyLoading ? (
+                        <div className="text-center py-8"><div className="animate-spin w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full mx-auto" /></div>
+                      ) : historyOrders.length === 0 ? (
+                        <div className="text-center py-8 text-[var(--text-secondary)] text-xs border-2 border-dashed border-[var(--border)] rounded-xl">Sin cobros en este período</div>
+                      ) : historyOrders.map(o => <KanbanCard key={o.id} order={o} showPayBtn={false} />)}
+                    </div>
                   )}
                 </div>
               </div>
@@ -3298,6 +3427,35 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           </>
         );
       })()}
+
+      {/* ─── Modal de Confirmación de Cobro ─── */}
+      {payModal && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPayModal(null)}>
+          <div className="w-full max-w-md bg-[var(--bg-surface)] rounded-t-2xl border-t border-[var(--border)] p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-[var(--text-primary)]">Registrar cobro — Pedido #{payModal.orderNumber}</span>
+              <button onClick={() => setPayModal(null)} className="w-7 h-7 rounded-full bg-[var(--border)] flex items-center justify-center text-[var(--text-secondary)]"><X size={14} /></button>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)] mb-3">Selecciona el método de pago con el que pagó el cliente:</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {[{v:'efectivo',l:'Efectivo'},{v:'tarjeta',l:'Tarjeta'},{v:'sinpe',l:'SINPE'},{v:'mixto',l:'Mixto'}].map(({v,l}) => (
+                <button key={v} onClick={() => setSelectedPayMethod(v)}
+                  className={`py-3 rounded-xl text-sm font-bold border transition-all ${
+                    selectedPayMethod === v
+                      ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                      : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)]'
+                  }`}>{l}</button>
+              ))}
+            </div>
+            <button
+              onClick={() => handleMarkPaid(payModal.orderId, selectedPayMethod)}
+              className="w-full py-3.5 rounded-xl text-sm font-black bg-emerald-500 text-white active:scale-[0.97] transition-all"
+            >
+              Confirmar cobro
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ─── Modal Historial de Mesa ─── */}
       {tableHistoryModal && (

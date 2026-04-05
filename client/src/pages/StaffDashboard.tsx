@@ -387,6 +387,8 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [items, setItems] = useState<MenuItem[]>([]);
   const [pinModal, setPinModal] = useState<{ orderId: string } | null>(null);
   const [paymentTab, setPaymentTab] = useState<'active' | 'cobrar' | 'cobrados' | 'mesas'>('active');
+  const [staffPayModal, setStaffPayModal] = useState<{ orderId: string; orderNumber: number } | null>(null);
+  const [staffPayMethod, setStaffPayMethod] = useState<string>('efectivo');
   const { playBell } = useKitchenBell();
   const prevCountRef = useRef(0);
 
@@ -440,10 +442,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
 
   const ACTIVE_STATUSES = ['pendiente', 'en_cocina', 'listo', 'entregado'];
 
-  const handleMarkPaid = async (orderId: string) => {
-    await supabase.from('orders').update({ payment_status: 'paid', handled_by: staff.id, handled_by_name: staff.name }).eq('id', orderId);
+  const handleMarkPaid = async (orderId: string, paymentMethod?: string) => {
+    const payload: Record<string, string> = { payment_status: 'paid', handled_by: staff.id, handled_by_name: staff.name };
+    if (paymentMethod) payload.payment_method = paymentMethod;
+    await supabase.from('orders').update(payload).eq('id', orderId);
+    setStaffPayModal(null);
     fetchOrders();
-    toast.success('Pago registrado ✅');
+    toast.success('Cobro registrado');
   };
 
   const fetchOrders = useCallback(async () => {
@@ -798,10 +803,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       {/* ── TABS ── */}
       <div className="flex px-3 pt-3 pb-1 gap-1.5">
         {([
-          { key: 'active', label: 'Activos', emoji: '📋', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
-          { key: 'cobrar', label: 'Por Cobrar', emoji: '💰', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
-          { key: 'cobrados', label: 'Cobrados', emoji: '✅', count: orders.filter(o => o.payment_status === 'paid').length },
-          { key: 'mesas', label: 'Mesas', emoji: '🪑', count: 0 },
+          { key: 'active', label: 'Activos', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
+          { key: 'cobrar', label: 'Por Cobrar', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
+          { key: 'cobrados', label: 'Cobrados', count: orders.filter(o => o.payment_status === 'paid').length },
+          { key: 'mesas', label: 'Mesas', count: 0 },
         ] as const).map(tab => {
           const isActive = paymentTab === (tab.key as string);
           return (
@@ -813,8 +818,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                 border: isActive ? 'none' : '1px solid rgba(255,255,255,0.06)',
                 boxShadow: isActive ? '0 4px 14px rgba(245,158,11,0.3)' : 'none',
               }}>
-              <span>{tab.emoji}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span>{tab.label}</span>
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black"
                 style={{ backgroundColor: isActive ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.06)', color: isActive ? '#000' : '#64748b' }}>
                 {tab.count}
@@ -914,7 +918,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                     {order.payment_method && (
                       <span className="px-2.5 py-1 rounded-full text-[11px] font-black"
                         style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo'}
+                        {order.payment_method === 'sinpe' ? 'SINPE' : order.payment_method === 'tarjeta' ? 'Tarjeta' : order.payment_method === 'efectivo' ? 'Efectivo' : order.payment_method || 'Tipo de pago'}
                       </span>
                     )}
                   </div>
@@ -925,10 +929,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       <span className="text-xs font-bold text-emerald-400">Pagado</span>
                     </div>
                   ) : (
-                    <button onClick={() => handleMarkPaid(order.id)}
+                    <button onClick={() => { setStaffPayMethod(order.payment_method || 'efectivo'); setStaffPayModal({ orderId: order.id, orderNumber: order.order_number }); }}
                       className="w-full py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-95"
                       style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 4px 14px rgba(34,197,94,0.3)' }}>
-                      <CheckCircle2 size={16} /> Marcar como Pagado
+                      <CheckCircle2 size={16} /> Registrar cobro
                     </button>
                   )}
                 </div>
@@ -1046,7 +1050,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             {order.payment_method && (
                               <span className="px-2.5 py-1 rounded-full text-[11px] font-black"
                                 style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo'}
+                                {order.payment_method === 'sinpe' ? 'SINPE' : order.payment_method === 'tarjeta' ? 'Tarjeta' : order.payment_method === 'efectivo' ? 'Efectivo' : order.payment_method || 'Tipo de pago'}
                               </span>
                             )}
                           </div>
@@ -1061,10 +1065,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             </button>
                           )}
                           {order.status === 'entregado' && order.payment_status !== 'paid' && (
-                            <button onClick={() => handleMarkPaid(order.id)}
+                            <button onClick={() => { setStaffPayMethod(order.payment_method || 'efectivo'); setStaffPayModal({ orderId: order.id, orderNumber: order.order_number }); }}
                               className="flex-1 py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
                               style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 6px 16px rgba(34,197,94,0.35)' }}>
-                              ✅ Cobrar
+                              Registrar cobro
                             </button>
                           )}
                           <button onClick={() => handleCancelWithPin(order.id)}
@@ -1095,6 +1099,34 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       {paymentTab === 'mesas' && (
         <div className="flex-1 overflow-y-auto p-4">
           <StaffTablesMap tenant={tenant} />
+        </div>
+      )}
+
+      {/* ── Modal de Confirmación de Cobro ── */}
+      {staffPayModal && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={() => setStaffPayModal(null)}>
+          <div className="w-full max-w-md rounded-t-2xl p-5 shadow-2xl" style={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.08)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-white">Registrar cobro — Pedido #{staffPayModal.orderNumber}</span>
+              <button onClick={() => setStaffPayModal(null)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#94a3b8' }}><X size={14} /></button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: '#64748b' }}>Selecciona el método de pago con el que pagó el cliente:</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {[{v:'efectivo',l:'Efectivo'},{v:'tarjeta',l:'Tarjeta'},{v:'sinpe',l:'SINPE'},{v:'mixto',l:'Mixto'}].map(({v,l}) => (
+                <button key={v} onClick={() => setStaffPayMethod(v)}
+                  className="py-3 rounded-xl text-sm font-bold transition-all"
+                  style={staffPayMethod === v
+                    ? { background: 'rgba(34,197,94,0.15)', border: '2px solid rgba(34,197,94,0.5)', color: '#4ade80' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b' }}>{l}</button>
+              ))}
+            </div>
+            <button
+              onClick={() => handleMarkPaid(staffPayModal.orderId, staffPayMethod)}
+              className="w-full py-3.5 rounded-xl text-sm font-black transition-all active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', boxShadow: '0 4px 14px rgba(34,197,94,0.3)' }}>
+              Confirmar cobro
+            </button>
+          </div>
         </div>
       )}
 
