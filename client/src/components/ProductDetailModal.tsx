@@ -321,7 +321,7 @@ export default function ProductDetailModal({
                   className="w-full h-48 flex items-center justify-center text-6xl opacity-20"
                   style={{ backgroundColor: `${theme.primary_color}10` }}
                 >
-                  🍽️
+
                 </div>
               )}
 
@@ -454,7 +454,7 @@ export default function ProductDetailModal({
                                   className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl shrink-0"
                                   style={{ backgroundColor: `${theme.primary_color}15` }}
                                 >
-                                  🍽️
+                
                                 </div>
                               )}
 

@@ -464,7 +464,7 @@ function MenuContent() {
               cursor: 'pointer',
             }}
           >
-            🍽️ Comidas
+            Comidas
           </button>
           <button
             onClick={() => { setMasterTab('drinks'); setActiveCategory(null); }}

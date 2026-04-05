@@ -949,10 +949,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const handleWhatsApp = useCallback(() => {
     if (items.length === 0) return;
 
-    let message = `🛒 *${t('confirm.order_number')} #${orderNumber || '---'} — ${tenant.name}*\n\n`;
-    if (customerName) message += `👤 ${t('checkout.name')}: ${customerName}\n`;
-    if (customerPhone) message += `📱 ${t('checkout.phone')}: ${customerPhone}\n`;
-    if (customerTable) message += `🪑 ${t('checkout.table')}: ${customerTable}\n`;
+    let message = `*${t('confirm.order_number')} #${orderNumber || '---'} — ${tenant.name}*\n\n`;
+    if (customerName) message += `${t('checkout.name')}: ${customerName}\n`;
+    if (customerPhone) message += `${t('checkout.phone')}: ${customerPhone}\n`;
+    if (customerTable) message += `${t('checkout.table')}: ${customerTable}\n`;
     message += `\n`;
 
     items.forEach(item => {
