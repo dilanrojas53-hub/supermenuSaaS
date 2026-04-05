@@ -981,7 +981,8 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             {/* Mesa */}
                             {order.customer_table && (
                               <span className="px-2 py-0.5 rounded-full text-[11px] font-black"
-                                style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}                                {order.customer_table}
+                                style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
+                                {order.customer_table}
                               </span>
                             )}
                             {/* Canal */}
