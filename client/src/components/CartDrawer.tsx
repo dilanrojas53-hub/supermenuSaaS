@@ -1829,7 +1829,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold"
                       style={{ backgroundColor: `${theme.primary_color}12`, border: `1px solid ${theme.primary_color}25`, color: theme.text_color }}
                     >
-                      <span className="text-lg">🍽️</span>
+
                       <span style={{ opacity: 0.85 }}>
                         {lang === 'es'
                           ? 'Nota: El pago se realiza al finalizar tu comida.'

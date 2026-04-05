@@ -220,7 +220,7 @@ function MenuContent() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <div className="text-center">
-          <p className="text-5xl mb-4">🍽️</p>
+          <p className="text-5xl mb-4">🍴</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {t('menu.closed')}
           </h1>

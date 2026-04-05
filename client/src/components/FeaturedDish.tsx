@@ -104,7 +104,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
               WebkitBackdropFilter: 'blur(8px)',
             }}
           >
-            ⭐ {lang === 'es' ? 'Recomendación del Chef' : "Chef's Recommendation"}
+{lang === 'es' ? 'Recomendación del Chef' : "Chef's Recommendation"}
           </span>
           {/* Countdown — subtle */}
           <div
@@ -132,7 +132,7 @@ export default function FeaturedDish({ item, theme }: FeaturedDishProps) {
                   backdropFilter: 'blur(4px)',
                 }}
               >
-                <span className="text-xs">👨‍🍳</span>
+                <span className="text-xs">👨</span>
               </div>
             </div>
           )}
