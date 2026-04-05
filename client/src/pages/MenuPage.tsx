@@ -282,7 +282,7 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-36 relative z-[1]"
+      className="min-h-screen pb-24 relative z-[1]"
       style={{
         background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
