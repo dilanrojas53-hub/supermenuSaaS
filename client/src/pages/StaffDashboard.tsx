@@ -17,7 +17,7 @@ function StaffTablesMap({ tenant }: { tenant: { id: string; slug: string; name: 
   return (
     <div>
       <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2">
-        🪑 Estado de Mesas
+        Estado de Mesas
       </h2>
       <TablesMapPanel tenant={tenant} />
     </div>
@@ -81,9 +81,9 @@ interface Order {
 }
 
 const QUICK_REQUEST_LABELS: Record<'water_ice' | 'napkins' | 'help', string> = {
-  water_ice: '💧 Agua / Hielo',
-  napkins: '🧻 Servilletas',
-  help: '🆘 Ayuda',
+  water_ice: 'Agua / Hielo',
+  napkins: 'Servilletas',
+  help: 'Ayuda',
 };
 
 interface MenuItem {
@@ -288,7 +288,7 @@ function QuickAddModal({
             <p className="text-xs font-bold text-amber-400 mb-2">Total: {formatPrice(total)}</p>
             <button onClick={handlePlace} disabled={placing || cartItems.length === 0}
               className="w-full py-2.5 bg-amber-500 text-black rounded-xl text-xs font-bold hover:bg-amber-400 transition-colors disabled:opacity-40">
-              {placing ? 'Enviando...' : '🍳 A Cocina'}
+                  {placing ? 'Enviando...' : 'A Cocina'}
             </button>
           </div>
         </div>
@@ -464,7 +464,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     // Bell on new order
     if (newOrders.length > prevCountRef.current && prevCountRef.current > 0) {
       playBell();
-      toast.success('🔔 ¡Nuevo pedido recibido!', { duration: 6000 });
+      toast.success('¡Nuevo pedido recibido!', { duration: 6000 });
     }
     prevCountRef.current = newOrders.length;
     setOrders(newOrders);
@@ -665,9 +665,9 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   ];
 
   const getActionLabel = (status: string) => {
-    if (status === 'pendiente') return '🍳 A Cocina';
-    if (status === 'en_cocina') return '🔔 Listo';
-    if (status === 'listo') return '✅ Entregado';
+    if (status === 'pendiente') return 'A Cocina';
+    if (status === 'en_cocina') return 'Listo';
+    if (status === 'listo') return 'Entregado';
     return '';
   };
 
@@ -698,9 +698,9 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const muteFor = (minutes: number) => {
     const until = new Date(Date.now() + minutes * 60 * 1000);
     setMutedUntil(until);
-    toast.success(`🔕 Alertas silenciadas por ${minutes} min`);
+    toast.success(`Alertas silenciadas por ${minutes} min`);
   };
-  const unmute = () => { setMutedUntil(null); toast.success('🔔 Alertas reactivadas'); };
+  const unmute = () => { setMutedUntil(null); toast.success('Alertas reactivadas'); };
 
   // ─── Asistencias activas ───
   const activeAssistances = orders.filter(o =>
@@ -748,13 +748,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                   <button key={m} onClick={() => muteFor(m)}
                     className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-white/5 transition-all first:rounded-t-2xl last:rounded-b-2xl"
                     style={{ color: '#94a3b8' }}>
-                    🔕 Silenciar {m} min
+                    Silenciar {m} min
                   </button>
                 ))}
                 <button onClick={() => muteFor(480)}
                   className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-white/5 transition-all rounded-b-2xl border-t"
                   style={{ color: '#f87171', borderColor: 'rgba(255,255,255,0.06)' }}>
-                  🔕 Silenciar turno
+                  Silenciar turno
                 </button>
               </div>
             </div>
@@ -843,14 +843,14 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                 style={{ backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-xl flex-shrink-0">
-                    {order.quick_request_type === 'water_ice' ? '💧' : order.quick_request_type === 'napkins' ? '🧻' : '🆘'}
+                    {order.quick_request_type === 'water_ice' ? 'Agua' : order.quick_request_type === 'napkins' ? 'Serv.' : 'Ayuda'}
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-black text-white leading-none">
                       {QUICK_REQUEST_LABELS[order.quick_request_type!]}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: '#64748b' }}>
-                      {order.customer_table ? `🪑 ${order.customer_table}` : `#${order.order_number}`}
+                      {order.customer_table ? order.customer_table : `#${order.order_number}`}
                       {order.customer_name ? ` · ${order.customer_name}` : ''}
                       {order.quick_request_at ? ` · hace ${elapsedMin(order.quick_request_at)}m` : ''}
                     </p>
@@ -865,7 +865,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                       quick_request_claimed_at: now,
                     }).eq('id', order.id);
                     fetchOrders();
-                    toast.success('✅ Asistencia atendida');
+                      toast.success('Asistencia atendida');
                   }}
                   className="px-3 py-2 rounded-xl text-xs font-black flex-shrink-0 transition-all active:scale-95"
                   style={{ backgroundColor: '#22c55e', color: '#052e16' }}>
@@ -890,7 +890,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
               : orders.filter(o => o.payment_status === 'paid');
             if (cobrarOrders.length === 0) return (
               <p className="text-center text-sm py-16" style={{ color: '#475569' }}>
-                {paymentTab === 'cobrar' ? 'Sin cuentas pendientes 🎉' : 'Sin cobros registrados'}
+                {paymentTab === 'cobrar' ? 'Sin cuentas pendientes' : 'Sin cobros registrados'}
               </p>
             );
             return cobrarOrders.map(order => (
@@ -903,7 +903,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                     {order.customer_table && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                         style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
-                        🪑 {order.customer_table}
+                        {order.customer_table}
                       </span>
                     )}
                   </div>
@@ -981,15 +981,14 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             {/* Mesa */}
                             {order.customer_table && (
                               <span className="px-2 py-0.5 rounded-full text-[11px] font-black"
-                                style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
-                                🪑 {order.customer_table}
+                                style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}                                {order.customer_table}
                               </span>
                             )}
                             {/* Canal */}
                             {(order as any).delivery_type && (order as any).delivery_type !== 'dine_in' && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
                                 style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}>
-                                {(order as any).delivery_type === 'delivery' ? '🛵 Delivery' : '🥡 Takeout'}
+                                {(order as any).delivery_type === 'delivery' ? 'Delivery' : 'Takeout'}
                               </span>
                             )}
                           </div>
@@ -997,7 +996,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                             {hasAssistance && (
                               <span className="text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse"
                                 style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}>
-                                {order.quick_request_type === 'water_ice' ? '💧' : order.quick_request_type === 'napkins' ? '🧻' : '🆘'} Asistencia
+                                Asistencia
                               </span>
                             )}
                             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isUrgent ? 'text-red-400' : ''}`}
@@ -1153,7 +1152,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                   <Bell size={36} className="text-amber-400" style={{ animation: 'bounce 0.6s infinite' }} />
                 </div>
               </div>
-              <h2 className="text-2xl font-black text-white mb-1">🛎️ ¡Mesa {billAlert.tableNumber} pide la cuenta!</h2>
+              <h2 className="text-2xl font-black text-white mb-1">¡Mesa {billAlert.tableNumber} pide la cuenta!</h2>
               <p className="text-sm mb-5" style={{ color: '#64748b' }}>Pedido #{billAlert.orderNumber}</p>
               <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm"
                 style={{
@@ -1168,7 +1167,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
               <button onClick={() => setBillAlert(null)}
                 className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
                 style={{ backgroundColor: '#F59E0B', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
-                ✅ Entendido — Voy en camino
+                Entendido — Voy en camino
               </button>
             </div>
           </div>
@@ -1182,7 +1181,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
           <div className="w-full max-w-sm rounded-3xl overflow-hidden"
             style={{ backgroundColor: '#0f172a', border: '2px solid #22c55e', boxShadow: '0 0 60px rgba(34,197,94,0.35)' }}>
             <div className="p-6 text-center">
-              <h2 className="text-2xl font-black text-white mb-1">🔔 Solicitud rápida de mesa</h2>
+              <h2 className="text-2xl font-black text-white mb-1">Solicitud rápida de mesa</h2>
               <p className="text-sm mb-1" style={{ color: '#64748b' }}>Mesa {quickRequestAlert.tableNumber}</p>
               <p className="text-sm mb-4" style={{ color: '#64748b' }}>Pedido #{quickRequestAlert.orderNumber}</p>
               <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-6 font-bold text-sm border"
@@ -1192,7 +1191,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
               <button onClick={acknowledgeQuickRequest}
                 className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
                 style={{ backgroundColor: '#22c55e', color: '#052e16' }}>
-                ✅ Entendido — Atiendo la mesa
+                Entendido — Atiendo la mesa
               </button>
             </div>
           </div>

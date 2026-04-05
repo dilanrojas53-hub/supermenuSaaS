@@ -804,9 +804,9 @@ function DeliveryTabWithHistory({ tenant, kanbanNode, pendingCount }: { tenant: 
   const [view, setView] = useState<'kanban' | 'dispatch' | 'ops' | 'history'>('kanban');
   const TABS = [
     { key: 'kanban'   as const, label: '📦 Pedidos',     badge: pendingCount },
-    { key: 'dispatch' as const, label: '🛵 Despacho',    badge: undefined },
+    { key: 'dispatch' as const, label: 'Despacho',    badge: undefined },
     { key: 'ops'      as const, label: '🟢 Operaciones', badge: undefined },
-    { key: 'history'  as const, label: '📋 Historial',   badge: undefined },
+    { key: 'history'  as const, label: 'Historial',   badge: undefined },
   ];
   return (
     <div className="space-y-4">
@@ -2877,7 +2877,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         {/* ── SINPE: Bloqueo de pago pendiente ── */}
         {isSinpePending && (
           <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-purple-500/15 border border-purple-500/40">
-            <span className="text-purple-300 text-xs font-black uppercase tracking-wider animate-pulse">⚠️ PENDIENTE VERIFICAR</span>
+            <span className="text-purple-300 text-xs font-black uppercase tracking-wider animate-pulse">PENDIENTE VERIFICAR</span>
           </div>
         )}
 
@@ -2982,7 +2982,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 <Clock size={11} className="text-[var(--text-secondary)]" />
                 {/* V4.0: mostrar 'ASAP' como 'Lo antes posible' en el Kanban */}
                 <span className="text-xs text-[var(--text-secondary)]">
-                  {scheduledTime === 'ASAP' ? '🛵 Lo antes posible' : `Hoy ${scheduledTime}`}
+                  {scheduledTime === 'ASAP' ? 'Lo antes posible' : `Hoy ${scheduledTime}`}
                 </span>
               </div>
             )}
@@ -3018,7 +3018,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             onClick={() => handleValidateSinpeDelivery(order.id)}
             className="w-full flex items-center justify-center gap-2 py-3 mb-2 rounded-xl text-sm font-black transition-all active:scale-[0.97] touch-manipulation animate-pulse"
             style={{ backgroundColor: '#10B98125', color: '#10B981', border: '2px solid #10B98150' }}>
-            <CheckCircle2 size={16} /> ✅ Validar Pago SINPE → Cocina
+            <CheckCircle2 size={16} /> Validar Pago SINPE → Cocina
           </button>
         )}
 
@@ -3182,10 +3182,10 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   );
 
   // ── Sub-tab config ──
-  const subTabs: { key: OrderSubTab; label: string; icon: string; color: string; activeColor: string }[] = [
-    { key: 'DINE_IN',  label: 'Comer Aquí', icon: '🍽️', color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300' },
-    { key: 'DELIVERY', label: 'Delivery',    icon: '🛵', color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300' },
-    { key: 'TAKEOUT',  label: 'Por Encargo', icon: '🛍️', color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
+  const subTabs: { key: OrderSubTab; label: string; icon: string | null; color: string; activeColor: string }[] = [
+    { key: 'DINE_IN',  label: 'Comer Aquí', icon: null, color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300' },
+    { key: 'DELIVERY', label: 'Delivery',    icon: null, color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300' },
+    { key: 'TAKEOUT',  label: 'Por Encargo', icon: null, color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
   ];
 
   return (
@@ -3201,7 +3201,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
             <button onClick={stopAlarm}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black animate-pulse"
               style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}>
-              🔔
+              Silenciar
             </button>
           )}
           <button onClick={fetchOrders}
@@ -3211,7 +3211,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
           <button
             onClick={() => { if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).then(() => window.location.reload()); }}
             className="p-1.5 rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-600 transition-colors" title="Limpiar caché y actualizar">
-            <span className="text-[11px]">🗑️</span>
+            <span className="text-[11px]">↺</span>
           </button>
         </div>
       </div>
@@ -3226,8 +3226,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
               className={`relative flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
                 isActive ? tab.activeColor + ' border' : 'border border-transparent text-[var(--text-secondary)]'
               }`}>
-              <span>{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span>{tab.label}</span>
               {count > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] flex items-center justify-center rounded-full bg-red-500 text-white text-[8px] font-black px-0.5 shadow animate-pulse">
                   {count}
@@ -3250,7 +3249,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
         if (tableNames.length === 0) return null;
         return (
           <div className="flex items-center gap-1.5 flex-wrap mb-2 px-2 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-            <span className="text-[10px] font-bold text-amber-400 flex-shrink-0">🪑</span>
+            <span className="text-[10px] font-bold text-amber-400 flex-shrink-0">Mesas</span>
             {tableNames.map(tableName => {
               const tOrders = tableGroups[tableName];
               const allDelivered = tOrders.every(o => o.status === 'entregado');

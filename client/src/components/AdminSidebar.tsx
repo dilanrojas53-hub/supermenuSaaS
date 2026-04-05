@@ -225,7 +225,8 @@ export function AdminSidebar({
       </nav>
 
       {/* Footer actions */}
-      <div className="px-3 py-4 border-t border-white/8 space-y-1 flex-shrink-0">
+      <div className="px-3 pt-4 border-t border-white/8 space-y-1 flex-shrink-0"
+        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
         <a
           href={`/${tenantSlug}`}
           target="_blank"
