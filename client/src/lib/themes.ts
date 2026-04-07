@@ -230,6 +230,10 @@ export const RESTAURANT_THEMES: RestaurantThemePreset[] = [
     category: 'Mexicano', isDark: true,
     recommended: { background: '#1A1A1A', surface: '#2A1A0A', text: '#FFFFFF', primary: '#F5A623', badge: '#E91E8C' },
     paletteNote: 'Negro festivo con dorado y magenta. Inspirado en la paleta vibrante del menú impreso: morado, amarillo, rojo, verde y rosa.' },
+  { key: 'tacopedia_amarilla', name: 'Tacopedia Amarilla', emoji: '🌮', description: 'Amarillo intenso con negro, taquería urbana audaz',
+    category: 'Mexicano', isDark: false,
+    recommended: { background: '#E8D800', surface: '#F5E800', text: '#000000', primary: '#8B1A1A', badge: '#000000' },
+    paletteNote: 'Amarillo vibrante #E8D800 con negro puro y acento rojo oscuro #8B1A1A. Identidad visual de La Tacopedia: llamativo, audaz y 100% mexicano.' },
 ];
 
 export function getThemeCategories(): string[] {
