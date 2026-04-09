@@ -302,38 +302,34 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* ═══════════════════════════════════════════════════════════════
-           HERO SECTION v21.0 — Capas absolutas, imagen completa sin recortes
+           HERO SECTION v22.0 — Imagen como fondo cover, una sola pieza visual
            Arquitectura:
-             1. Contenedor con altura fija (clamp)
-             2. Capa 0: blur de la misma imagen (absolute, cover) → rellena espacios
-             3. Capa 1: imagen principal (absolute, contain, centrada) → se ve completa
-             4. Capa 2: overlay degradado inferior → legibilidad del wordmark
-             5. Capa 3: wordmark + i18n toggle
-           Esto garantiza una sola pieza visual en mobile, tablet y desktop.
+             - Contenedor con altura fija clamp(220px, 33vw, 380px)
+             - Imagen principal: absolute, object-cover, siempre llena el contenedor
+             - Overlay degradado inferior para legibilidad
+             - Wordmark: absolute bottom, más grande y más abajo
+           Sin espacios negros, sin columnas partidas, sin fragmentación.
       ═══════════════════════════════════════════════════════════════ */}
       <div
         className="relative w-full overflow-hidden"
         style={{
-          /* Altura fija responsiva: el contenedor siempre tiene dimensiones definidas.
-             Todos los hijos son absolute, así no hay layout flow que rompa la imagen. */
-          height: 'clamp(200px, 56vw, 360px)',
-          background: cleanWhiteTheme ? '#f0f0f0' : '#0a0a0a',
+          height: 'clamp(220px, 33vw, 380px)',
+          background: cleanWhiteTheme ? '#f0f0f0' : '#111',
         }}
       >
-        {/* ── Capa 0: Fondo blur (absolute, cover) — rellena los bordes con elegancia ── */}
+        {/* ── Imagen hero: object-cover, siempre llena el contenedor ── */}
         {heroImage ? (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
-            aria-hidden="true"
+            alt={tenant.name}
             style={{
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center',
-              filter: 'blur(20px) brightness(0.4) saturate(1.3)',
-              transform: 'scale(1.1)',
+              objectPosition: 'center top',
             }}
             loading="eager"
+            decoding="async"
             fetchPriority="high"
           />
         ) : (
@@ -347,30 +343,13 @@ function MenuContent() {
           />
         )}
 
-        {/* ── Capa 1: Imagen principal (absolute, contain, centrada) — se ve completa ── */}
-        {heroImage && (
-          <img
-            src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
-            alt={tenant.name}
-            style={{
-              position: 'absolute', inset: 0,
-              width: '100%', height: '100%',
-              objectFit: 'contain',
-              objectPosition: 'center',
-            }}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />
-        )}
-
-        {/* ── Capa 2: Overlay degradado inferior — legibilidad del wordmark ── */}
+        {/* ── Overlay degradado inferior — legibilidad del wordmark ── */}
         <div
           style={{
             position: 'absolute', inset: 0,
             background: cleanWhiteTheme
-              ? 'linear-gradient(to top, rgba(255,255,255,0.55) 0%, transparent 50%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 55%)',
+              ? 'linear-gradient(to top, rgba(255,255,255,0.5) 0%, transparent 45%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)',
             pointerEvents: 'none',
           }}
         />
@@ -395,7 +374,7 @@ function MenuContent() {
           </button>
         )}
 
-        {/* ── Wordmark: posición absolute al fondo del hero, tamaño responsivo con clamp ── */}
+        {/* ── Wordmark: absolute al fondo del hero, más grande y más abajo ── */}
         {theme.wordmark_url && (
           <motion.img
             src={theme.wordmark_url}
@@ -404,21 +383,20 @@ function MenuContent() {
             animate={{ opacity: 1, y: 0 }}
             style={{
               position: 'absolute',
-              bottom: '10px',
+              bottom: '14px',
               left: theme.wordmark_align === 'right' ? 'auto'
                   : theme.wordmark_align === 'center' ? '50%'
-                  : '14px',
-              right: theme.wordmark_align === 'right' ? '14px' : 'auto',
+                  : '16px',
+              right: theme.wordmark_align === 'right' ? '16px' : 'auto',
               transform: theme.wordmark_align === 'center' ? 'translateX(-50%)' : 'none',
-              /* Tamaño responsivo: el slider del admin controla el valor base (40-220).
-                 Se usa como maxHeight para que funcione con logos portrait y landscape. */
-              maxHeight: `clamp(48px, ${(theme.wordmark_max_width || 100) * 0.18}vw, ${Math.min(theme.wordmark_max_width || 100, 180)}px)`,
-              maxWidth: 'calc(60% - 28px)',
+              /* El slider (40-220) controla maxHeight. Con 220px → logo grande y visible. */
+              maxHeight: `clamp(60px, ${(theme.wordmark_max_width || 120) * 0.22}vw, ${Math.min(theme.wordmark_max_width || 120, 200)}px)`,
+              maxWidth: 'calc(55% - 32px)',
               width: 'auto',
               height: 'auto',
               objectFit: 'contain',
               zIndex: 10,
-              filter: 'drop-shadow(0 1px 12px rgba(0,0,0,0.8))',
+              filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.9))',
               borderRadius:
                 (theme as any).wordmark_shape === 'circle' ? '50%'
                 : (theme as any).wordmark_shape === 'square' ? '6px'
