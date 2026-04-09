@@ -302,7 +302,8 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden" style={{ height: '16rem' }}>
+      {/* minHeight se adapta: si hay wordmark grande, el hero crece para acomodarlo */}
+      <div className="relative overflow-hidden" style={{ minHeight: theme.wordmark_url && (theme.wordmark_max_width || 280) > 200 ? '22rem' : '16rem' }}>
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
@@ -369,8 +370,9 @@ function MenuContent() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               style={{
-                width: `${theme.wordmark_max_width || 280}px`,
-                maxWidth: 'calc(100vw - 40px)',
+                maxWidth: `min(${theme.wordmark_max_width || 280}px, calc(100vw - 40px))`,
+                maxHeight: `min(${theme.wordmark_max_width || 280}px, 240px)`,
+                width: 'auto',
                 height: 'auto',
                 objectFit: 'contain',
                 display: 'block',
