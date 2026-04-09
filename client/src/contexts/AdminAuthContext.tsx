@@ -1,10 +1,10 @@
 /*
- * AdminAuthContext v4: Verificación del tenant ANTES de autenticar.
- * El orden correcto es:
- * 1. Verificar que el email pertenece al tenant (query anónimo, siempre funciona)
- * 2. Autenticar con Supabase Auth (signInWithPassword)
- * Esto evita el problema de RLS donde la sesión recién creada puede bloquear
- * el SELECT en tenants si las políticas cambian.
+ * AdminAuthContext v5: Fix del error "Restaurante no encontrado".
+ * Cambios:
+ * - Usa maybeSingle() en lugar de single() para evitar error cuando RLS devuelve 0 filas
+ * - Hace signOut() previo para limpiar sesiones activas que puedan interferir con RLS
+ * - Aumenta el timeout a 15s para conexiones lentas
+ * - Mejora el manejo de errores con mensajes más específicos
  */
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -59,15 +59,35 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     slug?: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      // PASO 1: Para admin, verificar el tenant ANTES de autenticar
-      // Esto corre como sesión anónima y siempre funciona
-      if (targetRole === 'admin' && slug) {
-        const { data: tenant, error: tenantError } = await withTimeout(
-          supabase.from('tenants').select('admin_email').eq('slug', slug).single(),
-          8000
-        );
+      // PASO 0: Limpiar cualquier sesión activa que pueda interferir con RLS
+      await supabase.auth.signOut().catch(() => {});
 
-        if (tenantError || !tenant) {
+      // PASO 1: Para admin, verificar el tenant ANTES de autenticar
+      // Usa maybeSingle() para evitar error cuando RLS devuelve 0 filas
+      if (targetRole === 'admin' && slug) {
+        let tenant: { admin_email: string } | null = null;
+        let tenantError: any = null;
+
+        try {
+          const result = await withTimeout(
+            supabase.from('tenants').select('admin_email').eq('slug', slug).maybeSingle(),
+            15000
+          );
+          tenant = result.data;
+          tenantError = result.error;
+        } catch (timeoutErr: any) {
+          if (timeoutErr?.message === 'timeout') {
+            return { success: false, error: 'La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.' };
+          }
+          throw timeoutErr;
+        }
+
+        if (tenantError) {
+          console.error('Error buscando tenant:', tenantError);
+          return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
+        }
+
+        if (!tenant) {
           return { success: false, error: 'Restaurante no encontrado. Verifica la URL.' };
         }
 
@@ -77,10 +97,22 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       }
 
       // PASO 2: Autenticar con Supabase Auth
-      const { data: authData, error: authError } = await withTimeout(
-        supabase.auth.signInWithPassword({ email, password }),
-        12000
-      );
+      let authData: any = null;
+      let authError: any = null;
+
+      try {
+        const result = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          15000
+        );
+        authData = result.data;
+        authError = result.error;
+      } catch (timeoutErr: any) {
+        if (timeoutErr?.message === 'timeout') {
+          return { success: false, error: 'La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.' };
+        }
+        throw timeoutErr;
+      }
 
       if (authError || !authData?.user) {
         return { success: false, error: 'Contraseña incorrecta. Intenta de nuevo.' };
@@ -104,12 +136,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
 
     } catch (err: any) {
-      if (err?.message === 'timeout') {
-        return {
-          success: false,
-          error: 'La conexión tardó demasiado. Verifica tu internet e intenta de nuevo.',
-        };
-      }
       console.error('AdminAuthContext login error:', err);
       return { success: false, error: 'Error inesperado. Intenta de nuevo.' };
     }
