@@ -616,14 +616,16 @@ function MenuSectionsManager({ tenant, categories, items }: { tenant: Tenant; ca
     toast.success('Sección eliminada'); fetchSections();
   };
 
-  const toggleItemInSection = async (sectionId: string, itemId: string) => {
+  const toggleItemInSection = async (sectionId: string, itemId: string, categoryId?: string) => {
     const exists = sectionItems.some(si => si.section_id === sectionId && si.item_id === itemId);
     if (exists) {
       const { error } = await supabase.from('menu_section_items').delete().eq('section_id', sectionId).eq('item_id', itemId);
       if (error) { toast.error('Error: ' + error.message); return; }
       setSectionItems(prev => prev.filter(si => !(si.section_id === sectionId && si.item_id === itemId)));
     } else {
-      const { error } = await supabase.from('menu_section_items').insert({ section_id: sectionId, item_id: itemId });
+      const payload: Record<string, string> = { section_id: sectionId, item_id: itemId };
+      if (categoryId) payload.category_id = categoryId;
+      const { error } = await supabase.from('menu_section_items').insert(payload);
       if (error) { toast.error('Error: ' + error.message); return; }
       setSectionItems(prev => [...prev, { section_id: sectionId, item_id: itemId }]);
     }
@@ -752,12 +754,12 @@ function MenuSectionsManager({ tenant, categories, items }: { tenant: Tenant; ca
                                 if (allCatAssigned) {
                                   // Deselect all in category
                                   for (const item of catItems) {
-                                    if (assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id);
+                                    if (assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id, item.category_id);
                                   }
                                 } else {
                                   // Select all in category
                                   for (const item of catItems) {
-                                    if (!assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id);
+                                    if (!assignedItemIds.includes(item.id)) await toggleItemInSection(section.id, item.id, item.category_id);
                                   }
                                 }
                               }}
@@ -773,7 +775,7 @@ function MenuSectionsManager({ tenant, categories, items }: { tenant: Tenant; ca
                             {catItems.map(item => {
                               const isAssigned = assignedItemIds.includes(item.id);
                               return (
-                                <button key={item.id} onClick={() => toggleItemInSection(section.id, item.id)}
+                                <button key={item.id} onClick={() => toggleItemInSection(section.id, item.id, item.category_id)}
                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                                     isAssigned
                                       ? 'bg-indigo-500 text-white shadow-sm'
