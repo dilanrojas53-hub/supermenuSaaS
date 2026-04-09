@@ -16,6 +16,8 @@ import { formatPrice, ORDER_STATUS_CONFIG, ORDER_STATUS_ACTIONS, getPlanFeatures
 import { useKitchenBell } from '@/hooks/useKitchenBell';
 import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, ModifierOption } from '@/lib/types';
 import ImageUpload from '@/components/ImageUpload';
+import HeroImageUpload from '@/components/HeroImageUpload';
+import type { HeroImageMetadata } from '@/lib/heroImageProcessor';
 import ModifiersTab from '@/components/ModifiersTab';
 import DeliveryDispatchPanel from '@/components/DeliveryDispatchPanel';
 import DeliveryHistoryPanel from '@/components/DeliveryHistoryPanel';
@@ -2014,6 +2016,8 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     font_family:      theme.font_family      || 'Inter',
     view_mode:        theme.view_mode        || 'grid',
     hero_image_url:   theme.hero_image_url   || '',
+    // hero_metadata almacena todas las versiones optimizadas y metadatos del hero en un solo JSONB
+    hero_metadata: (theme as any).hero_metadata || null,
     wordmark_url:     theme.wordmark_url      || '',
     wordmark_max_width: theme.wordmark_max_width ? Math.min(theme.wordmark_max_width, 220) : 120,
     wordmark_align:   theme.wordmark_align    || 'left',
@@ -2073,6 +2077,8 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
       font_family:      form.font_family,
       view_mode:        form.view_mode,
       hero_image_url:   form.hero_image_url || null,
+      // Guardar todos los metadatos del hero en una sola columna JSONB
+      hero_metadata: form.hero_metadata || null,
       wordmark_url:     form.wordmark_url || null,
       wordmark_max_width: form.wordmark_max_width || 120,
       wordmark_align:   form.wordmark_align || 'left',
@@ -2276,9 +2282,26 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         </div>
 
         {/* Imagen Hero */}
-        <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Imagen Hero</h3>
-        <ImageUpload bucket="menu-images" currentUrl={form.hero_image_url}
-          onUpload={(url) => setForm({ ...form, hero_image_url: url })} label="" previewSize="lg" />
+        <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Imagen Hero</h3>
+        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>El sistema detecta automáticamente el tipo de imagen y genera versiones optimizadas para mobile, tablet y desktop.</p>
+        <HeroImageUpload
+          currentUrl={form.hero_image_url}
+          currentMetadata={(form.hero_metadata as any)?.metadata || null}
+          onUpload={({ mobile, tablet, desktop, metadata }) => {
+            setForm({
+              ...form,
+              // hero_image_url guarda la URL mobile como fallback legacy
+              hero_image_url: mobile,
+              // hero_metadata guarda todo en un JSONB
+              hero_metadata: { mobile, tablet, desktop, metadata },
+            });
+          }}
+          onRemove={() => setForm({
+            ...form,
+            hero_image_url: '',
+            hero_metadata: null,
+          })}
+        />
 
         {/* Wordmark / Nombre visual */}
         <h3 className="text-xs font-semibold mt-6 mb-1" style={{ color: 'var(--text-secondary)' }}>Nombre visual / Wordmark</h3>

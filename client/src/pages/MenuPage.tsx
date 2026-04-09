@@ -261,6 +261,30 @@ function MenuContent() {
         translatedMenuItems.some(item => item.category_id === cat.id && activeSectionItemIds.includes(item.id))
       );
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
+  // Leer metadatos del hero desde la columna JSONB hero_metadata
+  const heroMeta = (theme as any).hero_metadata as {
+    mobile: string; tablet: string; desktop: string;
+    metadata: {
+      type: string; focalX: number; focalY: number;
+      objectFit: 'cover' | 'contain'; objectPosition: string;
+      heroHeightMobile: number; heroHeightDesktop: number;
+    };
+  } | null | undefined;
+  // Versiones optimizadas por dispositivo
+  const heroMobile  = heroMeta?.mobile  || heroImage;
+  const heroTablet  = heroMeta?.tablet  || heroImage;
+  const heroDesktop = heroMeta?.desktop || heroImage;
+  // Metadatos del hero (detectados al subir)
+  const heroObjectFit: 'cover' | 'contain' = heroMeta?.metadata?.objectFit || 'cover';
+  const heroObjectPosition: string = heroMeta?.metadata?.objectPosition || 'center center';
+  const heroImageType: string = heroMeta?.metadata?.type || '';
+  const heroHeightMobile: number  = heroMeta?.metadata?.heroHeightMobile  || 240;
+  const heroHeightDesktop: number = heroMeta?.metadata?.heroHeightDesktop || 340;
+  // Para banners horizontales: altura calculada para mostrar el banner completo
+  // Para otros tipos: altura estándar con clamp
+  const heroHeightStyle = heroImageType === 'banner-horizontal'
+    ? `clamp(${heroHeightMobile}px, 28vw, ${heroHeightDesktop}px)`
+    : 'clamp(220px, 33vw, 380px)';
   const bodyFont = getFontFamily(theme.font_family);
   // Detecta tema Clean White para aplicar estilos minimalistas
   const cleanWhiteTheme = theme.theme_preset_key === 'clean_white' ||
@@ -302,36 +326,68 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* ═══════════════════════════════════════════════════════════════
-           HERO SECTION v22.0 — Imagen como fondo cover, una sola pieza visual
+           HERO SECTION v23.0 — Sistema inteligente de imagen hero
            Arquitectura:
-             - Contenedor con altura fija clamp(220px, 33vw, 380px)
-             - Imagen principal: absolute, object-cover, siempre llena el contenedor
-             - Overlay degradado inferior para legibilidad
-             - Wordmark: absolute bottom, más grande y más abajo
+             - Detecta tipo de imagen (banner-horizontal, landscape, portrait, square)
+             - Usa versiones optimizadas por dispositivo (mobile/tablet/desktop WebP)
+             - Para banners horizontales: contain + blur backdrop de fondo
+             - Para otros tipos: cover con focal point detectado automáticamente
+             - Altura adaptativa según tipo de imagen
            Sin espacios negros, sin columnas partidas, sin fragmentación.
       ═══════════════════════════════════════════════════════════════ */}
       <div
         className="relative w-full overflow-hidden"
         style={{
-          height: 'clamp(220px, 33vw, 380px)',
+          height: heroHeightStyle,
           background: cleanWhiteTheme ? '#f0f0f0' : '#111',
         }}
       >
-        {/* ── Imagen hero: object-cover, siempre llena el contenedor ── */}
+        {/* ── Imagen hero: versiones optimizadas por dispositivo ── */}
         {heroImage ? (
-          <img
-            src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
-            alt={tenant.name}
-            style={{
-              position: 'absolute', inset: 0,
-              width: '100%', height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center top',
-            }}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />
+          <>
+            {/* Blur backdrop: siempre visible para banners horizontales (contain),
+                y como fallback de color para otros tipos */}
+            {heroObjectFit === 'contain' && (
+              <img
+                src={heroMobile}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  filter: 'blur(18px) brightness(0.35) saturate(1.3)',
+                  transform: 'scale(1.12)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            {/* Imagen principal con versiones responsive */}
+            <picture style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+              {/* Desktop: 1600px */}
+              {heroDesktop && heroDesktop !== heroImage && (
+                <source media="(min-width: 1024px)" srcSet={heroDesktop} type="image/webp" />
+              )}
+              {/* Tablet: 1200px */}
+              {heroTablet && heroTablet !== heroImage && (
+                <source media="(min-width: 640px)" srcSet={heroTablet} type="image/webp" />
+              )}
+              {/* Mobile: 800px (default) */}
+              <img
+                src={heroMobile || heroImage}
+                alt={tenant.name}
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: heroObjectFit,
+                  objectPosition: heroObjectPosition,
+                }}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+            </picture>
+          </>
         ) : (
           <div
             style={{
