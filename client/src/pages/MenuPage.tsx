@@ -357,42 +357,45 @@ function MenuContent() {
           </button>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 p-5 pb-6">
-          {/* Logo solo se muestra si no hay wordmark */}
-          {tenant.logo_url && !theme.wordmark_url && (
-            <img
-              src={tenant.logo_url}
-              alt={`${tenant.name} logo`}
-              className="w-16 h-16 object-cover mb-3 shadow-2xl"
-              style={{
-                border: cleanWhiteTheme ? '2.5px solid rgba(0,0,0,0.15)' : '2.5px solid rgba(255,255,255,0.35)',
-                borderRadius: (rawTenant.logo_shape === 'circle') ? '50%' : (rawTenant.logo_shape === 'square') ? '6px' : '16px',
-              }}
-            />
-          )}
-          {theme.wordmark_url ? (
-            <motion.img
-              src={theme.wordmark_url}
-              alt={tenant.name}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                /* El slider (wordmark_max_width) controla la altura del wordmark.
-                   El ancho se adapta automáticamente para mantener proporciones.
-                   Esto funciona bien tanto para logos portrait como landscape. */
-                height: `${Math.min(theme.wordmark_max_width || 80, 120)}px`,
-                maxWidth: 'calc(100vw - 40px)',
-                width: 'auto',
-                objectFit: 'contain',
-                display: 'block',
-                marginBottom: '8px',
-                filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.7))',
-                marginLeft: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? 'auto' : '0',
-                marginRight: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? '0' : 'auto',
-                borderRadius: (theme as any).wordmark_shape === 'circle' ? '50%' : (theme as any).wordmark_shape === 'square' ? '6px' : (theme as any).wordmark_shape === 'rounded' ? '12px' : undefined,
-              }}
-            />
-          ) : (
+        {/* Wordmark: absolute en el fondo-izquierda del hero, independiente del texto */}
+        {theme.wordmark_url && (
+          <motion.img
+            src={theme.wordmark_url}
+            alt={tenant.name}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: theme.wordmark_align === 'right' ? 'auto' : theme.wordmark_align === 'center' ? '50%' : '16px',
+              right: theme.wordmark_align === 'right' ? '16px' : 'auto',
+              transform: theme.wordmark_align === 'center' ? 'translateX(-50%)' : 'none',
+              height: `${Math.min(theme.wordmark_max_width || 80, 100)}px`,
+              maxWidth: 'calc(100% - 32px)',
+              width: 'auto',
+              objectFit: 'contain',
+              zIndex: 10,
+              filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.7))',
+              borderRadius: (theme as any).wordmark_shape === 'circle' ? '50%' : (theme as any).wordmark_shape === 'square' ? '6px' : (theme as any).wordmark_shape === 'rounded' ? '12px' : undefined,
+            }}
+          />
+        )}
+
+        {/* Texto del hero: solo se muestra cuando NO hay wordmark */}
+        {!theme.wordmark_url && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
+            {/* Logo solo se muestra si no hay wordmark */}
+            {tenant.logo_url && (
+              <img
+                src={tenant.logo_url}
+                alt={`${tenant.name} logo`}
+                className="w-14 h-14 object-cover mb-2 shadow-2xl"
+                style={{
+                  border: cleanWhiteTheme ? '2.5px solid rgba(0,0,0,0.15)' : '2.5px solid rgba(255,255,255,0.35)',
+                  borderRadius: (rawTenant.logo_shape === 'circle') ? '50%' : (rawTenant.logo_shape === 'square') ? '6px' : '16px',
+                }}
+              />
+            )}
             <motion.h1
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -406,24 +409,24 @@ function MenuContent() {
             >
               {tenant.name}
             </motion.h1>
-          )}
-          {tenant.description && (
-            <p className="text-sm leading-relaxed line-clamp-2"
-              style={{
-                color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.75)',
-                textShadow: cleanWhiteTheme ? 'none' : '0 1px 6px rgba(0,0,0,0.5)'
-              }}>
-              {tenant.description}
-            </p>
-          )}
-          {tenant.address && (
-            <div className="flex items-center gap-1.5 mt-2 text-xs"
-              style={{ color: cleanWhiteTheme ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)' }}>
-              <MapPin size={11} />
-              <span>{tenant.address}</span>
-            </div>
-          )}
-        </div>
+            {tenant.description && (
+              <p className="text-sm leading-relaxed line-clamp-2"
+                style={{
+                  color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.75)',
+                  textShadow: cleanWhiteTheme ? 'none' : '0 1px 6px rgba(0,0,0,0.5)'
+                }}>
+                {tenant.description}
+              </p>
+            )}
+            {tenant.address && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs"
+                style={{ color: cleanWhiteTheme ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)' }}>
+                <MapPin size={11} />
+                <span>{tenant.address}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* V19.0 Selector de Franjas Horarias */}
