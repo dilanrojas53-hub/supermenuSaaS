@@ -287,25 +287,22 @@ function MenuContent() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: cleanWhiteTheme ? '#f5f5f5' : '#0a0a0a' }}>
     <div
-      className="min-h-screen pb-24 relative z-[1] mx-auto"
+      className="min-h-screen pb-24 relative z-[1]"
       style={{
-        maxWidth: '480px',
         background: cleanWhiteTheme
           ? '#FFFFFF'
           : 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
         fontFamily: bodyFont,
         transition: 'background 0.3s ease',
-        boxShadow: '0 0 40px rgba(0,0,0,0.3)',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
-      {/* Hero Section */}
-      <div className="relative overflow-hidden" style={{ height: '18rem' }}>
+      {/* Hero Section — altura responsiva: 18rem en móvil, 35vh en tablet/desktop */}
+      <div className="relative overflow-hidden" style={{ height: 'clamp(14rem, 35vh, 22rem)' }}>
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
@@ -845,7 +842,6 @@ function MenuContent() {
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
       />
-    </div>
     </div>
   );
 }
