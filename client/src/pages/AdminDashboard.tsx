@@ -2283,17 +2283,19 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         {/* Wordmark / Nombre visual */}
         <h3 className="text-xs font-semibold mt-6 mb-1" style={{ color: 'var(--text-secondary)' }}>Nombre visual / Wordmark</h3>
         <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>PNG transparente con el nombre tipográfico del restaurante. Se muestra en el hero en lugar del texto plano.</p>
-        <ImageUpload bucket="logos" currentUrl={form.wordmark_url}
-          onUpload={(url) => setForm({ ...form, wordmark_url: url })} label="" previewSize="md" />
+        {!form.wordmark_url && (
+          <ImageUpload bucket="logos" currentUrl={null}
+            onUpload={(url) => setForm({ ...form, wordmark_url: url })} label="" previewSize="md" />
+        )}
         {form.wordmark_url && (
-          <div className="mt-4 space-y-3">
-            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: form.background_color, padding: '20px 16px' }}>
+          <div className="mt-2 space-y-3">
+            <div className="rounded-xl overflow-hidden relative" style={{ backgroundColor: form.background_color, padding: '20px 16px', minHeight: '80px' }}>
               <img
                 src={form.wordmark_url}
                 alt="Wordmark preview"
                 style={{
                   width: `${form.wordmark_max_width}px`,
-                  maxWidth: '100%',
+                  maxWidth: 'calc(100% - 32px)',
                   height: 'auto',
                   objectFit: 'contain',
                   display: 'block',
@@ -2301,6 +2303,12 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                   marginRight: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? '0' : 'auto',
                 }}
               />
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, wordmark_url: null })}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' }}
+              >✕</button>
             </div>
             {/* Forma del wordmark */}
             <div>

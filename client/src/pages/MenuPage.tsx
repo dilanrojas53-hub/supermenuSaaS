@@ -302,7 +302,7 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden" style={{ minHeight: theme.wordmark_url ? `${Math.max(180, (theme.wordmark_max_width || 280) * 0.45)}px` : '16rem' }}>
+      <div className="relative overflow-hidden" style={{ height: '16rem' }}>
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
