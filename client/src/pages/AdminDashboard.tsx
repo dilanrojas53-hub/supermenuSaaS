@@ -616,16 +616,14 @@ function MenuSectionsManager({ tenant, categories, items }: { tenant: Tenant; ca
     toast.success('Sección eliminada'); fetchSections();
   };
 
-  const toggleItemInSection = async (sectionId: string, itemId: string, categoryId?: string) => {
+  const toggleItemInSection = async (sectionId: string, itemId: string, _categoryId?: string) => {
     const exists = sectionItems.some(si => si.section_id === sectionId && si.item_id === itemId);
     if (exists) {
       const { error } = await supabase.from('menu_section_items').delete().eq('section_id', sectionId).eq('item_id', itemId);
       if (error) { toast.error('Error: ' + error.message); return; }
       setSectionItems(prev => prev.filter(si => !(si.section_id === sectionId && si.item_id === itemId)));
     } else {
-      const payload: Record<string, string> = { section_id: sectionId, item_id: itemId };
-      if (categoryId) payload.category_id = categoryId;
-      const { error } = await supabase.from('menu_section_items').insert(payload);
+      const { error } = await supabase.from('menu_section_items').insert({ section_id: sectionId, item_id: itemId });
       if (error) { toast.error('Error: ' + error.message); return; }
       setSectionItems(prev => [...prev, { section_id: sectionId, item_id: itemId }]);
     }
