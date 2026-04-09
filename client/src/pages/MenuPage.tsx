@@ -301,22 +301,17 @@ function MenuContent() {
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
-      {/* Hero Section — aspect-ratio responsivo: 16:7 en móvil, comprime automáticamente */}
+      {/* Hero Section — altura fija 220px en móvil, 300px en desktop. Imagen siempre centrada con object-cover */}
       <div
         className="relative overflow-hidden w-full"
-        style={{
-          /* aspect-ratio: en móvil ~16:7, en pantallas anchas se limita a 280px de alto máximo */
-          aspectRatio: '16 / 7',
-          maxHeight: '280px',
-          minHeight: '160px',
-        }}
+        style={{ height: 'clamp(220px, 30vh, 320px)' }}
       >
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             alt={tenant.name}
-            className="w-full h-full object-cover scale-105"
-            style={{ filter: cleanWhiteTheme ? 'brightness(0.9)' : 'brightness(0.85)' }}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: 'center center', filter: cleanWhiteTheme ? 'brightness(0.9)' : 'brightness(0.85)' }}
             loading="eager"
             decoding="async"
             fetchPriority="high"
@@ -370,7 +365,7 @@ function MenuContent() {
               left: theme.wordmark_align === 'right' ? 'auto' : theme.wordmark_align === 'center' ? '50%' : '16px',
               right: theme.wordmark_align === 'right' ? '16px' : 'auto',
               transform: theme.wordmark_align === 'center' ? 'translateX(-50%)' : 'none',
-              height: `${Math.min(theme.wordmark_max_width || 80, 100)}px`,
+              height: `${Math.min(theme.wordmark_max_width || 100, 140)}px`,
               maxWidth: 'calc(100% - 32px)',
               width: 'auto',
               objectFit: 'contain',
