@@ -253,11 +253,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Imagen — altura generosa */}
+      {/* Imagen — aspect-ratio 4:3 para que escale bien en cualquier ancho */}
       <div
         className="relative w-full overflow-hidden flex-shrink-0"
         onClick={handleOpenDetail}
-        style={{ height: '11rem', borderRadius: '1.25rem 1.25rem 0 0' }}
+        style={{ aspectRatio: '4/3', borderRadius: '1.25rem 1.25rem 0 0' }}
       >
         {hasImage ? (
           <>

@@ -285,12 +285,23 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-24 relative z-[1]"
       style={{
+        minHeight: '100dvh',
+        background: 'var(--menu-bg)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+      }}
+    >
+    <div
+      className="min-h-screen pb-24 relative z-[1] w-full"
+      style={{
+        maxWidth: '480px',
         background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
         fontFamily: bodyFont,
         transition: 'background 0.3s ease',
+        boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
@@ -769,6 +780,7 @@ function MenuContent() {
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
       />
+    </div>
     </div>
   );
 }

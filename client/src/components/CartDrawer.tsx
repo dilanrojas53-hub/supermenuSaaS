@@ -1091,13 +1091,17 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 right-0 z-[150] rounded-t-3xl flex flex-col"
+            className="fixed z-[150] rounded-t-3xl flex flex-col"
             style={{
               bottom: '64px',
               maxHeight: 'calc(92vh - 64px)',
               backgroundColor: 'var(--bg-surface)',
               borderTop: '1px solid rgba(255,255,255,0.05)',
               boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '100%',
+              maxWidth: '480px',
             }}
           >
             {/* Header */}

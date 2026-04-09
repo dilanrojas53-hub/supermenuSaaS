@@ -56,12 +56,16 @@ export default function BottomNav({
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch border-t"
+      className="fixed bottom-0 z-50 flex items-stretch border-t"
       style={{
         backgroundColor: bgColor,
         borderColor: 'var(--menu-border)',
         paddingBottom: 'env(safe-area-inset-bottom)',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: '480px',
       }}
     >
       {tabs.map(({ key, label, Icon, badge, dot, activeDot, activeEmoji }: any) => {
