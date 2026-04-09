@@ -79,8 +79,8 @@ export const IMAGE_SIZES = {
   card: { width: 400, quality: 80, height: 400 },
   /** Modal de detalle del producto (full width mobile ~390px, rectangular) */
   detail: { width: 800, quality: 85 },
-  /** Hero / banner del restaurante (rectangular, 16rem alto) */
-  hero: { width: 1200, quality: 85 },
+  /** Hero / banner del restaurante (rectangular, aspect-ratio 16:7) */
+  hero: { width: 800, quality: 85 },
   /** Ícono pequeño cuadrado en carrito (56px visual) */
   cart: { width: 160, quality: 75, height: 160 },
 } as const;

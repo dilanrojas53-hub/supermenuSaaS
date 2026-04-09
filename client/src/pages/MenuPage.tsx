@@ -301,8 +301,16 @@ function MenuContent() {
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
-      {/* Hero Section — altura responsiva: 18rem en móvil, 35vh en tablet/desktop */}
-      <div className="relative overflow-hidden" style={{ height: 'clamp(14rem, 35vh, 22rem)' }}>
+      {/* Hero Section — aspect-ratio responsivo: 16:7 en móvil, comprime automáticamente */}
+      <div
+        className="relative overflow-hidden w-full"
+        style={{
+          /* aspect-ratio: en móvil ~16:7, en pantallas anchas se limita a 280px de alto máximo */
+          aspectRatio: '16 / 7',
+          maxHeight: '280px',
+          minHeight: '160px',
+        }}
+      >
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
@@ -372,7 +380,7 @@ function MenuContent() {
                 /* El slider (wordmark_max_width) controla la altura del wordmark.
                    El ancho se adapta automáticamente para mantener proporciones.
                    Esto funciona bien tanto para logos portrait como landscape. */
-                height: `${Math.min(theme.wordmark_max_width || 120, 220)}px`,
+                height: `${Math.min(theme.wordmark_max_width || 80, 120)}px`,
                 maxWidth: 'calc(100vw - 40px)',
                 width: 'auto',
                 objectFit: 'contain',
