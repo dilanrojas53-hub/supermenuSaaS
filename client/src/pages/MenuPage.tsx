@@ -302,39 +302,44 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* ═══════════════════════════════════════════════════════════════
-           HERO SECTION v20.0 — Imagen completa sin recortes
-           Estrategia: fondo blur de la misma imagen + img object-contain
-           Esto garantiza que el banner se vea completo en todos los dispositivos.
+           HERO SECTION v21.0 — Capas absolutas, imagen completa sin recortes
+           Arquitectura:
+             1. Contenedor con altura fija (clamp)
+             2. Capa 0: blur de la misma imagen (absolute, cover) → rellena espacios
+             3. Capa 1: imagen principal (absolute, contain, centrada) → se ve completa
+             4. Capa 2: overlay degradado inferior → legibilidad del wordmark
+             5. Capa 3: wordmark + i18n toggle
+           Esto garantiza una sola pieza visual en mobile, tablet y desktop.
       ═══════════════════════════════════════════════════════════════ */}
       <div
         className="relative w-full overflow-hidden"
         style={{
-          /* Altura adaptativa: suficiente para ver el banner completo en móvil */
-          height: heroImage ? 'auto' : 'clamp(180px, 28vh, 280px)',
-          minHeight: heroImage ? '160px' : undefined,
-          background: cleanWhiteTheme ? '#f5f5f5' : '#0a0a0a',
+          /* Altura fija responsiva: el contenedor siempre tiene dimensiones definidas.
+             Todos los hijos son absolute, así no hay layout flow que rompa la imagen. */
+          height: 'clamp(200px, 56vw, 360px)',
+          background: cleanWhiteTheme ? '#f0f0f0' : '#0a0a0a',
         }}
       >
-        {/* ── Fondo blur: misma imagen escalada y desenfocada para rellenar espacios ── */}
-        {heroImage && (
+        {/* ── Capa 0: Fondo blur (absolute, cover) — rellena los bordes con elegancia ── */}
+        {heroImage ? (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             aria-hidden="true"
-            className="absolute inset-0 w-full h-full"
             style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
               objectFit: 'cover',
               objectPosition: 'center',
-              filter: 'blur(18px) brightness(0.45) saturate(1.2)',
-              transform: 'scale(1.08)',
+              filter: 'blur(20px) brightness(0.4) saturate(1.3)',
+              transform: 'scale(1.1)',
             }}
             loading="eager"
             fetchPriority="high"
           />
-        )}
-        {!heroImage && (
+        ) : (
           <div
-            className="absolute inset-0"
             style={{
+              position: 'absolute', inset: 0,
               background: cleanWhiteTheme
                 ? `linear-gradient(135deg, ${theme.primary_color || '#0A0A0A'}22 0%, ${theme.background_color || '#FFFFFF'} 100%)`
                 : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
@@ -342,17 +347,16 @@ function MenuContent() {
           />
         )}
 
-        {/* ── Imagen principal: object-contain para que se vea completa ── */}
+        {/* ── Capa 1: Imagen principal (absolute, contain, centrada) — se ve completa ── */}
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             alt={tenant.name}
-            className="relative w-full block"
             style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
               objectFit: 'contain',
               objectPosition: 'center',
-              maxHeight: 'clamp(180px, 55vw, 340px)',
-              display: 'block',
             }}
             loading="eager"
             decoding="async"
@@ -360,14 +364,13 @@ function MenuContent() {
           />
         )}
 
-        {/* ── Overlay sutil en la parte inferior para que el wordmark/texto sea legible ── */}
+        {/* ── Capa 2: Overlay degradado inferior — legibilidad del wordmark ── */}
         <div
-          className="absolute inset-x-0 bottom-0"
           style={{
-            height: '60%',
+            position: 'absolute', inset: 0,
             background: cleanWhiteTheme
-              ? 'linear-gradient(to top, rgba(255,255,255,0.6) 0%, transparent 100%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)',
+              ? 'linear-gradient(to top, rgba(255,255,255,0.55) 0%, transparent 50%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 55%)',
             pointerEvents: 'none',
           }}
         />
