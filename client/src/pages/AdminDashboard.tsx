@@ -2015,7 +2015,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
     view_mode:        theme.view_mode        || 'grid',
     hero_image_url:   theme.hero_image_url   || '',
     wordmark_url:     theme.wordmark_url      || '',
-    wordmark_max_width: theme.wordmark_max_width ?? 280,
+    wordmark_max_width: theme.wordmark_max_width ? Math.min(theme.wordmark_max_width, 220) : 120,
     wordmark_align:   theme.wordmark_align    || 'left',
     wordmark_shape:   (theme as any).wordmark_shape   || 'rounded',
     theme_preset_key: (theme as any).theme_preset_key || ''
@@ -2074,7 +2074,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
       view_mode:        form.view_mode,
       hero_image_url:   form.hero_image_url || null,
       wordmark_url:     form.wordmark_url || null,
-      wordmark_max_width: form.wordmark_max_width || 280,
+      wordmark_max_width: form.wordmark_max_width || 120,
       wordmark_align:   form.wordmark_align || 'left',
       wordmark_shape:   (form as any).wordmark_shape || 'rounded',
       theme_preset_key: form.theme_preset_key || null,
@@ -2294,9 +2294,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                 src={form.wordmark_url}
                 alt="Wordmark preview"
                 style={{
-                  width: `${form.wordmark_max_width}px`,
+                  height: `${Math.min(form.wordmark_max_width, 220)}px`,
                   maxWidth: 'calc(100% - 32px)',
-                  height: 'auto',
+                  width: 'auto',
                   objectFit: 'contain',
                   display: 'block',
                   marginLeft: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? 'auto' : '0',
@@ -2347,7 +2347,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>{form.wordmark_max_width}px</span>
                 </div>
                 <input
-                  type="range" min={60} max={600} step={10}
+                  type="range" min={40} max={220} step={5}
                   value={form.wordmark_max_width}
                   onChange={e => setForm({ ...form, wordmark_max_width: Number(e.target.value) })}
                   className="w-full h-2 rounded-full appearance-none cursor-pointer"

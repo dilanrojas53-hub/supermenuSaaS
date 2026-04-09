@@ -302,8 +302,7 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
-      {/* minHeight se adapta: si hay wordmark grande, el hero crece para acomodarlo */}
-      <div className="relative overflow-hidden" style={{ minHeight: theme.wordmark_url && (theme.wordmark_max_width || 280) > 200 ? '22rem' : '16rem' }}>
+      <div className="relative overflow-hidden" style={{ height: '18rem' }}>
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
@@ -370,13 +369,15 @@ function MenuContent() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               style={{
-                maxWidth: `min(${theme.wordmark_max_width || 280}px, calc(100vw - 40px))`,
-                maxHeight: `min(${theme.wordmark_max_width || 280}px, 240px)`,
+                /* El slider (wordmark_max_width) controla la altura del wordmark.
+                   El ancho se adapta automáticamente para mantener proporciones.
+                   Esto funciona bien tanto para logos portrait como landscape. */
+                height: `${Math.min(theme.wordmark_max_width || 120, 220)}px`,
+                maxWidth: 'calc(100vw - 40px)',
                 width: 'auto',
-                height: 'auto',
                 objectFit: 'contain',
                 display: 'block',
-                marginBottom: '6px',
+                marginBottom: '8px',
                 filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.7))',
                 marginLeft: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? 'auto' : '0',
                 marginRight: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? '0' : 'auto',
