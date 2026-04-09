@@ -2047,6 +2047,8 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
       accent_color:     preset.recommended.primary,
       badge_color:      preset.recommended.badge,
       theme_preset_key: preset.key,
+      // Clean White fuerza modo lista para el estilo minimalista
+      ...(preset.key === 'clean_white' ? { view_mode: 'list' as const } : {}),
     };
     setForm(newForm);
     applyRestaurantTheme({

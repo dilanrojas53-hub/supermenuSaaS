@@ -262,6 +262,9 @@ function MenuContent() {
       );
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
   const bodyFont = getFontFamily(theme.font_family);
+  // Detecta tema Clean White para aplicar estilos minimalistas
+  const cleanWhiteTheme = theme.theme_preset_key === 'clean_white' ||
+    (theme.background_color === '#FFFFFF' && theme.text_color === '#0A0A0A' && theme.primary_color === '#0A0A0A');
 
   // Check if restaurant is closed
   if (!tenant.is_open) {
@@ -287,7 +290,9 @@ function MenuContent() {
     <div
       className="min-h-screen pb-24 relative z-[1]"
       style={{
-        background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
+        background: cleanWhiteTheme
+          ? '#FFFFFF'
+          : 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
         fontFamily: bodyFont,
         transition: 'background 0.3s ease',
@@ -503,9 +508,9 @@ function MenuContent() {
         ref={tabsRef}
         className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
         style={{
-          backgroundColor: 'var(--menu-bg)',
-          borderBottom: '1px solid var(--menu-border)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          backgroundColor: cleanWhiteTheme ? '#FFFFFF' : 'var(--menu-bg)',
+          borderBottom: cleanWhiteTheme ? '1px solid #E5E5E5' : '1px solid var(--menu-border)',
+          boxShadow: cleanWhiteTheme ? 'none' : '0 2px 8px rgba(0,0,0,0.1)',
         }}
       >
         <div className="flex gap-2 px-4 py-3 min-w-max">
@@ -516,7 +521,14 @@ function MenuContent() {
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
                 className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
-                style={{
+                style={cleanWhiteTheme ? {
+                  backgroundColor: isActive ? '#0A0A0A' : '#F5F5F5',
+                  color: isActive ? '#FFFFFF' : '#0A0A0A',
+                  fontWeight: isActive ? 700 : 500,
+                  boxShadow: 'none',
+                  border: 'none',
+                  letterSpacing: '0',
+                } : {
                   backgroundColor: isActive ? 'var(--menu-badge)' : 'var(--menu-surface)',
                   color: isActive ? '#ffffff' : 'var(--menu-text)',
                   fontWeight: isActive ? 800 : 500,
@@ -569,12 +581,14 @@ function MenuContent() {
                 <div>
                   <h2
                     className="text-2xl font-black leading-tight"
-                    style={{ fontFamily: "'Lora', serif", color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
+                    style={cleanWhiteTheme
+                      ? { fontFamily: 'system-ui, sans-serif', color: '#0A0A0A', letterSpacing: '-0.02em', fontWeight: 700, fontSize: '18px' }
+                      : { fontFamily: "'Lora', serif", color: 'var(--menu-text)', letterSpacing: '-0.02em' }}
                   >
                     {cat.name}
                   </h2>
                   {cat.description && menuConfig.show_product_description && (
-                    <p className="text-xs mt-0.5 leading-snug" style={{ color: 'var(--menu-text)', opacity: 0.55 }}>
+                    <p className="text-xs mt-0.5 leading-snug" style={{ color: cleanWhiteTheme ? '#666666' : 'var(--menu-text)', opacity: cleanWhiteTheme ? 1 : 0.55 }}>
                       {cat.description}
                     </p>
                   )}
@@ -584,7 +598,12 @@ function MenuContent() {
                   <button
                     onClick={() => setFullScreenCatId(cat.id)}
                     className="text-xs font-bold flex-shrink-0 ml-3 px-3 py-1.5 rounded-full transition-all active:scale-95"
-                    style={{
+                    style={cleanWhiteTheme ? {
+                      backgroundColor: 'transparent',
+                      color: '#0A0A0A',
+                      border: '1px solid #0A0A0A',
+                      opacity: 0.8,
+                    } : {
                       backgroundColor: 'var(--menu-accent)',
                       color: '#fff',
                       opacity: 0.9,
@@ -595,10 +614,12 @@ function MenuContent() {
                 )}
               </div>
 
-              {/* Organic divider */}
-              <svg viewBox="0 0 200 8" className="w-16 mb-3 opacity-25" style={{ color: 'var(--menu-accent)' }}>
-                <path d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4" fill="none" stroke="currentColor" strokeWidth="2" />
-              </svg>
+              {/* Organic divider - solo en temas oscuros */}
+              {!cleanWhiteTheme && (
+                <svg viewBox="0 0 200 8" className="w-16 mb-3 opacity-25" style={{ color: 'var(--menu-accent)' }}>
+                  <path d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4" fill="none" stroke="currentColor" strokeWidth="2" />
+                </svg>
+              )}
 
               {/* Items: preview horizontal o grid completo */}
               {useHorizontalPreview && expandedCategory !== cat.id ? (
@@ -667,7 +688,9 @@ function MenuContent() {
                 <div className={
                   menuConfig.category_view_mode === 'grid' || theme.view_mode === 'grid'
                     ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3'
-                    : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3'
+                    : cleanWhiteTheme
+                      ? 'flex flex-col'
+                      : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3'
                 }>
                   {catItems.map(item => (
                     <MenuItemCard

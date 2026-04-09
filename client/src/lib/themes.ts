@@ -114,6 +114,10 @@ export const RESTAURANT_THEMES: RestaurantThemePreset[] = [
     category: 'Moderno', isDark: false,
     recommended: { background: '#F8FAFC', surface: '#FFFFFF', text: '#0F172A', primary: '#2563EB', badge: '#3B82F6' },
     paletteNote: 'Blanco con azul eléctrico. Ideal para cocina fusión y restaurantes de autor.' },
+  { key: 'clean_white', name: 'Clean White', emoji: '🤍', description: 'Blanco puro, negro elegante, lista limpia',
+    category: 'Moderno', isDark: false,
+    recommended: { background: '#FFFFFF', surface: '#F5F5F5', text: '#0A0A0A', primary: '#0A0A0A', badge: '#0A0A0A' },
+    paletteNote: 'Blanco puro con negro elegante. Estilo app de menú premium: categorías con pill negro, items en lista limpia con imagen circular. Ideal para cualquier tipo de restaurante.' },
   { key: 'modern_sage', name: 'Modern Sage', emoji: '🌿', description: 'Verde salvia, orgánico moderno',
     category: 'Moderno', isDark: false,
     recommended: { background: '#F4F7F4', surface: '#FFFFFF', text: '#1A2E1A', primary: '#4A7C59', badge: '#6B9E7A' },
@@ -237,7 +241,7 @@ export const RESTAURANT_THEMES: RestaurantThemePreset[] = [
 ];
 
 export function getThemeCategories(): string[] {
-  return [...new Set(RESTAURANT_THEMES.map(t => t.category))];
+  return Array.from(new Set(RESTAURANT_THEMES.map(t => t.category)));
 }
 
 export function getThemesByCategory(category: string): RestaurantThemePreset[] {

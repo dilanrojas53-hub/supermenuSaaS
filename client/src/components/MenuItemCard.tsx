@@ -41,6 +41,12 @@ interface MenuItemCardProps {
   onToggleFavorite?: (item: MenuItem) => void;
 }
 
+// Detecta si el tema activo es Clean White (fondo blanco, texto negro)
+function isCleanWhiteTheme(theme: ThemeSettings): boolean {
+  return theme.theme_preset_key === 'clean_white' ||
+    (theme.background_color === '#FFFFFF' && theme.text_color === '#0A0A0A' && theme.primary_color === '#0A0A0A');
+}
+
 export default function MenuItemCard({ item, theme, viewMode, allItems, showBadges = true, onOpenDetail, isFavorite = false, onToggleFavorite }: MenuItemCardProps) {
   const { addItem, addItemAdvanced } = useCart();
   const { t } = useI18n();
@@ -87,6 +93,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
 
   const hasImage = Boolean(item.image_url);
   const accentColor = 'var(--menu-accent)';
+  const cleanWhite = isCleanWhiteTheme(theme);
 
   const handleToggleFavorite = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,7 +118,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         transition={{ duration: 0.22 }}
         className="relative cursor-pointer group"
         onClick={handleOpenDetail}
-        style={{
+        style={cleanWhite ? {
+          backgroundColor: '#FFFFFF',
+          borderRadius: '0',
+          overflow: 'hidden',
+          boxShadow: 'none',
+          border: 'none',
+          borderBottom: '1px solid #F0F0F0',
+        } : {
           backgroundColor: 'var(--menu-surface)',
           borderRadius: '1.25rem',
           overflow: 'hidden',
@@ -120,23 +134,23 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         }}
         whileTap={{ scale: 0.99 }}
       >
-        {/* Accent left stripe */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: 'var(--menu-accent)', opacity: justAdded ? 1 : 0.5 }} />
+        {/* Accent left stripe - solo en temas oscuros */}
+        {!cleanWhite && <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: 'var(--menu-accent)', opacity: justAdded ? 1 : 0.5 }} />}
 
         <div className="flex gap-0 pl-1">
-          {/* Imagen cuadrada */}
-          <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem' }}>
+          {/* Imagen cuadrada o circular según tema */}
+          <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem', padding: cleanWhite ? '8px' : '0' }}>
             {hasImage ? (
               <img
                 src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                 alt={item.name}
                 className="w-full h-full object-cover"
-                style={{ borderRadius: '0.75rem' }}
+                style={{ borderRadius: cleanWhite ? '50%' : '0.75rem' }}
                 loading="lazy"
                 decoding="async"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '0.75rem' }}>
+              <div className="w-full h-full flex items-center justify-center" style={{ background: cleanWhite ? '#F5F5F5' : 'rgba(255,255,255,0.04)', borderRadius: cleanWhite ? '50%' : '0.75rem' }}>
                 {getPlaceholderIcon(item.name)}
               </div>
             )}
@@ -184,10 +198,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             </div>
 
             <div className="flex items-center justify-between mt-2.5">
-              {/* Precio en badge */}
+              {/* Precio */}
               <span
                 className="text-[15px] font-black px-2.5 py-1 rounded-lg"
-                style={{
+                style={cleanWhite ? {
+                  color: '#0A0A0A',
+                  backgroundColor: 'transparent',
+                  letterSpacing: '-0.02em',
+                } : {
                   color: 'var(--menu-accent)',
                   backgroundColor: 'rgba(var(--menu-accent-rgb,230,57,70),0.12)',
                   letterSpacing: '-0.02em',
@@ -198,25 +216,42 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
               {/* Botón agregar */}
               <button
                 onClick={handleQuickAdd}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-black transition-all duration-150 active:scale-95"
-                style={{
+                className="flex items-center gap-1.5 transition-all duration-150 active:scale-95"
+                style={cleanWhite ? {
+                  // Clean White: botón "+" circular minimalista
+                  background: justAdded ? '#22c55e' : '#0A0A0A',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: '2rem',
+                  height: '2rem',
+                  padding: '0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'none',
+                  minWidth: 'unset',
+                } : {
                   background: justAdded
                     ? 'linear-gradient(135deg, #22c55e, #16a34a)'
                     : 'var(--menu-accent)',
                   color: '#fff',
+                  borderRadius: '0.75rem',
+                  padding: '8px 14px',
                   boxShadow: justAdded ? '0 4px 12px rgba(34,197,94,0.4)' : '0 4px 12px rgba(0,0,0,0.35)',
                   minWidth: '5rem',
                   justifyContent: 'center',
+                  fontSize: '13px',
+                  fontWeight: '900',
                 }}
               >
                 <AnimatePresence mode="wait">
                   {justAdded ? (
                     <motion.span key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Check size={13} /> Listo
+                      {cleanWhite ? <Check size={14} /> : <><Check size={13} /> Listo</>}
                     </motion.span>
                   ) : (
                     <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-1">
-                      <Plus size={13} /> Agregar
+                      {cleanWhite ? <Plus size={14} /> : <><Plus size={13} /> Agregar</>}
                     </motion.span>
                   )}
                 </AnimatePresence>
