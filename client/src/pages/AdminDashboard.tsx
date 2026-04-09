@@ -2333,14 +2333,21 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
             </div>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <label className="block text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>Ancho máximo (px)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Tamaño del logo</label>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>{form.wordmark_max_width}px</span>
+                </div>
                 <input
-                  type="number" min={80} max={600} step={10}
+                  type="range" min={60} max={600} step={10}
                   value={form.wordmark_max_width}
                   onChange={e => setForm({ ...form, wordmark_max_width: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-lg text-sm border"
-                  style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style={{ accentColor: form.primary_color }}
                 />
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Pequeño</span>
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Grande</span>
+                </div>
               </div>
               <div className="flex-1">
                 <label className="block text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>Alineación</label>

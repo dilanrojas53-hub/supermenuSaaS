@@ -165,13 +165,13 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             <button
               onClick={handleToggleFavorite}
               className="absolute top-1.5 right-1.5 z-10 p-1.5 rounded-full transition-all duration-150 active:scale-90"
-              style={{ background: isFavorite ? 'rgba(239,68,68,0.18)' : 'rgba(0,0,0,0.35)' }}
+              style={{ background: isFavorite ? 'rgba(239,68,68,0.18)' : cleanWhite ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.35)' }}
               aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             >
               <Heart
                 size={14}
                 fill={isFavorite ? '#ef4444' : 'none'}
-                stroke={isFavorite ? '#ef4444' : 'rgba(255,255,255,0.7)'}
+                stroke={isFavorite ? '#ef4444' : cleanWhite ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)'}
                 strokeWidth={2.5}
               />
             </button>
@@ -338,13 +338,13 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           <button
             onClick={handleToggleFavorite}
             className="absolute top-2.5 right-2.5 z-10 p-2 rounded-full transition-all duration-150 active:scale-90"
-            style={{ background: isFavorite ? 'rgba(239,68,68,0.22)' : 'rgba(0,0,0,0.45)' }}
+            style={{ background: isFavorite ? 'rgba(239,68,68,0.22)' : cleanWhite ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.45)' }}
             aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
           >
             <Heart
               size={16}
               fill={isFavorite ? '#ef4444' : 'none'}
-              stroke={isFavorite ? '#ef4444' : 'rgba(255,255,255,0.8)'}
+              stroke={isFavorite ? '#ef4444' : cleanWhite ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)'}
               strokeWidth={2.5}
             />
           </button>
