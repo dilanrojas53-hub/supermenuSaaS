@@ -62,6 +62,11 @@ export default function BottomNav({
         borderColor: 'var(--menu-border)',
         paddingBottom: 'env(safe-area-inset-bottom)',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
+        maxWidth: '480px',
+        left: '50%',
+        right: 'auto',
+        transform: 'translateX(-50%)',
+        width: '100%',
       }}
     >
       {tabs.map(({ key, label, Icon, badge, dot, activeDot, activeEmoji }: any) => {
