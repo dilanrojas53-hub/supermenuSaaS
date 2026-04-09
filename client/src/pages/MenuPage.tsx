@@ -302,7 +302,7 @@ function MenuContent() {
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden" style={{ height: '16rem' }}>
+      <div className="relative overflow-hidden" style={{ minHeight: theme.wordmark_url ? `${Math.max(180, (theme.wordmark_max_width || 280) * 0.45)}px` : '16rem' }}>
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
@@ -370,12 +370,12 @@ function MenuContent() {
               animate={{ opacity: 1, y: 0 }}
               style={{
                 width: `${theme.wordmark_max_width || 280}px`,
-                maxWidth: '100%',
+                maxWidth: 'calc(100vw - 40px)',
                 height: 'auto',
                 objectFit: 'contain',
                 display: 'block',
                 marginBottom: '6px',
-                filter: 'drop-shadow(0 2px 12px rgba(0,0,0,0.6))',
+                filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.7))',
                 marginLeft: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? 'auto' : '0',
                 marginRight: theme.wordmark_align === 'center' ? 'auto' : theme.wordmark_align === 'right' ? '0' : 'auto',
                 borderRadius: (theme as any).wordmark_shape === 'circle' ? '50%' : (theme as any).wordmark_shape === 'square' ? '6px' : (theme as any).wordmark_shape === 'rounded' ? '12px' : undefined,
