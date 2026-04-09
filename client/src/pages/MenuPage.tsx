@@ -363,8 +363,9 @@ function MenuContent() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               style={{
-                maxWidth: `${theme.wordmark_max_width || 280}px`,
-                maxHeight: '90px',
+                width: `${theme.wordmark_max_width || 280}px`,
+                maxWidth: '100%',
+                height: 'auto',
                 objectFit: 'contain',
                 display: 'block',
                 marginBottom: '6px',
