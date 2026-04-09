@@ -52,21 +52,12 @@ export default function CategoryFullScreen({
 
   return (
     <AnimatePresence>
-      {/* Overlay oscuro para pantallas anchas */}
-      <div className="fixed inset-0 z-[199]" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose} />
       <motion.div
-        className="fixed inset-y-0 z-[200] flex flex-col"
-        style={{
-          backgroundColor: 'var(--menu-bg)',
-          color: 'var(--menu-text)',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100%',
-          maxWidth: '480px',
-        }}
-        initial={{ x: 'calc(-50% + 100vw)' }}
-        animate={{ x: '-50%' }}
-        exit={{ x: 'calc(-50% + 100vw)' }}
+        className="fixed inset-0 z-[200] flex flex-col"
+        style={{ backgroundColor: 'var(--menu-bg)', color: 'var(--menu-text)' }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       >
         {/* Header */}
@@ -165,7 +156,7 @@ export default function CategoryFullScreen({
               </p>
             </div>
           ) : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'} style={viewMode === 'grid' ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' } : {}}>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3'}>
               {filtered.map(item => (
                 <MenuItemCard
                   key={item.id}

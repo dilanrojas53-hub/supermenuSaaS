@@ -285,23 +285,12 @@ function MenuContent() {
 
   return (
     <div
+      className="min-h-screen pb-24 relative z-[1]"
       style={{
-        minHeight: '100dvh',
-        background: 'var(--menu-bg)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-      }}
-    >
-    <div
-      className="min-h-screen pb-24 relative z-[1] w-full"
-      style={{
-        maxWidth: '480px',
         background: 'radial-gradient(ellipse at top center, var(--menu-surface) 0%, var(--menu-bg) 40%, var(--menu-bg) 100%)',
         color: 'var(--menu-text)',
         fontFamily: bodyFont,
         transition: 'background 0.3s ease',
-        boxShadow: '0 0 60px rgba(0,0,0,0.5)',
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
@@ -554,7 +543,7 @@ function MenuContent() {
       )}
 
       {/* ── BLOQUES DE CATEGORÍA: preview horizontal + CTA "Ver todo" ── */}
-      <div className="px-4 mt-2 pb-4">
+      <div className="px-4 sm:px-6 md:px-8 mt-2 pb-4">
         {visibleCategories.map(cat => {
           const allCatItems = itemsByCategory[cat.id] || [];
           const catItems = activeSectionItemIds !== null
@@ -613,8 +602,37 @@ function MenuContent() {
 
               {/* Items: preview horizontal o grid completo */}
               {useHorizontalPreview && expandedCategory !== cat.id ? (
-                // Preview horizontal con scroll
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+                // Preview horizontal con scroll (móvil) o grid responsivo (tablet+)
+                <>
+                <div className="hidden sm:grid sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {previewItems.map(item => (
+                    <div key={item.id}>
+                      <MenuItemCard
+                        item={item}
+                        theme={theme}
+                        viewMode="grid"
+                        allItems={data.menuItems}
+                        showBadges={features.neuroBadges}
+                        onOpenDetail={handleOpenDetail}
+                        isFavorite={isFavorite(item.id)}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    </div>
+                  ))}
+                  {hasMore && menuConfig.show_view_all_cta && (
+                    <div
+                      className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed cursor-pointer active:scale-95 transition-all"
+                      style={{ borderColor: 'var(--menu-accent)', opacity: 0.6, minHeight: '140px' }}
+                      onClick={() => setFullScreenCatId(cat.id)}
+                    >
+                      <span className="text-2xl mb-1">→</span>
+                      <span className="text-[10px] font-bold text-center px-2" style={{ color: 'var(--menu-text)' }}>
+                        {catItems.length - previewCount} más
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="sm:hidden flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
                   {previewItems.map(item => (
                     <div key={item.id} className="flex-shrink-0" style={{ width: '160px' }}>
                       <MenuItemCard
@@ -643,12 +661,13 @@ function MenuContent() {
                     </div>
                   )}
                 </div>
+                </>
               ) : (
-                // Vista completa: grid o lista según config
+                // Vista completa: grid responsivo o lista según config
                 <div className={
                   menuConfig.category_view_mode === 'grid' || theme.view_mode === 'grid'
-                    ? 'grid grid-cols-2 gap-3'
-                    : 'flex flex-col gap-3'
+                    ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3'
+                    : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3'
                 }>
                   {catItems.map(item => (
                     <MenuItemCard
@@ -780,7 +799,6 @@ function MenuContent() {
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
       />
-    </div>
     </div>
   );
 }

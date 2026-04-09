@@ -282,14 +282,10 @@ export default function ProductDetailModal({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 z-[9999] max-h-[92vh] flex flex-col rounded-t-3xl overflow-hidden"
+            className="fixed bottom-0 left-0 right-0 z-[9999] max-h-[92vh] flex flex-col rounded-t-3xl overflow-hidden"
             style={{
               backgroundColor: theme.background_color,
               boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '100%',
-              maxWidth: '480px',
             }}
           >
             {/* Close button */}
