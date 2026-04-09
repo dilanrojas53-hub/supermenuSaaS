@@ -301,45 +301,85 @@ function MenuContent() {
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
-      {/* Hero Section — altura fija 220px en móvil, 300px en desktop. Imagen siempre centrada con object-cover */}
+      {/* ═══════════════════════════════════════════════════════════════
+           HERO SECTION v20.0 — Imagen completa sin recortes
+           Estrategia: fondo blur de la misma imagen + img object-contain
+           Esto garantiza que el banner se vea completo en todos los dispositivos.
+      ═══════════════════════════════════════════════════════════════ */}
       <div
-        className="relative overflow-hidden w-full"
-        style={{ height: 'clamp(220px, 30vh, 320px)' }}
+        className="relative w-full overflow-hidden"
+        style={{
+          /* Altura adaptativa: suficiente para ver el banner completo en móvil */
+          height: heroImage ? 'auto' : 'clamp(180px, 28vh, 280px)',
+          minHeight: heroImage ? '160px' : undefined,
+          background: cleanWhiteTheme ? '#f5f5f5' : '#0a0a0a',
+        }}
       >
+        {/* ── Fondo blur: misma imagen escalada y desenfocada para rellenar espacios ── */}
+        {heroImage && (
+          <img
+            src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+              filter: 'blur(18px) brightness(0.45) saturate(1.2)',
+              transform: 'scale(1.08)',
+            }}
+            loading="eager"
+            fetchPriority="high"
+          />
+        )}
+        {!heroImage && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background: cleanWhiteTheme
+                ? `linear-gradient(135deg, ${theme.primary_color || '#0A0A0A'}22 0%, ${theme.background_color || '#FFFFFF'} 100%)`
+                : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            }}
+          />
+        )}
+
+        {/* ── Imagen principal: object-contain para que se vea completa ── */}
         {heroImage && (
           <img
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             alt={tenant.name}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: 'center center', filter: cleanWhiteTheme ? 'brightness(0.9)' : 'brightness(0.85)' }}
+            className="relative w-full block"
+            style={{
+              objectFit: 'contain',
+              objectPosition: 'center',
+              maxHeight: 'clamp(180px, 55vw, 340px)',
+              display: 'block',
+            }}
             loading="eager"
             decoding="async"
             fetchPriority="high"
           />
         )}
-        {!heroImage && (
-          <div className="w-full h-full" style={{ background: cleanWhiteTheme
-            ? `linear-gradient(135deg, ${theme.primary_color || '#0A0A0A'}22 0%, ${theme.background_color || '#FFFFFF'} 100%)`
-            : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
-        )}
-        {/* Overlay automático: oscuro en temas oscuros, claro/transparente en temas claros */}
+
+        {/* ── Overlay sutil en la parte inferior para que el wordmark/texto sea legible ── */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-x-0 bottom-0"
           style={{
+            height: '60%',
             background: cleanWhiteTheme
-              ? 'linear-gradient(to top, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 60%, rgba(0,0,0,0.0) 100%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)',
+              ? 'linear-gradient(to top, rgba(255,255,255,0.6) 0%, transparent 100%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)',
+            pointerEvents: 'none',
           }}
         />
 
-        {/* i18n Toggle */}
+        {/* ── i18n Toggle ── */}
         {features.i18n && (
           <button
             onClick={toggleLang}
             disabled={isTranslating}
-            className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95 disabled:opacity-60"
+            className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md transition-all active:scale-95 disabled:opacity-60"
             style={{
-              backgroundColor: 'rgba(255,255,255,0.15)',
+              backgroundColor: 'rgba(0,0,0,0.35)',
               color: '#fff',
               border: '1px solid rgba(255,255,255,0.25)',
             }}
@@ -352,34 +392,42 @@ function MenuContent() {
           </button>
         )}
 
-        {/* Wordmark: absolute en el fondo-izquierda del hero, independiente del texto */}
+        {/* ── Wordmark: posición absolute al fondo del hero, tamaño responsivo con clamp ── */}
         {theme.wordmark_url && (
           <motion.img
             src={theme.wordmark_url}
             alt={tenant.name}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             style={{
               position: 'absolute',
-              bottom: '12px',
-              left: theme.wordmark_align === 'right' ? 'auto' : theme.wordmark_align === 'center' ? '50%' : '16px',
-              right: theme.wordmark_align === 'right' ? '16px' : 'auto',
+              bottom: '10px',
+              left: theme.wordmark_align === 'right' ? 'auto'
+                  : theme.wordmark_align === 'center' ? '50%'
+                  : '14px',
+              right: theme.wordmark_align === 'right' ? '14px' : 'auto',
               transform: theme.wordmark_align === 'center' ? 'translateX(-50%)' : 'none',
-              height: `${Math.min(theme.wordmark_max_width || 100, 140)}px`,
-              maxWidth: 'calc(100% - 32px)',
+              /* Tamaño responsivo: el slider del admin controla el valor base (40-220).
+                 Se usa como maxHeight para que funcione con logos portrait y landscape. */
+              maxHeight: `clamp(48px, ${(theme.wordmark_max_width || 100) * 0.18}vw, ${Math.min(theme.wordmark_max_width || 100, 180)}px)`,
+              maxWidth: 'calc(60% - 28px)',
               width: 'auto',
+              height: 'auto',
               objectFit: 'contain',
               zIndex: 10,
-              filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.7))',
-              borderRadius: (theme as any).wordmark_shape === 'circle' ? '50%' : (theme as any).wordmark_shape === 'square' ? '6px' : (theme as any).wordmark_shape === 'rounded' ? '12px' : undefined,
+              filter: 'drop-shadow(0 1px 12px rgba(0,0,0,0.8))',
+              borderRadius:
+                (theme as any).wordmark_shape === 'circle' ? '50%'
+                : (theme as any).wordmark_shape === 'square' ? '6px'
+                : (theme as any).wordmark_shape === 'rounded' ? '12px'
+                : undefined,
             }}
           />
         )}
 
-        {/* Texto del hero: solo se muestra cuando NO hay wordmark */}
+        {/* ── Texto del hero: solo cuando NO hay wordmark ── */}
         {!theme.wordmark_url && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 pb-5">
-            {/* Logo solo se muestra si no hay wordmark */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 pb-5 z-10">
             {tenant.logo_url && (
               <img
                 src={tenant.logo_url}
@@ -399,23 +447,27 @@ function MenuContent() {
                 fontFamily: "'Lora', serif",
                 letterSpacing: '-0.02em',
                 color: cleanWhiteTheme ? '#0A0A0A' : '#ffffff',
-                textShadow: cleanWhiteTheme ? 'none' : '0 2px 12px rgba(0,0,0,0.6)'
+                textShadow: cleanWhiteTheme ? 'none' : '0 2px 12px rgba(0,0,0,0.6)',
               }}
             >
               {tenant.name}
             </motion.h1>
             {tenant.description && (
-              <p className="text-sm leading-relaxed line-clamp-2"
+              <p
+                className="text-sm leading-relaxed line-clamp-2"
                 style={{
-                  color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.75)',
-                  textShadow: cleanWhiteTheme ? 'none' : '0 1px 6px rgba(0,0,0,0.5)'
-                }}>
+                  color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.8)',
+                  textShadow: cleanWhiteTheme ? 'none' : '0 1px 6px rgba(0,0,0,0.5)',
+                }}
+              >
                 {tenant.description}
               </p>
             )}
             {tenant.address && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-xs"
-                style={{ color: cleanWhiteTheme ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)' }}>
+              <div
+                className="flex items-center gap-1.5 mt-1.5 text-xs"
+                style={{ color: cleanWhiteTheme ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)' }}
+              >
                 <MapPin size={11} />
                 <span>{tenant.address}</span>
               </div>
