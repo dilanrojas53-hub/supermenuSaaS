@@ -238,23 +238,26 @@ function MenuContent() {
   const translatedMenuItems = translatedData.menuItems.length ? translatedData.menuItems : data.menuItems;
 
   // V12.1 Macro-Categorías: usar is_drink del campo BD (no por nombre, funciona en cualquier idioma)
-  const hasDrinks = categories.some(cat => cat.is_drink);
-  const hasFood = categories.some(cat => !cat.is_drink);
-  // Filtrar categorías según el tab activo
+  // Categorías solo-sección: inactivas pero con items asignados a franjas horarias
+  // Se excluyen del modo "Todo el menú" pero se muestran al seleccionar una franja
+  const hasDrinks = categories.some(cat => cat.is_drink && !(cat as any)._sectionOnly);
+  const hasFood = categories.some(cat => !cat.is_drink && !(cat as any)._sectionOnly);
+  // Filtrar categorías según el tab activo (excluir _sectionOnly en modo "all")
   const masterFilteredCategories = (hasDrinks && hasFood)
     ? categories.filter(cat =>
-        masterTab === 'drinks' ? cat.is_drink : !cat.is_drink
+        !(cat as any)._sectionOnly &&
+        (masterTab === 'drinks' ? cat.is_drink : !cat.is_drink)
       )
-    : categories;
+    : categories.filter(cat => !(cat as any)._sectionOnly);
 
   // Filtrar por sección activa (basado en platillos individuales)
   const activeSectionItemIds: string[] | null = (activeSection !== 'all' && menuSections.length > 0)
     ? (menuSections.find(s => s.id === activeSection)?.itemIds || [])
     : null;
-  // visibleCategories: en modo sección, solo mostrar categorías que tengan al menos un platillo en la sección
+  // visibleCategories: en modo sección, incluir también categorías _sectionOnly que tengan items en la sección
   const visibleCategories = activeSectionItemIds === null
     ? masterFilteredCategories
-    : masterFilteredCategories.filter(cat =>
+    : categories.filter(cat =>
         translatedMenuItems.some(item => item.category_id === cat.id && activeSectionItemIds.includes(item.id))
       );
   const heroImage = theme.hero_image_url || TENANT_HERO_IMAGES[tenant.slug] || '';
