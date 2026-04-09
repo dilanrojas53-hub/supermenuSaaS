@@ -234,7 +234,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                   background: justAdded
                     ? 'linear-gradient(135deg, #22c55e, #16a34a)'
                     : 'var(--menu-accent)',
-                  color: '#fff',
+                  color: justAdded ? '#fff' : 'var(--menu-accent-contrast)',
                   borderRadius: '0.75rem',
                   padding: '8px 14px',
                   boxShadow: justAdded ? '0 4px 12px rgba(34,197,94,0.4)' : '0 4px 12px rgba(0,0,0,0.35)',
@@ -384,7 +384,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             background: justAdded
               ? 'linear-gradient(135deg, #22c55e, #16a34a)'
               : 'var(--menu-accent)',
-            color: '#fff',
+            color: justAdded ? '#fff' : 'var(--menu-accent-contrast)',
             boxShadow: justAdded ? '0 4px 16px rgba(34,197,94,0.45)' : '0 4px 16px rgba(0,0,0,0.4)',
             letterSpacing: '-0.01em',
           }}

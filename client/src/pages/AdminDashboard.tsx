@@ -2292,8 +2292,9 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
                 src={form.wordmark_url}
                 alt="Wordmark preview"
                 style={{
-                  maxWidth: `${form.wordmark_max_width}px`,
-                  maxHeight: '80px',
+                  width: `${form.wordmark_max_width}px`,
+                  maxWidth: '100%',
+                  height: 'auto',
                   objectFit: 'contain',
                   display: 'block',
                   marginLeft: form.wordmark_align === 'center' ? 'auto' : form.wordmark_align === 'right' ? 'auto' : '0',
@@ -2375,7 +2376,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
           <h3 className="text-lg font-bold mb-1" style={{ color: form.text_color, fontFamily: `'${form.font_family}', sans-serif` }}>{tenant.name}</h3>
           {/* Nav de categorías */}
           <div className="flex gap-2 mb-3 overflow-hidden">
-            <span className="px-3 py-1 rounded-full text-xs font-bold text-[var(--text-primary)]" style={{ backgroundColor: form.badge_color }}>Entradas</span>
+            <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: form.badge_color, color: isColorDark(form.badge_color) ? '#fff' : '#0a0a0a' }}>Entradas</span>
             <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Platos</span>
             <span className="px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: `${form.badge_color}20`, color: form.badge_color }}>Bebidas</span>
           </div>
@@ -2385,7 +2386,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
             <p className="text-xs mt-0.5" style={{ color: form.text_color, opacity: 0.6 }}>Descripción del platillo...</p>
             <div className="flex items-center justify-between mt-2">
               <span className="text-sm font-bold" style={{ color: form.primary_color }}>₡5 500</span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold text-[var(--text-primary)]" style={{ backgroundColor: form.primary_color }}>+ Agregar</span>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: form.primary_color, color: isColorDark(form.primary_color) ? '#fff' : '#0a0a0a' }}>+ Agregar</span>
             </div>
           </div>
         </div>

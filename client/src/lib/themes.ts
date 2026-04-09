@@ -280,7 +280,7 @@ export function applyRestaurantTheme(params: {
   root.style.setProperty('--menu-text',            text);
   root.style.setProperty('--menu-accent',          primary);
   root.style.setProperty('--menu-accent-rgb',      hexToRgb(primary));
-  root.style.setProperty('--menu-accent-contrast', '#ffffff');
+  root.style.setProperty('--menu-accent-contrast', isColorDark(primary) ? '#ffffff' : '#0a0a0a');
   root.style.setProperty('--menu-badge',           badge || primary);
   root.style.setProperty('--menu-muted',           isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)');
   root.style.setProperty('--menu-border',          isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)');
@@ -291,7 +291,7 @@ export function applyRestaurantTheme(params: {
   root.style.setProperty('--text-primary',     text);
   root.style.setProperty('--text-secondary',   isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)');
   root.style.setProperty('--accent',           primary);
-  root.style.setProperty('--accent-contrast',  '#ffffff');
+  root.style.setProperty('--accent-contrast',  isColorDark(primary) ? '#ffffff' : '#0a0a0a');
   root.style.setProperty('--border',           isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)');
   root.style.setProperty('--muted',            isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)');
   root.style.setProperty('--shadow',           isDark ? '0 8px 32px rgba(0,0,0,0.6)' : '0 4px 16px rgba(0,0,0,0.08)');

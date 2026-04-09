@@ -308,19 +308,24 @@ function MenuContent() {
             src={getOptimizedImageUrl(heroImage, IMAGE_SIZES.hero.width, IMAGE_SIZES.hero.quality)}
             alt={tenant.name}
             className="w-full h-full object-cover scale-105"
-            style={{ filter: 'brightness(0.85)' }}
+            style={{ filter: cleanWhiteTheme ? 'brightness(0.9)' : 'brightness(0.85)' }}
             loading="eager"
             decoding="async"
             fetchPriority="high"
           />
         )}
         {!heroImage && (
-          <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
+          <div className="w-full h-full" style={{ background: cleanWhiteTheme
+            ? `linear-gradient(135deg, ${theme.primary_color || '#0A0A0A'}22 0%, ${theme.background_color || '#FFFFFF'} 100%)`
+            : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }} />
         )}
+        {/* Overlay automático: oscuro en temas oscuros, claro/transparente en temas claros */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)',
+            background: cleanWhiteTheme
+              ? 'linear-gradient(to top, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 60%, rgba(0,0,0,0.0) 100%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)',
           }}
         />
 
@@ -345,13 +350,14 @@ function MenuContent() {
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-5 pb-6">
-          {tenant.logo_url && (
+          {/* Logo solo se muestra si no hay wordmark */}
+          {tenant.logo_url && !theme.wordmark_url && (
             <img
               src={tenant.logo_url}
               alt={`${tenant.name} logo`}
               className="w-16 h-16 object-cover mb-3 shadow-2xl"
               style={{
-                border: '2.5px solid rgba(255,255,255,0.35)',
+                border: cleanWhiteTheme ? '2.5px solid rgba(0,0,0,0.15)' : '2.5px solid rgba(255,255,255,0.35)',
                 borderRadius: (rawTenant.logo_shape === 'circle') ? '50%' : (rawTenant.logo_shape === 'square') ? '6px' : '16px',
               }}
             />
@@ -379,19 +385,29 @@ function MenuContent() {
             <motion.h1
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-3xl font-black text-white leading-tight mb-1.5"
-              style={{ fontFamily: "'Lora', serif", textShadow: '0 2px 12px rgba(0,0,0,0.6)', letterSpacing: '-0.02em' }}
+              className="text-3xl font-black leading-tight mb-1.5"
+              style={{
+                fontFamily: "'Lora', serif",
+                letterSpacing: '-0.02em',
+                color: cleanWhiteTheme ? '#0A0A0A' : '#ffffff',
+                textShadow: cleanWhiteTheme ? 'none' : '0 2px 12px rgba(0,0,0,0.6)'
+              }}
             >
               {tenant.name}
             </motion.h1>
           )}
           {tenant.description && (
-            <p className="text-white/75 text-sm leading-relaxed line-clamp-2" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
+            <p className="text-sm leading-relaxed line-clamp-2"
+              style={{
+                color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.75)',
+                textShadow: cleanWhiteTheme ? 'none' : '0 1px 6px rgba(0,0,0,0.5)'
+              }}>
               {tenant.description}
             </p>
           )}
           {tenant.address && (
-            <div className="flex items-center gap-1.5 mt-2 text-white/55 text-xs">
+            <div className="flex items-center gap-1.5 mt-2 text-xs"
+              style={{ color: cleanWhiteTheme ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)' }}>
               <MapPin size={11} />
               <span>{tenant.address}</span>
             </div>
