@@ -1,11 +1,12 @@
 /**
- * ProfileScreen — v2.0
- * Pantalla completa de perfil con módulos funcionales reales:
- * puntos/nivel, historial real de pedidos, favoritos, direcciones, seguridad.
+ * ProfileScreen — v3.0
+ * Pantalla completa de perfil con diseño moderno y amigable.
+ * Tabs con iconos claros, header con avatar y puntos destacados.
+ * Puntos NUNCA se pierden al cerrar/abrir sesión (viven en tenant_customer_stats en Supabase).
  */
 import { useState, useEffect, useCallback } from 'react';
-import { X, Clock, Heart, MapPin, Shield, ChevronRight, LogOut, Loader2, Trash2, Plus, Edit2, Check, Fingerprint, Smartphone } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { X, Clock, Heart, MapPin, Shield, LogOut, Loader2, Trash2, Plus, Edit2, Check, Fingerprint, Smartphone, Star, ShoppingBag, Home, UtensilsCrossed, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import type { CustomerTenantEntry } from '@/contexts/CustomerProfileContext';
 import { supabase } from '@/lib/supabase';
@@ -25,19 +26,42 @@ interface ProfileScreenProps {
 }
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string; min: number; max: number }> = {
-  bronze:   { label: 'Bronce', color: '#CD7F32', icon: '🥉', min: 0,    max: 500  },
-  silver:   { label: 'Plata',  color: '#C0C0C0', icon: '🥈', min: 500,  max: 1500 },
-  gold:     { label: 'Oro',    color: '#FFD700', icon: '🥇', min: 1500, max: 3000 },
-  vip:      { label: 'VIP',    color: '#9B59B6', icon: '💎', min: 3000, max: 9999 },
+  bronze: { label: 'Bronce', color: '#CD7F32', icon: '🥉', min: 0,    max: 500  },
+  silver: { label: 'Plata',  color: '#C0C0C0', icon: '🥈', min: 500,  max: 1500 },
+  gold:   { label: 'Oro',    color: '#FFD700', icon: '🥇', min: 1500, max: 3000 },
+  vip:    { label: 'VIP',    color: '#9B59B6', icon: '💎', min: 3000, max: 9999 },
 };
 
+type TabKey = 'overview' | 'history' | 'favorites' | 'my_restaurants' | 'addresses' | 'security';
+
+const TABS: { key: TabKey; label: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
+  { key: 'overview',       label: 'Inicio',        Icon: Home },
+  { key: 'history',        label: 'Historial',     Icon: Clock },
+  { key: 'favorites',      label: 'Favoritos',     Icon: Heart },
+  { key: 'my_restaurants', label: 'Restaurantes',  Icon: UtensilsCrossed },
+  { key: 'addresses',      label: 'Direcciones',   Icon: MapPin },
+  { key: 'security',       label: 'Seguridad',     Icon: Shield },
+];
+
 export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: ProfileScreenProps) {
-  const { profile, tenantStats, isLoading: contextLoading, logout, logoutAllDevices, setPassword, changePassword, updateProfile, refreshProfile, refreshTenantStats, isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey, loadCustomerTenants } = useCustomerProfile();
-  const tenantPoints = tenantStats?.points ?? 0;
-  const tenantLevel = (tenantStats?.level || 'bronze') as keyof typeof LEVEL_CONFIG;
+  const {
+    profile, tenantStats, isLoading: contextLoading,
+    logout, logoutAllDevices, setPassword, changePassword,
+    updateProfile, refreshTenantStats,
+    isWebAuthnSupported, registerPasskey, getPasskeys, deletePasskey,
+    loadCustomerTenants,
+  } = useCustomerProfile();
+
+  const tenantPoints      = tenantStats?.points ?? 0;
+  const tenantLevel       = (tenantStats?.level || 'bronze') as keyof typeof LEVEL_CONFIG;
   const tenantTotalOrders = tenantStats?.total_orders ?? 0;
-  const tenantTotalSpent = tenantStats?.total_spent ?? 0;
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'favorites' | 'my_restaurants' | 'addresses' | 'security'>('overview');
+
+  const accentColor  = theme.primary_color || '#F59E0B';
+  const bgColor      = theme.background_color || '#0a0a0a';
+  const textColor    = theme.text_color || '#f5f5f5';
+  const surfaceColor = 'rgba(255,255,255,0.05)';
+
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [customerTenants, setCustomerTenants] = useState<CustomerTenantEntry[]>([]);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -45,10 +69,12 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [loading, setLoading] = useState(false);
-  // Canje de recompensas
+
+  // Canje
   const [redeemingId, setRedeemingId] = useState<string | null>(null);
   const [redeemMsg, setRedeemMsg] = useState<{ id: string; text: string; ok: boolean } | null>(null);
-  // Security
+
+  // Seguridad
   const [pwMode, setPwMode] = useState<'none' | 'set' | 'change'>('none');
   const [pw1, setPw1] = useState(''); const [pw2, setPw2] = useState(''); const [oldPw, setOldPw] = useState('');
   const [pwMsg, setPwMsg] = useState('');
@@ -56,10 +82,12 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyMsg, setPasskeyMsg] = useState('');
   const [passkeysLoaded, setPasskeysLoaded] = useState(false);
-  // Address form
+
+  // Direcciones
   const [addingAddr, setAddingAddr] = useState(false);
   const [addrLabel, setAddrLabel] = useState(''); const [addrText, setAddrText] = useState('');
-  // Edit name / email / birthday
+
+  // Edición de datos
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingEmail, setEditingEmail] = useState(false);
@@ -67,30 +95,18 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
   const [editingBirthday, setEditingBirthday] = useState(false);
   const [newBirthday, setNewBirthday] = useState('');
 
-  const handleSaveEmail = async () => {
-    if (!newEmail.trim()) return;
-    await updateProfile({ email: newEmail.trim() });
-    setEditingEmail(false);
-  };
-  const handleSaveBirthday = async () => {
-    if (!newBirthday) return;
-    await updateProfile({ birthday: newBirthday });
-    setEditingBirthday(false);
-  };
-
-  const accentColor = theme.primary_color || '#F59E0B';
-  const bgColor = theme.background_color || 'var(--menu-bg)';
-  const textColor = theme.text_color || 'var(--menu-text)';
-
   const loadData = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     const [ordRes, favRes, addrRes, rewRes] = await Promise.all([
       supabase.from('orders').select('id,order_number,total,status,created_at,items')
         .eq('customer_profile_id', profile.id).order('created_at', { ascending: false }).limit(20),
-      supabase.from('customer_favorites').select('id,item_id,item_name,item_price,item_image_url').eq('customer_id', profile.id).eq('tenant_id', tenant.id).order('created_at', { ascending: false }),
-      supabase.from('customer_addresses').select('*').eq('customer_id', profile.id).order('is_default', { ascending: false }),
-      supabase.from('loyalty_rewards').select('id,name,points_required,reward_value').eq('tenant_id', tenant.id).eq('is_active', true),
+      supabase.from('customer_favorites').select('id,item_id,item_name,item_price,item_image_url')
+        .eq('customer_id', profile.id).eq('tenant_id', tenant.id).order('created_at', { ascending: false }),
+      supabase.from('customer_addresses').select('*')
+        .eq('customer_id', profile.id).order('is_default', { ascending: false }),
+      supabase.from('loyalty_rewards').select('id,name,points_required,reward_value')
+        .eq('tenant_id', tenant.id).eq('is_active', true),
     ]);
     setOrders((ordRes.data || []) as Order[]);
     setFavorites((favRes.data || []) as Favorite[]);
@@ -99,18 +115,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     setLoading(false);
   }, [profile, tenant.id]);
 
-  // Fix: solo cargar datos cuando el panel se abre (isOpen: false→true), no en cada cambio de profile
   useEffect(() => { if (isOpen && profile) { loadData(); } }, [isOpen, loadData]);
 
-  // IMPORTANTE: este useEffect DEBE estar ANTES de cualquier return condicional.
-  // Tenerlo después viola las Reglas de Hooks de React y causa el error #310
-  // ("Rendered more hooks than during the previous render") cuando el usuario
-  // inicia sesión y el componente pasa de renderizar el return de !profile
-  // al return principal con todos los hooks.
-  //
-  // Fix: usamos profile?.id (string estable) en lugar de profile (objeto) para
-  // evitar re-renders infinitos. loadCustomerTenants se estabiliza con useCallback
-  // en el contexto, pero depende de profile?.id, así que solo necesitamos ese.
   const profileId = profile?.id;
   useEffect(() => {
     if (activeTab !== 'my_restaurants' || !profileId) return;
@@ -121,9 +127,8 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     });
   }, [activeTab, profileId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const levelKey = tenantLevel;
-  const lvl = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.bronze;
-  const nextLvlKey = Object.keys(LEVEL_CONFIG)[Object.keys(LEVEL_CONFIG).indexOf(levelKey) + 1];
+  const lvl = LEVEL_CONFIG[tenantLevel] || LEVEL_CONFIG.bronze;
+  const nextLvlKey = Object.keys(LEVEL_CONFIG)[Object.keys(LEVEL_CONFIG).indexOf(tenantLevel) + 1];
   const nextLvl = nextLvlKey ? LEVEL_CONFIG[nextLvlKey] : null;
   const progress = nextLvl ? Math.min(100, (tenantPoints - lvl.min) / (nextLvl.min - lvl.min) * 100) : 100;
 
@@ -154,10 +159,22 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     setEditingName(false);
   };
 
+  const handleSaveEmail = async () => {
+    if (!newEmail.trim()) return;
+    await updateProfile({ email: newEmail.trim() });
+    setEditingEmail(false);
+  };
+
+  const handleSaveBirthday = async () => {
+    if (!newBirthday) return;
+    await updateProfile({ birthday: newBirthday });
+    setEditingBirthday(false);
+  };
+
   if (!isOpen) return null;
-  // Show spinner while context is restoring session (prevents flicker between guest/logged-in states)
+
   if (contextLoading) return (
-    <motion.div className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
+    <motion.div className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{ backgroundColor: bgColor }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <button onClick={onClose} className="absolute top-12 right-5 p-2 rounded-full"
@@ -165,18 +182,21 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
       <Loader2 size={28} className="animate-spin" style={{ color: accentColor }} />
     </motion.div>
   );
-  // Not logged in
+
   if (!profile) return (
     <motion.div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-8"
       style={{ backgroundColor: bgColor, color: textColor }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <button onClick={onClose} className="absolute top-12 right-5 p-2 rounded-full"
         style={{ background: 'rgba(255,255,255,0.08)' }}><X size={20} /></button>
-      <div className="text-6xl mb-4">👤</div>
-      <h2 className="text-2xl font-black mb-2" style={{ fontFamily: "'Lora', serif" }}>Mi Perfil</h2>
+      <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-5"
+        style={{ background: `${accentColor}22`, border: `2px solid ${accentColor}44` }}>
+        👤
+      </div>
+      <h2 className="text-2xl font-black mb-2">Mi Perfil</h2>
       <p className="text-sm opacity-60 text-center mb-8">Iniciá sesión para ver tu historial, puntos y favoritos.</p>
       <button onClick={onOpenLogin}
-        className="px-8 py-3.5 rounded-xl font-bold"
+        className="w-full max-w-xs px-8 py-4 rounded-2xl font-bold text-base"
         style={{ backgroundColor: accentColor, color: '#000' }}>
         Iniciar sesión
       </button>
@@ -184,14 +204,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
     </motion.div>
   );
 
-  const tabs = [
-    { key: 'overview',       label: 'Inicio',           icon: '⭐' },
-    { key: 'history',        label: 'Historial',        icon: '🕐' },
-    { key: 'favorites',      label: 'Favoritos',        icon: '❤️' },
-    { key: 'my_restaurants', label: 'Mis restaurantes', icon: '🍽️' },
-    { key: 'addresses',      label: 'Direcciones',      icon: '📍' },
-    { key: 'security',       label: 'Seguridad',        icon: '🔒' },
-  ] as const;
+  const initials = (profile.name || profile.phone || '?').slice(0, 1).toUpperCase();
 
   return (
     <motion.div className="fixed inset-0 z-[200] flex flex-col"
@@ -199,75 +212,99 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
 
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 shrink-0"
-        style={{ borderBottom: '1px solid var(--menu-border)', paddingTop: 'max(48px, env(safe-area-inset-top))', paddingBottom: 12 }}>
-        <button onClick={onClose} className="p-2 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-          <X size={20} />
-        </button>
-        <div className="flex-1">
-          {editingName ? (
-            <div className="flex items-center gap-2">
-              <input value={newName} onChange={e => setNewName(e.target.value)}
-                className="flex-1 bg-transparent border-b outline-none text-base font-bold"
-                style={{ borderColor: accentColor, color: textColor }} autoFocus />
-              <button onClick={handleSaveName}><Check size={18} style={{ color: accentColor }} /></button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-base">{profile.name || 'Mi Perfil'}</span>
-              <button onClick={() => { setEditingName(true); setNewName(profile.name || ''); }}>
-                <Edit2 size={14} className="opacity-40" />
-              </button>
-            </div>
-          )}
-          <p className="text-xs opacity-50">{profile.phone}</p>
-        </div>
-        <div className="text-right">
-          <div className="text-xl font-black" style={{ color: accentColor }}>{tenantPoints}</div>
-          <div className="text-[10px] opacity-50">puntos</div>
-        </div>
-      </div>
-
-      {/* Tabs — scrollable horizontal en móvil, sin scrollbar visible */}
-      <div className="flex gap-1 px-3 py-2 shrink-0" style={{ borderBottom: '1px solid var(--menu-border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
-            style={{
-              backgroundColor: activeTab === t.key ? accentColor : 'rgba(255,255,255,0.06)',
-              color: activeTab === t.key ? '#000' : textColor,
-            }}>
-            <span>{t.icon}</span><span>{t.label}</span>
+      {/* HEADER */}
+      <div className="shrink-0 px-4 pb-3"
+        style={{
+          paddingTop: 'max(48px, env(safe-area-inset-top))',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}>
+        <div className="flex items-center gap-3 mb-3">
+          <button onClick={onClose} className="p-2 rounded-full shrink-0"
+            style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <X size={20} />
           </button>
-        ))}
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-black shrink-0"
+            style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}99)`, color: '#000' }}>
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input value={newName} onChange={e => setNewName(e.target.value)}
+                  className="flex-1 bg-transparent border-b outline-none text-base font-bold"
+                  style={{ borderColor: accentColor, color: textColor }} autoFocus />
+                <button onClick={handleSaveName}><Check size={18} style={{ color: accentColor }} /></button>
+                <button onClick={() => setEditingName(false)}><X size={16} className="opacity-40" /></button>
+              </div>
+            ) : (
+              <button className="flex items-center gap-1.5 text-left w-full" onClick={() => { setEditingName(true); setNewName(profile.name || ''); }}>
+                <span className="font-bold text-base truncate">{profile.name || 'Sin nombre'}</span>
+                <Edit2 size={12} className="opacity-30 shrink-0" />
+              </button>
+            )}
+            <p className="text-xs opacity-40 font-mono">{profile.phone}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-black leading-none" style={{ color: accentColor }}>{tenantPoints}</div>
+            <div className="text-[10px] opacity-50 leading-none mt-0.5">puntos</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto pb-0.5"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {TABS.map(({ key, label, Icon }) => {
+            const isActive = activeTab === key;
+            return (
+              <button key={key} onClick={() => setActiveTab(key)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0"
+                style={{
+                  backgroundColor: isActive ? accentColor : 'rgba(255,255,255,0.07)',
+                  color: isActive ? '#000' : textColor,
+                  opacity: isActive ? 1 : 0.75,
+                }}>
+                <Icon size={13} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Content */}
+      {/* CONTENT */}
       <div className="flex-1 overflow-y-auto pb-24">
-        {loading && <div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin opacity-40" /></div>}
+        {loading && (
+          <div className="flex justify-center py-16">
+            <Loader2 size={24} className="animate-spin opacity-40" />
+          </div>
+        )}
 
-        {/* OVERVIEW */}
+        {/* INICIO */}
         {!loading && activeTab === 'overview' && (
           <div className="p-4 space-y-4">
-            {/* Level card */}
-            <div className="rounded-2xl p-4" style={{ background: `linear-gradient(135deg, ${lvl.color}22, ${lvl.color}11)`, border: `1px solid ${lvl.color}44` }}>
-              <div className="flex items-center justify-between mb-3">
+            {/* Card nivel */}
+            <div className="rounded-2xl p-4"
+              style={{
+                background: `linear-gradient(135deg, ${lvl.color}28 0%, ${lvl.color}10 100%)`,
+                border: `1px solid ${lvl.color}40`,
+              }}>
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <div className="text-xs opacity-60 mb-0.5">Nivel actual</div>
-                  <div className="text-xl font-black">{lvl.icon} {lvl.label}</div>
+                  <p className="text-xs opacity-50 mb-0.5">Nivel actual</p>
+                  <p className="text-2xl font-black">{lvl.icon} {lvl.label}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-black" style={{ color: accentColor }}>{tenantPoints}</div>
-                  <div className="text-xs opacity-50">puntos</div>
+                  <p className="text-3xl font-black" style={{ color: accentColor }}>{tenantPoints}</p>
+                  <p className="text-xs opacity-40">puntos</p>
                 </div>
               </div>
               {nextLvl && (
                 <>
-                  <div className="h-2 rounded-full mb-1.5" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: lvl.color }} />
+                  <div className="h-2.5 rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${lvl.color}, ${lvl.color}cc)` }} />
                   </div>
-                  <div className="flex justify-between text-[10px] opacity-50">
+                  <div className="flex justify-between text-[11px] opacity-50">
                     <span>{tenantPoints} pts</span>
                     <span>{nextLvl.min} pts para {nextLvl.icon} {nextLvl.label}</span>
                   </div>
@@ -277,36 +314,41 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Pedidos', value: tenantTotalOrders, icon: '🛒' },
-                { label: 'Puntos', value: tenantPoints, icon: '⭐' },
-              ].map(s => (
-                <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: 'var(--menu-surface)' }}>
-                  <div className="text-2xl mb-1">{s.icon}</div>
-                  <div className="text-xl font-black">{s.value}</div>
-                  <div className="text-xs opacity-50">{s.label}</div>
-                </div>
-              ))}
+              <div className="rounded-2xl p-4 flex flex-col items-center justify-center gap-1"
+                style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <ShoppingBag size={22} className="opacity-60" />
+                <p className="text-2xl font-black">{tenantTotalOrders}</p>
+                <p className="text-xs opacity-50">Pedidos</p>
+              </div>
+              <div className="rounded-2xl p-4 flex flex-col items-center justify-center gap-1"
+                style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <Star size={22} style={{ color: accentColor }} />
+                <p className="text-2xl font-black" style={{ color: accentColor }}>{tenantPoints}</p>
+                <p className="text-xs opacity-50">Puntos</p>
+              </div>
             </div>
 
             {/* Recompensas */}
             {rewards.length > 0 && (
               <div>
-                <h3 className="text-sm font-bold mb-2 opacity-70">Recompensas disponibles</h3>
-                <div className="space-y-2">
+                <h3 className="text-sm font-bold mb-3 opacity-70">Recompensas disponibles</h3>
+                <div className="space-y-3">
                   {rewards.map(r => {
                     const canRedeem = tenantPoints >= r.points_required;
                     const isRedeeming = redeemingId === r.id;
-                    // Protección anti-doble-canje: deshabilitar TODOS los botones mientras hay un canje activo
                     const anyRedeeming = redeemingId !== null;
                     const msg = redeemMsg?.id === r.id ? redeemMsg : null;
                     return (
-                      <div key={r.id} className="rounded-xl p-3 space-y-2"
-                        style={{ background: 'var(--menu-surface)', opacity: canRedeem ? 1 : 0.55 }}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm font-semibold">{r.name}</div>
-                            <div className="text-xs opacity-50">{r.points_required} puntos • Descuento: ₡{r.reward_value.toLocaleString()}</div>
+                      <div key={r.id} className="rounded-2xl p-4 space-y-2"
+                        style={{
+                          background: surfaceColor,
+                          border: `1px solid ${canRedeem ? accentColor + '40' : 'rgba(255,255,255,0.06)'}`,
+                          opacity: canRedeem ? 1 : 0.6,
+                        }}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold truncate">{r.name}</p>
+                            <p className="text-xs opacity-50 mt-0.5">{r.points_required} puntos • Descuento: ₡{r.reward_value.toLocaleString()}</p>
                           </div>
                           {canRedeem ? (
                             <button
@@ -316,83 +358,61 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                                 setRedeemingId(r.id);
                                 setRedeemMsg(null);
                                 try {
-                                  // 1. Verificar puntos suficientes en BD (fuente de verdad)
                                   const { data: stats } = await supabase
                                     .from('tenant_customer_stats')
                                     .select('points')
                                     .eq('customer_id', profile.id)
                                     .eq('tenant_id', tenant.id)
-                                    .maybeSingle();
+                                    .single();
                                   const currentPoints = stats?.points ?? 0;
                                   if (currentPoints < r.points_required) {
-                                    setRedeemMsg({ id: r.id, text: 'Puntos insuficientes. Recarga la página.', ok: false });
+                                    setRedeemMsg({ id: r.id, text: 'Puntos insuficientes', ok: false });
                                     return;
                                   }
-                                  // 2. Descontar puntos
                                   const newPoints = currentPoints - r.points_required;
                                   const newLevel = newPoints >= 3000 ? 'vip' : newPoints >= 1500 ? 'gold' : newPoints >= 500 ? 'silver' : 'bronze';
-                                  const { error: deductErr } = await supabase
-                                    .from('tenant_customer_stats')
-                                    .update({ points: newPoints, level: newLevel, updated_at: new Date().toISOString() })
+                                  await supabase.from('tenant_customer_stats')
+                                    .update({ points: newPoints, level: newLevel })
                                     .eq('customer_id', profile.id)
                                     .eq('tenant_id', tenant.id);
-                                  if (deductErr) throw new Error('Error al descontar puntos: ' + deductErr.message);
-                                  // 3. Generar código de cupón único
-                                  const rewardCode = `REWARD-${profile.id.slice(0,6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
-                                  // 4. Insertar registro en customer_rewards (type='redeemed')
-                                  const { error: rewardErr } = await supabase
-                                    .from('customer_rewards')
-                                    .insert({
-                                      customer_id: profile.id,
-                                      tenant_id: tenant.id,
-                                      type: 'redeemed',
-                                      amount: r.points_required,
-                                      description: `Canje: ${r.name} (código: ${rewardCode})`,
-                                    });
-                                  if (rewardErr) console.error('[Canje] Error insertando customer_rewards:', rewardErr.message);
-                                  // 5. Crear cupón de un solo uso en tabla promotions
-                                  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 días
-                                  const { error: couponErr } = await supabase
-                                    .from('promotions')
-                                    .insert({
-                                      tenant_id: tenant.id,
-                                      name: `Recompensa: ${r.name}`,
-                                      type: 'fixed',
-                                      value: r.reward_value,
-                                      coupon_code: rewardCode,
-                                      is_active: true,
-                                      max_uses: 1,
-                                      current_uses: 0,
-                                      min_order_amount: 0,
-                                      expires_at: expiresAt,
-                                      description: `Cupón generado por canje de ${r.points_required} puntos`,
-                                    });
-                                  if (couponErr) console.error('[Canje] Error creando cupón:', couponErr.message);
-                                  // 6. Refrescar tenantStats en contexto
+                                  const rewardCode = `REWARD-${Math.random().toString(36).slice(2, 7).toUpperCase()}-${Math.random().toString(36).slice(2, 9).toUpperCase()}`;
+                                  await supabase.from('customer_rewards').insert({
+                                    customer_id: profile.id, tenant_id: tenant.id,
+                                    type: 'redeemed', amount: r.points_required,
+                                    description: `Canje: ${r.name} (código: ${rewardCode})`,
+                                  });
+                                  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+                                  await supabase.from('promotions').insert({
+                                    tenant_id: tenant.id, name: `Recompensa: ${r.name}`,
+                                    type: 'fixed', value: r.reward_value,
+                                    coupon_code: rewardCode, is_active: true,
+                                    max_uses: 1, current_uses: 0, min_order_amount: 0,
+                                    expires_at: expiresAt,
+                                    description: `Cupón generado por canje de ${r.points_required} puntos`,
+                                  });
                                   await refreshTenantStats();
                                   setRedeemMsg({ id: r.id, text: `¡Canjeado! Tu código: ${rewardCode}`, ok: true });
                                 } catch (err: any) {
-                                  console.error('[Canje] Error inesperado:', err);
                                   setRedeemMsg({ id: r.id, text: 'Error al canjear. Intenta de nuevo.', ok: false });
                                 } finally {
                                   setRedeemingId(null);
                                 }
                               }}
-                              className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1"
+                              className="shrink-0 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 transition-opacity"
                               style={{ background: accentColor, color: '#000', opacity: isRedeeming ? 0.6 : 1 }}>
-                              {isRedeeming ? (
-                                <><span className="animate-spin inline-block w-3 h-3 border-2 border-black border-t-transparent rounded-full" /> Canjeando...</>
-                              ) : '¡Canjear!'}
+                              {isRedeeming
+                                ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-black border-t-transparent rounded-full" /> Canjeando...</>
+                                : '¡Canjear!'}
                             </button>
                           ) : (
-                            <div className="text-xs font-bold px-2 py-1 rounded-full"
-                              style={{ background: 'rgba(255,255,255,0.05)', color: textColor }}>
+                            <div className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full"
+                              style={{ background: 'rgba(255,255,255,0.06)', color: textColor }}>
                               Faltan {r.points_required - tenantPoints}
                             </div>
                           )}
                         </div>
                         {msg && (
-                          <div className="text-xs rounded-lg px-3 py-2 font-semibold"
+                          <div className="text-xs rounded-xl px-3 py-2 font-semibold"
                             style={{ background: msg.ok ? accentColor + '22' : '#EF444422', color: msg.ok ? accentColor : '#EF4444' }}>
                             {msg.text}
                           </div>
@@ -404,11 +424,30 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
               </div>
             )}
 
-            {/* Edición de datos del perfil */}
-            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--menu-surface)' }}>
-              <h3 className="text-sm font-bold opacity-60">Mis datos</h3>
-              {/* Email */}
-              <div className="flex items-center gap-2">
+            {/* Mis datos */}
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-bold uppercase tracking-widest px-4 pt-4 pb-2 opacity-40">Mis datos</p>
+              <div className="flex items-center gap-3 px-4 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <span className="text-xs opacity-50 w-20 shrink-0">Nombre</span>
+                {editingName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input value={newName} onChange={e => setNewName(e.target.value)}
+                      className="flex-1 bg-transparent border-b outline-none text-sm"
+                      style={{ borderColor: accentColor, color: textColor }} autoFocus />
+                    <button onClick={handleSaveName}><Check size={16} style={{ color: accentColor }} /></button>
+                    <button onClick={() => setEditingName(false)}><X size={16} className="opacity-40" /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-sm flex-1 opacity-80">{profile.name || <span className="opacity-30">Sin nombre</span>}</span>
+                    <button onClick={() => { setEditingName(true); setNewName(profile.name || ''); }}>
+                      <Edit2 size={13} className="opacity-40" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                 <span className="text-xs opacity-50 w-20 shrink-0">Email</span>
                 {editingEmail ? (
                   <div className="flex items-center gap-2 flex-1">
@@ -428,8 +467,7 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                   </div>
                 )}
               </div>
-              {/* Cumpleaños */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 px-4 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                 <span className="text-xs opacity-50 w-20 shrink-0">Cumpleaños</span>
                 {editingBirthday ? (
                   <div className="flex items-center gap-2 flex-1">
@@ -452,36 +490,44 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
             </div>
 
             <button onClick={() => { logout(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-red-400"
-              style={{ background: 'rgba(239,68,68,0.08)' }}>
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-semibold"
+              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.15)' }}>
               <LogOut size={16} /> Cerrar sesión
             </button>
           </div>
         )}
 
-        {/* HISTORY */}
+        {/* HISTORIAL */}
         {!loading && activeTab === 'history' && (
           <div className="p-4">
             {orders.length === 0 ? (
-              <div className="text-center py-12 opacity-40">
-                <Clock size={40} className="mx-auto mb-3" />
-                <p className="text-sm">No hay pedidos aún</p>
+              <div className="text-center py-16 opacity-40">
+                <Clock size={48} className="mx-auto mb-4 opacity-30" />
+                <p className="text-base font-semibold">Sin pedidos aún</p>
+                <p className="text-sm mt-1 opacity-70">Tus pedidos aparecerán aquí</p>
               </div>
             ) : (
               <div className="space-y-3">
+                <p className="text-xs opacity-40 mb-1">{orders.length} pedido{orders.length !== 1 ? 's' : ''}</p>
                 {orders.map(o => (
-                  <div key={o.id} className="rounded-xl p-3" style={{ background: 'var(--menu-surface)' }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-sm">Pedido #{o.order_number}</span>
-                      <span className="text-xs font-bold" style={{ color: accentColor }}>₡{o.total?.toLocaleString()}</span>
+                  <div key={o.id} className="rounded-2xl p-4"
+                    style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag size={15} className="opacity-50" />
+                        <span className="font-bold text-sm">Pedido #{o.order_number}</span>
+                      </div>
+                      <span className="text-sm font-black" style={{ color: accentColor }}>₡{o.total?.toLocaleString()}</span>
                     </div>
-                    <div className="text-xs opacity-50 mb-1.5">
-                      {new Date(o.created_at).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    <div className="text-xs opacity-60">
-                      {Array.isArray(o.items) ? o.items.slice(0, 3).map((it: { name: string; quantity: number }) => `${it.quantity}× ${it.name}`).join(', ') : ''}
-                      {Array.isArray(o.items) && o.items.length > 3 ? ` +${o.items.length - 3} más` : ''}
-                    </div>
+                    <p className="text-xs opacity-40 mb-2">
+                      {new Date(o.created_at).toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className="text-xs opacity-60 leading-relaxed">
+                      {Array.isArray(o.items)
+                        ? o.items.slice(0, 3).map((it: { name: string; quantity: number }) => `${it.quantity}× ${it.name}`).join(' · ')
+                        : ''}
+                      {Array.isArray(o.items) && o.items.length > 3 ? ` · +${o.items.length - 3} más` : ''}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -489,52 +535,40 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
           </div>
         )}
 
-        {/* FAVORITES */}
+        {/* FAVORITOS */}
         {!loading && activeTab === 'favorites' && (
           <div className="p-4">
             {favorites.length === 0 ? (
-              <div className="text-center py-12 opacity-40">
-                <Heart size={40} className="mx-auto mb-3" />
-                <p className="text-sm">No hay favoritos aún</p>
-                <p className="text-xs mt-1">Tocá el ❤️ en cualquier platillo</p>
+              <div className="text-center py-16 opacity-40">
+                <Heart size={48} className="mx-auto mb-4 opacity-30" />
+                <p className="text-base font-semibold">Sin favoritos aún</p>
+                <p className="text-sm mt-1 opacity-70">Tocá el ❤️ en cualquier platillo</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {favorites.map(f => (
-                  <div key={f.id} className="rounded-xl overflow-hidden relative" style={{ background: 'var(--menu-surface)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                    {/* Imagen */}
+                  <div key={f.id} className="rounded-2xl overflow-hidden relative"
+                    style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
                     {f.item_image_url ? (
-                      <div className="relative" style={{ height: '7rem' }}>
-                        <img src={f.item_image_url} alt={f.item_name || ''} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
-                        {f.item_price != null && (
-                          <span className="absolute bottom-2 left-2.5 text-[14px] font-black text-white" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
-                            ₡{f.item_price.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
+                      <img src={f.item_image_url} alt={f.item_name || ''} className="w-full aspect-square object-cover" />
                     ) : (
-                      <div className="flex items-center justify-center" style={{ height: '5rem', background: 'rgba(255,255,255,0.04)' }}>
-                        <span className="text-3xl opacity-30">🍽️</span>
-                      </div>
+                      <div className="w-full aspect-square flex items-center justify-center text-3xl"
+                        style={{ background: 'rgba(255,255,255,0.04)' }}>🍽️</div>
                     )}
-                    {/* Info */}
-                    <div className="px-2.5 py-2">
-                      <p className="text-[13px] font-black leading-snug" style={{ color: 'var(--menu-text)' }}>{f.item_name || 'Platillo'}</p>
-                      {!f.item_image_url && f.item_price != null && (
-                        <p className="text-[12px] font-bold mt-0.5" style={{ color: accentColor }}>₡{f.item_price.toLocaleString()}</p>
+                    <div className="p-2.5">
+                      <p className="text-xs font-bold leading-tight truncate">{f.item_name || 'Platillo'}</p>
+                      {f.item_price != null && (
+                        <p className="text-xs mt-0.5 font-semibold" style={{ color: accentColor }}>₡{f.item_price.toLocaleString()}</p>
                       )}
                     </div>
-                    {/* Botón quitar favorito */}
                     <button
                       onClick={async () => {
                         await supabase.from('customer_favorites').delete().eq('id', f.id);
                         setFavorites(prev => prev.filter(x => x.id !== f.id));
                       }}
                       className="absolute top-2 right-2 p-1.5 rounded-full"
-                      style={{ background: 'rgba(239,68,68,0.22)' }}
-                      aria-label="Quitar de favoritos"
-                    >
+                      style={{ background: 'rgba(0,0,0,0.5)' }}
+                      aria-label="Quitar de favoritos">
                       <Heart size={13} fill="#ef4444" stroke="#ef4444" strokeWidth={2} />
                     </button>
                   </div>
@@ -548,31 +582,32 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
         {!loading && activeTab === 'my_restaurants' && (
           <div className="p-4">
             {loadingTenants ? (
-              <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin opacity-40" /></div>
+              <div className="flex justify-center py-16"><Loader2 size={28} className="animate-spin opacity-40" /></div>
             ) : customerTenants.length === 0 ? (
-              <div className="text-center py-12 opacity-40">
-                <span className="text-4xl block mb-3">🍽️</span>
-                <p className="text-sm">Aún no has visitado ningún restaurante</p>
+              <div className="text-center py-16 opacity-40">
+                <UtensilsCrossed size={48} className="mx-auto mb-4 opacity-30" />
+                <p className="text-base font-semibold">Aún sin restaurantes</p>
+                <p className="text-sm mt-1 opacity-70">Tu cuenta funciona en todos los restaurantes SmartMenu</p>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs opacity-50 mb-3">Tu cuenta funciona en todos estos restaurantes con los mismos datos de acceso.</p>
+                <p className="text-xs opacity-40 mb-1">Tu cuenta funciona en todos estos restaurantes con los mismos datos.</p>
                 {customerTenants.map(t => (
                   <div key={t.tenant_id} className="rounded-2xl p-4 flex items-center gap-3"
                     style={{
-                      background: 'var(--menu-surface)',
-                      border: t.tenant_id === tenant.id ? `1px solid ${accentColor}` : '1px solid rgba(255,255,255,0.06)'
+                      background: surfaceColor,
+                      border: t.tenant_id === tenant.id ? `1px solid ${accentColor}60` : '1px solid rgba(255,255,255,0.06)',
                     }}>
                     {t.tenant_logo_url ? (
-                      <img src={t.tenant_logo_url} alt={t.tenant_name} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                      <img src={t.tenant_logo_url} alt={t.tenant_name} className="w-12 h-12 rounded-xl object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
                         style={{ background: 'rgba(255,255,255,0.08)' }}>🍽️</div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm truncate">{t.tenant_name}</div>
+                      <p className="font-bold text-sm truncate">{t.tenant_name}</p>
                       {t.tenant_id === tenant.id && (
-                        <div className="text-[10px] mb-0.5" style={{ color: accentColor }}>Restaurante actual</div>
+                        <p className="text-[10px] mb-0.5" style={{ color: accentColor }}>Restaurante actual</p>
                       )}
                       <div className="flex items-center gap-3 mt-0.5">
                         <span className="text-xs opacity-60">⭐ {t.points} pts</span>
@@ -580,9 +615,9 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
                       </div>
                     </div>
                     {t.last_seen_at && (
-                      <div className="text-[10px] opacity-30 text-right flex-shrink-0">
+                      <p className="text-[10px] opacity-30 shrink-0">
                         {new Date(t.last_seen_at).toLocaleDateString('es-CR', { month: 'short', day: 'numeric' })}
-                      </div>
+                      </p>
                     )}
                   </div>
                 ))}
@@ -591,181 +626,206 @@ export default function ProfileScreen({ isOpen, onClose, theme, tenant, onOpenLo
           </div>
         )}
 
-        {/* ADDRESSES */}
+        {/* DIRECCIONES */}
         {!loading && activeTab === 'addresses' && (
-          <div className="p-4">
-            <div className="space-y-3 mb-4">
-              {addresses.map(a => (
-                <div key={a.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: 'var(--menu-surface)' }}>
-                  <MapPin size={18} className="mt-0.5 shrink-0" style={{ color: accentColor }} />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{a.label}</span>
-                      {a.is_default && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: accentColor + '22', color: accentColor }}>Principal</span>}
-                    </div>
-                    <p className="text-xs opacity-60 mt-0.5">{a.address}</p>
+          <div className="p-4 space-y-3">
+            {addresses.length === 0 && !addingAddr && (
+              <div className="text-center py-10 opacity-40">
+                <MapPin size={40} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-semibold">Sin direcciones guardadas</p>
+              </div>
+            )}
+            {addresses.map(a => (
+              <div key={a.id} className="flex items-start gap-3 rounded-2xl p-4"
+                style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <MapPin size={18} className="mt-0.5 shrink-0" style={{ color: accentColor }} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">{a.label}</span>
+                    {a.is_default && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: accentColor + '22', color: accentColor }}>Principal</span>
+                    )}
                   </div>
-                  <button onClick={() => handleDeleteAddress(a.id)} className="p-1 opacity-30 hover:opacity-70">
-                    <Trash2 size={14} />
-                  </button>
+                  <p className="text-xs opacity-60 mt-0.5">{a.address}</p>
                 </div>
-              ))}
-            </div>
+                <button onClick={() => handleDeleteAddress(a.id)} className="p-1.5 rounded-full opacity-30 hover:opacity-70"
+                  style={{ background: 'rgba(239,68,68,0.1)' }}>
+                  <Trash2 size={14} className="text-red-400" />
+                </button>
+              </div>
+            ))}
             {!addingAddr ? (
               <button onClick={() => setAddingAddr(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
-                style={{ background: 'var(--menu-surface)', color: accentColor }}>
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-semibold"
+                style={{ background: surfaceColor, color: accentColor, border: `1px dashed ${accentColor}40` }}>
                 <Plus size={16} /> Agregar dirección
               </button>
             ) : (
-              <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--menu-surface)' }}>
-                <input value={addrLabel} onChange={e => setAddrLabel(e.target.value)} placeholder="Etiqueta (Casa, Trabajo...)"
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none"
-                  style={{ border: '1px solid var(--menu-border)', color: textColor }} />
-                <input value={addrText} onChange={e => setAddrText(e.target.value)} placeholder="Dirección completa"
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none"
-                  style={{ border: '1px solid var(--menu-border)', color: textColor }} />
+              <div className="rounded-2xl p-4 space-y-3"
+                style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <input value={addrLabel} onChange={e => setAddrLabel(e.target.value)}
+                  placeholder="Etiqueta (Casa, Trabajo...)"
+                  className="w-full bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)', color: textColor }} />
+                <input value={addrText} onChange={e => setAddrText(e.target.value)}
+                  placeholder="Dirección completa"
+                  className="w-full bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)', color: textColor }} />
                 <div className="flex gap-2">
-                  <button onClick={() => setAddingAddr(false)} className="flex-1 py-2 rounded-lg text-sm opacity-50">Cancelar</button>
-                  <button onClick={handleAddAddress} className="flex-1 py-2 rounded-lg text-sm font-bold"
+                  <button onClick={handleAddAddress}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold"
                     style={{ background: accentColor, color: '#000' }}>Guardar</button>
+                  <button onClick={() => { setAddingAddr(false); setAddrLabel(''); setAddrText(''); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold opacity-50"
+                    style={{ background: 'rgba(255,255,255,0.08)' }}>Cancelar</button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* SECURITY */}
+        {/* SEGURIDAD */}
         {!loading && activeTab === 'security' && (
           <div className="p-4 space-y-4">
-
-            {/* ── CONTRASEÑA ── */}
-            <p className="text-xs font-bold uppercase tracking-widest px-1" style={{ color: textColor, opacity: 0.4 }}>Contraseña</p>
-            {[
-              { mode: 'set' as const, label: 'Crear contraseña', icon: Shield },
-              { mode: 'change' as const, label: 'Cambiar contraseña', icon: Shield },
-            ].map(({ mode, label, icon: Icon }) => (
-              <div key={mode} className="rounded-xl overflow-hidden" style={{ background: 'var(--menu-surface)' }}>
-                <button onClick={() => setPwMode(pwMode === mode ? 'none' : mode)}
-                  className="w-full flex items-center justify-between px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <Icon size={18} style={{ color: accentColor }} />
-                    <span className="text-sm font-semibold" style={{ color: textColor }}>{label}</span>
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between px-4 py-4">
+                <div className="flex items-center gap-3">
+                  <Shield size={18} style={{ color: accentColor }} />
+                  <div>
+                    <p className="text-sm font-bold">Contraseña</p>
+                    <p className="text-xs opacity-40">{(profile as any).has_password ? 'Configurada' : 'Sin contraseña'}</p>
                   </div>
-                  <ChevronRight size={16} className="opacity-40" style={{ color: textColor }} />
-                </button>
-                <AnimatePresence>
-                  {pwMode === mode && (
-                    <motion.div className="px-4 pb-4 space-y-2"
-                      initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                      {mode === 'change' && (
-                        <input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)}
-                          placeholder="Contraseña actual" className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none"
-                          style={{ border: '1px solid var(--menu-border)', color: textColor }} />
-                      )}
-                      <input type="password" value={pw1} onChange={e => setPw1(e.target.value)}
-                        placeholder="Nueva contraseña" className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none"
-                        style={{ border: '1px solid var(--menu-border)', color: textColor }} />
-                      <input type="password" value={pw2} onChange={e => setPw2(e.target.value)}
-                        placeholder="Confirmar contraseña" className="w-full px-3 py-2 rounded-lg text-sm bg-transparent outline-none"
-                        style={{ border: '1px solid var(--menu-border)', color: textColor }} />
-                      {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith('✅') ? '#22c55e' : '#f87171' }}>{pwMsg}</p>}
-                      <button onClick={handleSavePassword} className="w-full py-2.5 rounded-lg text-sm font-bold"
-                        style={{ background: accentColor, color: '#000' }}>Guardar</button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-
-            {/* ── ACCESO RÁPIDO (PASSKEYS) ── */}
-            <p className="text-xs font-bold uppercase tracking-widest px-1 mt-2" style={{ color: textColor, opacity: 0.4 }}>Acceso rápido (Passkeys)</p>
-            {isWebAuthnSupported() ? (
-              <div className="rounded-xl" style={{ background: 'var(--menu-surface)' }}>
-                <div className="px-4 py-3.5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <Fingerprint size={18} style={{ color: accentColor }} />
-                      <span className="text-sm font-semibold" style={{ color: textColor }}>Dispositivos de confianza</span>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        setPasskeyLoading(true); setPasskeyMsg('');
-                        const result = await registerPasskey();
-                        if (result.success) {
-                          const list = await getPasskeys();
-                          setPasskeys(list); setPasskeysLoaded(true);
-                          setPasskeyMsg('✅ Passkey registrada');
-                        } else if (result.error !== 'Operación cancelada') {
-                          setPasskeyMsg(result.error || 'Error');
-                        }
-                        setPasskeyLoading(false);
-                      }}
-                      disabled={passkeyLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50"
-                      style={{ background: accentColor + '22', color: accentColor }}>
-                      {passkeyLoading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                      Agregar
-                    </button>
-                  </div>
-                  {!passkeysLoaded && !passkeyLoading && (
-                    <button onClick={async () => {
-                      setPasskeyLoading(true);
-                      const list = await getPasskeys();
-                      setPasskeys(list); setPasskeysLoaded(true);
-                      setPasskeyLoading(false);
-                    }} className="text-xs mb-2" style={{ color: accentColor }}>Ver dispositivos registrados →</button>
-                  )}
-                  {passkeyLoading && <div className="flex justify-center py-2"><Loader2 size={16} className="animate-spin" style={{ color: accentColor }} /></div>}
-                  {passkeyMsg && <p className="text-xs mb-2" style={{ color: passkeyMsg.startsWith('✅') ? '#22c55e' : '#f87171' }}>{passkeyMsg}</p>}
-                  {passkeysLoaded && passkeys.length > 0 && (
-                    <div className="space-y-2">
-                      {passkeys.map(pk => (
-                        <div key={pk.id} className="flex items-center justify-between py-2 border-t" style={{ borderColor: 'var(--menu-border)' }}>
-                          <div className="flex items-center gap-2">
-                            <Smartphone size={14} style={{ color: textColor, opacity: 0.5 }} />
-                            <div>
-                              <p className="text-xs font-semibold" style={{ color: textColor }}>{pk.friendly_name || 'Dispositivo'}</p>
-                              <p className="text-[10px]" style={{ color: textColor, opacity: 0.4 }}>
-                                {pk.last_used_at
-                                  ? `Último uso: ${new Date(pk.last_used_at).toLocaleDateString('es-CR')}`
-                                  : `Registrado: ${new Date(pk.created_at).toLocaleDateString('es-CR')}`}
-                              </p>
-                            </div>
-                          </div>
-                          <button onClick={async () => {
-                            await deletePasskey(pk.credential_id);
-                            setPasskeys(prev => prev.filter(p => p.id !== pk.id));
-                          }} className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)' }}>
-                            <Trash2 size={13} className="text-red-400" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {passkeysLoaded && passkeys.length === 0 && (
-                    <p className="text-xs" style={{ color: textColor, opacity: 0.4 }}>No hay dispositivos registrados aún.</p>
-                  )}
                 </div>
+                {pwMode === 'none' && (
+                  <button
+                    onClick={() => setPwMode((profile as any).has_password ? 'change' : 'set')}
+                    className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1"
+                    style={{ background: accentColor + '22', color: accentColor }}>
+                    <ChevronRight size={12} />
+                    {(profile as any).has_password ? 'Cambiar' : 'Crear'}
+                  </button>
+                )}
               </div>
-            ) : (
-              <div className="rounded-xl px-4 py-3" style={{ background: 'var(--menu-surface)' }}>
-                <p className="text-xs" style={{ color: textColor, opacity: 0.45 }}>Tu navegador no soporta passkeys (WebAuthn). Actualizá Chrome, Safari 16+ o Firefox 119+ para activar esta función.</p>
+              {pwMode !== 'none' && (
+                <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                  {pwMode === 'change' && (
+                    <input value={oldPw} onChange={e => setOldPw(e.target.value)}
+                      type="password" placeholder="Contraseña actual"
+                      className="w-full bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none mt-3"
+                      style={{ borderColor: 'rgba(255,255,255,0.15)', color: textColor }} />
+                  )}
+                  <input value={pw1} onChange={e => setPw1(e.target.value)}
+                    type="password" placeholder="Nueva contraseña"
+                    className="w-full bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: 'rgba(255,255,255,0.15)', color: textColor }} />
+                  <input value={pw2} onChange={e => setPw2(e.target.value)}
+                    type="password" placeholder="Confirmar contraseña"
+                    className="w-full bg-transparent border rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: 'rgba(255,255,255,0.15)', color: textColor }} />
+                  {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith('✅') ? '#22c55e' : '#f87171' }}>{pwMsg}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={handleSavePassword}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold"
+                      style={{ background: accentColor, color: '#000' }}>Guardar</button>
+                    <button onClick={() => { setPwMode('none'); setPw1(''); setPw2(''); setOldPw(''); setPwMsg(''); }}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold opacity-50"
+                      style={{ background: 'rgba(255,255,255,0.08)' }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {isWebAuthnSupported() && (
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: surfaceColor, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Fingerprint size={18} style={{ color: accentColor }} />
+                    <div>
+                      <p className="text-sm font-bold">Passkeys</p>
+                      <p className="text-xs opacity-40">Huella / Face ID</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setPasskeyLoading(true); setPasskeyMsg('');
+                      const result = await registerPasskey();
+                      if (result.success) {
+                        const list = await getPasskeys();
+                        setPasskeys(list); setPasskeysLoaded(true);
+                        setPasskeyMsg('✅ Passkey registrada');
+                      } else if (result.error !== 'Operación cancelada') {
+                        setPasskeyMsg(result.error || 'Error');
+                      }
+                      setPasskeyLoading(false);
+                    }}
+                    disabled={passkeyLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold disabled:opacity-50"
+                    style={{ background: accentColor + '22', color: accentColor }}>
+                    {passkeyLoading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                    Agregar
+                  </button>
+                </div>
+                {passkeyMsg && (
+                  <p className="text-xs px-4 pb-3" style={{ color: passkeyMsg.startsWith('✅') ? '#22c55e' : '#f87171' }}>{passkeyMsg}</p>
+                )}
+                {!passkeysLoaded && !passkeyLoading && (
+                  <button onClick={async () => {
+                    setPasskeyLoading(true);
+                    const list = await getPasskeys();
+                    setPasskeys(list); setPasskeysLoaded(true);
+                    setPasskeyLoading(false);
+                  }} className="text-xs px-4 pb-4 block" style={{ color: accentColor }}>
+                    Ver dispositivos registrados →
+                  </button>
+                )}
+                {passkeysLoaded && passkeys.length > 0 && (
+                  <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    {passkeys.map(pk => (
+                      <div key={pk.id} className="flex items-center justify-between px-4 py-3 border-b last:border-0"
+                        style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                        <div className="flex items-center gap-2">
+                          <Smartphone size={14} className="opacity-40" />
+                          <div>
+                            <p className="text-xs font-semibold">{pk.friendly_name || 'Dispositivo'}</p>
+                            <p className="text-[10px] opacity-40">
+                              {pk.last_used_at
+                                ? `Último uso: ${new Date(pk.last_used_at).toLocaleDateString('es-CR')}`
+                                : `Registrado: ${new Date(pk.created_at).toLocaleDateString('es-CR')}`}
+                            </p>
+                          </div>
+                        </div>
+                        <button onClick={async () => {
+                          await deletePasskey(pk.credential_id);
+                          setPasskeys(prev => prev.filter(p => p.id !== pk.id));
+                        }} className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)' }}>
+                          <Trash2 size={13} className="text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {passkeysLoaded && passkeys.length === 0 && (
+                  <p className="text-xs px-4 pb-4 opacity-40">No hay dispositivos registrados aún.</p>
+                )}
               </div>
             )}
 
-            {/* ── SESIÓN ── */}
-            <p className="text-xs font-bold uppercase tracking-widest px-1 mt-2" style={{ color: textColor, opacity: 0.4 }}>Sesión</p>
-            <button onClick={() => { logout(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold"
-              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}>
-              <LogOut size={16} /> Cerrar sesión en este dispositivo
-            </button>
-            <button onClick={() => { logoutAllDevices(); onClose(); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold"
-              style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171' }}>
-              <LogOut size={16} /> Cerrar sesión en todos los dispositivos
-            </button>
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-widest opacity-40 px-1">Sesión</p>
+              <button onClick={() => { logout(); onClose(); }}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-semibold"
+                style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <LogOut size={16} /> Cerrar sesión en este dispositivo
+              </button>
+              <button onClick={() => { logoutAllDevices(); onClose(); }}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-semibold"
+                style={{ background: 'rgba(239,68,68,0.05)', color: '#f87171', border: '1px solid rgba(239,68,68,0.1)' }}>
+                <LogOut size={16} /> Cerrar sesión en todos los dispositivos
+              </button>
+            </div>
           </div>
         )}
       </div>
