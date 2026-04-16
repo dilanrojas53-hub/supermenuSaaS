@@ -4,7 +4,7 @@
  * Mobile: drawer deslizable desde la izquierda.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
@@ -114,18 +114,17 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  const toggleGroup = (label: string) => {
+  const toggleGroup = useCallback((label: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
       next.has(label) ? next.delete(label) : next.add(label);
       return next;
     });
-  };
+  }, []);
 
-  const isTabVisible = (key: TabKey): boolean => {
-    const tier = planTier ?? 'premium'; // fallback seguro
+  const isTabVisible = useCallback((key: TabKey): boolean => {
+    const tier = planTier ?? 'premium';
     const deliveryOs = hasDeliveryOs ?? false;
-    // Usar nuevo sistema de capabilities si planTier está disponible
     if (key === 'orders')     return hasCapability(tier, 'orders_panel', deliveryOs);
     if (key === 'staff')      return hasCapability(tier, 'staff_panel', deliveryOs);
     if (key === 'modifiers')  return hasCapability(tier, 'modifiers', deliveryOs);
@@ -134,15 +133,28 @@ export function AdminSidebar({
     if (key === 'closing')    return hasCapability(tier, 'smart_closing', deliveryOs);
     if (key === 'delivery')   return hasCapability(tier, 'delivery_dispatch', deliveryOs);
     return true;
-  };
+  }, [planTier, hasDeliveryOs]);
 
-  const handleTabClick = (key: TabKey) => {
+  const handleTabClick = useCallback((key: TabKey) => {
     onTabChange(key);
-    // Cerrar drawer en mobile
+    // Cerrar drawer en mobile después de seleccionar tab
     if (isOpen_mobile) onToggleMobile();
-  };
+  }, [onTabChange, isOpen_mobile, onToggleMobile]);
 
-  const SidebarContent = () => (
+  // Pre-calcular grupos visibles para evitar recalcular en cada render
+  const visibleGroups = useMemo(() =>
+    NAV_GROUPS.map(group => ({
+      ...group,
+      visibleItems: group.items.filter(item => isTabVisible(item.key)),
+    })).filter(g => g.visibleItems.length > 0),
+    [isTabVisible]
+  );
+
+  // ── Contenido del sidebar como JSX directo (NO sub-componente)
+  // IMPORTANTE: Declarar como variable JSX, no como función/componente.
+  // Si fuera un sub-componente (const SidebarContent = () => ...), React lo
+  // recrearía en cada render causando desmontaje/remontaje y congelamiento en mobile.
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo / Brand */}
       <div className="px-5 py-5 border-b border-white/8 flex items-center gap-3 flex-shrink-0">
@@ -160,9 +172,8 @@ export function AdminSidebar({
 
       {/* Nav Groups */}
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1 scrollbar-hide">
-        {NAV_GROUPS.map(group => {
-          const visibleItems = group.items.filter(item => isTabVisible(item.key));
-          if (visibleItems.length === 0) return null;
+        {visibleGroups.map(group => {
+          const { visibleItems } = group;
           const isCollapsed = collapsedGroups.has(group.label);
 
           return (
@@ -306,7 +317,7 @@ export function AdminSidebar({
           boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
         }}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* ── Mobile: hamburger button ── */}
@@ -341,7 +352,7 @@ export function AdminSidebar({
           transform: isOpen_mobile ? 'translateX(0)' : 'translateX(-100%)',
         }}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
     </>
   );
