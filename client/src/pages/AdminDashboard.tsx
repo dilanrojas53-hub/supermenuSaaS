@@ -50,6 +50,9 @@ import { TourOverlay, ModuleWelcomeGate, HelpTrigger, HelpCenter } from '@/compo
 import { useUITheme } from '@/contexts/UIThemeContext';
 import { themes, type ThemeKey, RESTAURANT_THEMES, type RestaurantThemePreset, getThemeCategories, getThemePreset, applyRestaurantTheme, isColorDark } from '@/lib/themes';
 import { toast } from 'sonner';
+import { useAIInsights } from '@/lib/aiInsights';
+import type { RawAnalyticsData } from '@/lib/aiInsights';
+import { AIInsightPanel } from '@/components/analytics/AIInsightPanel';
 
 // ─── Toggle Switch ───
 function ToggleSwitch({ checked, onChange, label, colorOn = '#22C55E', colorOff = '#EF4444' }: {
@@ -3821,6 +3824,38 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     }
   };
 
+  // ── AI Business Insights ──
+  // Construir rawData para el contexto curado de IA
+  const aiRawData: RawAnalyticsData = {
+    period: analyticsFilter,
+    restaurantName: tenant.name,
+    totalRevenue: stats.totalRevenue,
+    totalOrders: stats.totalOrders,
+    avgTicket: stats.avgTicket,
+    upsellRevenue: stats.upsellRevenue,
+    upsellRate: stats.upsellRate,
+    aiUpsellRevenue: stats.aiUpsellRevenue,
+    staticUpsellRevenue: stats.staticUpsellRevenue,
+    top5: stats.top5,
+    promoOrders: stats.promoOrders,
+    couponOrders: stats.couponOrders,
+    totalDiscountGiven: stats.totalDiscountGiven,
+    promoConversionRate: stats.promoConversionRate,
+    couponConversionRate: stats.couponConversionRate,
+    timeBlocks: filteredStats.timeBlocks,
+    hourlyData: stats.hourlyData,
+    staffStats: staffStats.map(s => ({
+      name: s.name,
+      completed: s.completed,
+      cobrados: s.cobrados,
+      totalRevenue: s.totalRevenue,
+      avgTimeMin: s.avgTimeMin,
+    })),
+    allOrders: orders as any[],
+    activeAlerts: [],
+  };
+  const aiInsights = useAIInsights(aiRawData, tenant.slug, analyticsFilter);
+
   // ── Section header helper ──
   const SectionHeader = ({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) => (
     <div className="flex items-center gap-3 mb-5">
@@ -3840,6 +3875,20 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Analítica</h2>
         <span className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface)] px-3 py-1 rounded-full border border-[var(--border)]">Este mes</span>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          AI BUSINESS INSIGHTS — Capa de inteligencia ejecutiva
+          No reemplaza métricas. Interpreta, resume y recomienda.
+      ═══════════════════════════════════════════════════════════════ */}
+      <AIInsightPanel
+        status={aiInsights.state.status}
+        digest={aiInsights.state.digest}
+        error={aiInsights.state.error}
+        period={analyticsFilter}
+        enabled={aiInsights.enabled}
+        onToggle={aiInsights.setEnabled}
+        onRefresh={aiInsights.refresh}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════
           A. RESUMEN EJECUTIVO
