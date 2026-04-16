@@ -3602,6 +3602,21 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
 }
 // ─── Analytics Tab — Dashboard Premium V2 ───
 type AnalyticsFilter = 'today' | 'yesterday' | 'week' | 'month';
+
+// SectionHeader: definida FUERA del componente para evitar recreación en cada render
+function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)' }}>
+        <span className="text-amber-400">{icon}</span>
+      </div>
+      <div>
+        <h3 className="text-sm font-black text-[var(--text-primary)] leading-tight">{title}</h3>
+        {subtitle && <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
 const analyticsFilterLabels: Record<AnalyticsFilter, string> = {
   today: 'Hoy', yesterday: 'Ayer', week: 'Esta semana', month: 'Este mes',
 };
@@ -3826,7 +3841,8 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
 
   // ── AI Business Insights ──
   // Construir rawData para el contexto curado de IA
-  const aiRawData: RawAnalyticsData = {
+  // IMPORTANTE: useMemo para evitar objeto nuevo en cada render (causaba loop en useAIInsights)
+  const aiRawData: RawAnalyticsData = useMemo(() => ({
     period: analyticsFilter,
     restaurantName: tenant.name,
     totalRevenue: stats.totalRevenue,
@@ -3853,21 +3869,11 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
     })),
     allOrders: orders as any[],
     activeAlerts: [],
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [analyticsFilter, tenant.name, stats, filteredStats.timeBlocks, staffStats]);
   const aiInsights = useAIInsights(aiRawData, tenant.slug, analyticsFilter);
 
-  // ── Section header helper ──
-  const SectionHeader = ({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) => (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)' }}>
-        <span className="text-amber-400">{icon}</span>
-      </div>
-      <div>
-        <h3 className="text-sm font-black text-[var(--text-primary)] leading-tight">{title}</h3>
-        {subtitle && <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{subtitle}</p>}
-      </div>
-    </div>
-  );
+  // SectionHeader: usar la función standalone definida fuera del componente (ver abajo)
 
   return (
     <div className="space-y-10">
