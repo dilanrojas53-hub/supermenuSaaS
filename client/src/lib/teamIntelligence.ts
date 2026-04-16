@@ -568,10 +568,21 @@ export function computeAlerts(
 
 export function fmtSec(sec: number): string {
   if (!sec || sec <= 0) return '—';
-  if (sec < 60) return `${sec}s`;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  const totalSec = Math.round(sec);
+  if (totalSec < 60) return `${totalSec}s`;
+  const totalMin = Math.floor(totalSec / 60);
+  const remSec = totalSec % 60;
+  if (totalMin < 60) {
+    return remSec > 0 ? `${totalMin}m ${remSec}s` : `${totalMin}m`;
+  }
+  const h = Math.floor(totalMin / 60);
+  const remMin = totalMin % 60;
+  if (h < 24) {
+    return remMin > 0 ? `${h}h ${remMin}m` : `${h}h`;
+  }
+  const d = Math.floor(h / 24);
+  const remH = h % 24;
+  return remH > 0 ? `${d}d ${remH}h` : `${d}d`;
 }
 
 export function getScoreColor(label: StaffMemberMetrics['scoreLabel']): string {
