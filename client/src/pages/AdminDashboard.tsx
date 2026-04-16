@@ -45,6 +45,8 @@ import {
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { AdminSidebar } from '@/components/AdminSidebar';
+import { OnboardingProvider } from '@/lib/onboarding';
+import { TourOverlay, ModuleWelcomeGate, HelpTrigger, HelpCenter } from '@/components/onboarding';
 import { useUITheme } from '@/contexts/UIThemeContext';
 import { themes, type ThemeKey, RESTAURANT_THEMES, type RestaurantThemePreset, getThemeCategories, getThemePreset, applyRestaurantTheme, isColorDark } from '@/lib/themes';
 import { toast } from 'sonner';
@@ -5177,7 +5179,9 @@ export default function AdminDashboard() {
   // Delivery OS: activo si el plan es premium o si el tenant tiene delivery configurado
   const hasDeliveryOs = planFeatures.deliveryOs;
 
+  const [helpCenterOpen, setHelpCenterOpen] = useState(false);
   return (
+    <OnboardingProvider userId={slug || 'admin'}>
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       {/* ── Sidebar ── */}
       <AdminSidebar
@@ -5192,6 +5196,7 @@ export default function AdminDashboard() {
         planFeatures={planFeatures}
         planTier={planTier}
         hasDeliveryOs={hasDeliveryOs}
+        onOpenHelpCenter={() => setHelpCenterOpen(true)}
       />
 
       {/* ── Main content (offset by sidebar width on desktop) ── */}
@@ -5221,44 +5226,64 @@ export default function AdminDashboard() {
             </span>
           </div>
 
-          {/* Right: current section label */}
-          <p className="text-xs text-[var(--text-secondary)] font-mono hidden lg:block">/{slug}</p>
+          {/* Right: current section label + help */}
+          <div className="hidden lg:flex items-center gap-3">
+            <p className="text-xs text-[var(--text-secondary)] font-mono">/{slug}</p>
+            <button
+              onClick={() => setHelpCenterOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+              style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.15)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.14)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.08)'; }}
+            >
+              <span>📚</span> Guías
+            </button>
+          </div>
           <div className="lg:hidden w-10" />
         </header>
 
         {/* Page content */}
         <main className="flex-1 px-4 py-6 lg:px-8 overflow-y-auto">
-          {activeTab === 'orders' && <OrdersTab tenant={tenant} />}
-          {activeTab === 'menu' && <MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} />}
+          {activeTab === 'orders' && <ModuleWelcomeGate module="orders"><OrdersTab tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'menu' && <ModuleWelcomeGate module="menu"><MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} /></ModuleWelcomeGate>}
           {activeTab === 'categories' && (
-            <div>
-              <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
-              <MenuSectionsManager tenant={tenant} categories={categories} items={items} />
-            </div>
+            <ModuleWelcomeGate module="categories">
+              <div>
+                <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
+                <MenuSectionsManager tenant={tenant} categories={categories} items={items} />
+              </div>
+            </ModuleWelcomeGate>
           )}
-          {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
-          {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
-          {activeTab === 'experience' && <ExperienceTab tenant={tenant} onRefresh={fetchData} />}
-          {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
-          {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
-          {activeTab === 'history' && <HistoryTab tenant={tenant} />}
-          {activeTab === 'qr' && <QRTab tenant={tenant} />}
-          {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
-          {activeTab === 'performance' && <TeamIntelligenceTab tenant={tenant} />}
+          {activeTab === 'modifiers' && <ModuleWelcomeGate module="modifiers"><ModifiersTab tenant={tenant} items={items} /></ModuleWelcomeGate>}
+          {activeTab === 'settings' && <ModuleWelcomeGate module="settings"><SettingsTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+          {activeTab === 'experience' && <ModuleWelcomeGate module="experience"><ExperienceTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+          {activeTab === 'theme' && <ModuleWelcomeGate module="theme"><ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} /></ModuleWelcomeGate>}
+          {activeTab === 'analytics' && <ModuleWelcomeGate module="analytics"><AnalyticsTab tenant={tenant} items={items} orders={orders} /></ModuleWelcomeGate>}
+          {activeTab === 'history' && <ModuleWelcomeGate module="history"><HistoryTab tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'qr' && <ModuleWelcomeGate module="qr"><QRTab tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'staff' && <ModuleWelcomeGate module="staff"><StaffTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+          {activeTab === 'performance' && <ModuleWelcomeGate module="performance"><TeamIntelligenceTab tenant={tenant} /></ModuleWelcomeGate>}
           {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
-          {activeTab === 'delivery' && <DeliveryOS tenant={tenant} />}
-          {activeTab === 'customers' && <CustomersTab tenant={tenant} />}
-          {activeTab === 'promotions' && <PromotionsTab tenant={tenant} />}
+          {activeTab === 'delivery' && <ModuleWelcomeGate module="delivery"><DeliveryOS tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'customers' && <ModuleWelcomeGate module="customers"><CustomersTab tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'promotions' && <ModuleWelcomeGate module="promotions"><PromotionsTab tenant={tenant} /></ModuleWelcomeGate>}
           {activeTab === 'tables' && (
-            <div>
-              <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
-                <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
-              </h2>
-              <TablesMapPanel tenant={tenant} />
-            </div>
+            <ModuleWelcomeGate module="tables">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
+                  <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
+                </h2>
+                <TablesMapPanel tenant={tenant} />
+              </div>
+            </ModuleWelcomeGate>
           )}
         </main>
       </div>
     </div>
+    {/* ── Onboarding: Tour overlay (siempre montado, solo visible cuando hay tour activo) ── */}
+    <TourOverlay />
+    {/* ── Help Center ── */}
+    {helpCenterOpen && <HelpCenter onClose={() => setHelpCenterOpen(false)} />}
+    </OnboardingProvider>
   );
 }

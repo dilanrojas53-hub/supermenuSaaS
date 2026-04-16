@@ -9,7 +9,7 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles,
+  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles, BookOpen,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
@@ -94,6 +94,8 @@ interface AdminSidebarProps {
   hasDeliveryOs?: boolean;
   /** Badge de notificación por tab */
   badges?: Partial<Record<TabKey, number>>;
+  /** Callback para abrir el Help Center */
+  onOpenHelpCenter?: () => void;
 }
 
 export function AdminSidebar({
@@ -108,6 +110,7 @@ export function AdminSidebar({
   planTier,
   hasDeliveryOs,
   badges = {},
+  onOpenHelpCenter,
 }: AdminSidebarProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -254,6 +257,24 @@ export function AdminSidebar({
           <span>Ver menú</span>
           <ExternalLink size={11} className="ml-auto text-slate-600" />
         </a>
+        {onOpenHelpCenter && (
+          <button
+            onClick={onOpenHelpCenter}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ color: '#94A3B8', border: '1px solid transparent' }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = '#F59E0B';
+              (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(245,158,11,0.08)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = '#94A3B8';
+              (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+            }}
+          >
+            <BookOpen size={16} style={{ color: 'inherit' }} />
+            <span>Guías</span>
+          </button>
+        )}
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
