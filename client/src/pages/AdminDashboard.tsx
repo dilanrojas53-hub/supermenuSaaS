@@ -29,6 +29,7 @@ import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
 import TablesMapPanel from '@/components/TablesMapPanel';
 import CustomersTab from '@/pages/CustomersTab';
 import PromotionsTab from '@/pages/PromotionsTab';
+import TeamIntelligenceTab from '@/components/TeamIntelligenceTab';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -5228,7 +5229,7 @@ export default function AdminDashboard() {
           {activeTab === 'history' && <HistoryTab tenant={tenant} />}
           {activeTab === 'qr' && <QRTab tenant={tenant} />}
           {activeTab === 'staff' && <StaffTab tenant={tenant} onRefresh={fetchData} />}
-          {activeTab === 'performance' && <StaffAnalyticsTab tenant={tenant} />}
+          {activeTab === 'performance' && <TeamIntelligenceTab tenant={tenant} />}
           {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
           {activeTab === 'delivery' && <DeliveryOS tenant={tenant} />}
           {activeTab === 'customers' && <CustomersTab tenant={tenant} />}
