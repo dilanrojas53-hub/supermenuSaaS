@@ -5124,7 +5124,7 @@ export default function AdminDashboard() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [helpCenterOpen, setHelpCenterOpen] = useState(false);
   useEffect(() => {
     if (!isAuthenticated || (role !== 'admin' && role !== 'superadmin')) {
       navigate(`/admin/${slug}/login`);
@@ -5177,9 +5177,7 @@ export default function AdminDashboard() {
   const planTier = (tenant.plan_tier || 'premium') as import('@/lib/plans').PlanTier;
   const planFeatures = getPlanFeatures(planTier);
   // Delivery OS: activo si el plan es premium o si el tenant tiene delivery configurado
-  const hasDeliveryOs = planFeatures.deliveryOs;
-
-  const [helpCenterOpen, setHelpCenterOpen] = useState(false);
+   const hasDeliveryOs = planFeatures.deliveryOs;
   return (
     <OnboardingProvider userId={slug || 'admin'}>
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
