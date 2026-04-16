@@ -236,6 +236,7 @@ function useDeliveryConfig(tenantId: string) {
         sinpe_enabled: data.sinpe_enabled ?? DEFAULT_DELIVERY_CONFIG.sinpe_enabled,
         efectivo_enabled: data.efectivo_enabled ?? DEFAULT_DELIVERY_CONFIG.efectivo_enabled,
         tarjeta_enabled: data.tarjeta_enabled ?? DEFAULT_DELIVERY_CONFIG.tarjeta_enabled,
+        sinpe_block_mode: data.sinpe_block_mode ?? DEFAULT_DELIVERY_CONFIG.sinpe_block_mode,
         requires_payment_before_kitchen: data.requires_payment_before_kitchen ?? DEFAULT_DELIVERY_CONFIG.requires_payment_before_kitchen,
         requires_manual_approval: data.requires_manual_approval ?? DEFAULT_DELIVERY_CONFIG.requires_manual_approval,
         rider_dispatch_trigger: data.rider_dispatch_trigger ?? DEFAULT_DELIVERY_CONFIG.rider_dispatch_trigger,

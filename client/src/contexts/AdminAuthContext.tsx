@@ -70,7 +70,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
         try {
           const result = await withTimeout(
-            supabase.from('tenants').select('admin_email').eq('slug', slug).maybeSingle(),
+            supabase.from('tenants').select('admin_email').eq('slug', slug).maybeSingle() as unknown as Promise<{ data: { admin_email: string } | null; error: unknown }>,
             15000
           );
           tenant = result.data;

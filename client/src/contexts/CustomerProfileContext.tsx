@@ -133,14 +133,14 @@ async function hashPassword(password: string, salt: string): Promise<string> {
 function generateChallenge(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes))
+  return btoa(Array.from(bytes).map(b => String.fromCharCode(b)).join(''))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let str = '';
-  for (const b of bytes) str += String.fromCharCode(b);
+  Array.from(bytes).forEach(b => { str += String.fromCharCode(b); });
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
@@ -148,7 +148,7 @@ function base64urlToBuffer(base64url: string): Uint8Array {
   const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
   const binary = atob(padded);
-  return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+  return new Uint8Array(Array.from(binary).map(c => c.charCodeAt(0)));
 }
 
 // ─── HELPERS GLOBALES ─────────────────────────────────────────────────────────
