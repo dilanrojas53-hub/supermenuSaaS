@@ -1113,7 +1113,7 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
   };
 
   return (
-    <div>
+    <div data-help-anchor="settings-tab">
       <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6">Configuración del Restaurante</h2>
 
       {/* Open/Closed toggle - prominent */}
@@ -1222,15 +1222,29 @@ function SettingsTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => v
 
       <ChangePasswordCard />
 
-      {/* V26.0: Modo Operativo */}
-      <OperativeModeCard tenant={tenant} onRefresh={onRefresh} />
-
       {/* Fase 1: Configuración de Delivery */}
       <DeliverySettingsCard tenant={tenant} />
 
       {/* Herramienta de limpieza de pedidos */}
       <OrderCleanupCard tenantId={tenant.id} />
-      {/* Configuración del Menú del Cliente */}
+    </div>
+  );
+}
+
+// ─── ExperienceTab — Experiencia del Cliente ───
+function ExperienceTab({ tenant, onRefresh }: { tenant: Tenant; onRefresh: () => void }) {
+  return (
+    <div className="space-y-6" data-help-anchor="experience-tab">
+      <div className="mb-2">
+        <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <span className="w-7 h-7 rounded-lg bg-purple-500/20 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </span>
+          Experiencia del Cliente
+        </h2>
+        <p className="text-xs text-[var(--text-secondary)] mt-1 ml-9">Configura cómo los comensales interactúan con tu menú digital y cómo opera tu equipo.</p>
+      </div>
+      <OperativeModeCard tenant={tenant} onRefresh={onRefresh} />
       <MenuConfigCard tenant={tenant} />
     </div>
   );
@@ -2099,7 +2113,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
   const isDark = isColorDark(form.background_color);
 
   return (
-    <div>
+    <div data-help-anchor="theme-tab">
       <h2 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Personalización del Tema</h2>
 
       {/* ── PANEL DE APARIENCIA DEL ADMIN ── */}
@@ -2308,7 +2322,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
         <h3 className="text-xs font-semibold mt-6 mb-1" style={{ color: 'var(--text-secondary)' }}>Nombre visual / Wordmark</h3>
         <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>PNG transparente con el nombre tipográfico del restaurante. Se muestra en el hero en lugar del texto plano.</p>
         {!form.wordmark_url && (
-          <ImageUpload bucket="logos" currentUrl={null}
+          <ImageUpload bucket="logos" currentUrl={null as any}
             onUpload={(url) => setForm({ ...form, wordmark_url: url })} label="" previewSize="md" />
         )}
         {form.wordmark_url && (
@@ -2329,7 +2343,7 @@ function ThemeTab({ tenant, theme, onRefresh }: { tenant: Tenant; theme: ThemeSe
               />
               <button
                 type="button"
-                onClick={() => setForm({ ...form, wordmark_url: null })}
+                onClick={() => setForm({ ...form, wordmark_url: null as any })}
                 className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#fff' }}
               >✕</button>
@@ -5093,7 +5107,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables' | 'experience' | 'customers' | 'promotions';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -5224,6 +5238,7 @@ export default function AdminDashboard() {
           )}
           {activeTab === 'modifiers' && <ModifiersTab tenant={tenant} items={items} />}
           {activeTab === 'settings' && <SettingsTab tenant={tenant} onRefresh={fetchData} />}
+          {activeTab === 'experience' && <ExperienceTab tenant={tenant} onRefresh={fetchData} />}
           {activeTab === 'theme' && <ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} />}
           {activeTab === 'analytics' && <AnalyticsTab tenant={tenant} items={items} orders={orders} />}
           {activeTab === 'history' && <HistoryTab tenant={tenant} />}

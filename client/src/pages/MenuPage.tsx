@@ -936,6 +936,7 @@ function MenuContent() {
         bgColor={theme.background_color}
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
+        menuConfig={menuConfig}
       />
     </div>
   );

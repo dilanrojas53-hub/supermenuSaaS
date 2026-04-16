@@ -1,8 +1,7 @@
 /**
  * BottomNav — Barra de navegación inferior móvil
- * 5 tabs: Menú / Pedido / Promos / Historial / Perfil
- * Fix: tab 'order' muestra badge de carrito O indicador de pedido activo.
- * El click en 'order' abre el carrito si hay items, o navega al tracking si hay pedido activo.
+ * Feature-aware: oculta tabs según menu_config del restaurante.
+ * Tabs: Menú (siempre) / Pedido (siempre) / Promos (si enable_promotions) / Historial (si enable_history) / Perfil (si enable_profiles)
  */
 import { ShoppingCart, UtensilsCrossed, Tag, Clock, User, ChefHat } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
@@ -10,6 +9,13 @@ import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import { useLocation } from 'wouter';
 
 export type BottomNavTab = 'menu' | 'order' | 'promos' | 'history' | 'profile';
+
+interface MenuConfig {
+  enable_profiles?: boolean;
+  enable_history?: boolean;
+  enable_promotions?: boolean;
+  [key: string]: any;
+}
 
 interface BottomNavProps {
   activeTab: BottomNavTab;
@@ -19,6 +25,7 @@ interface BottomNavProps {
   bgColor?: string;
   textColor?: string;
   activeOrderData?: { orderId: string; orderNumber: number; status: string } | null;
+  menuConfig?: MenuConfig;
 }
 
 export default function BottomNav({
@@ -29,6 +36,7 @@ export default function BottomNav({
   bgColor = 'var(--menu-surface)',
   textColor = 'var(--menu-text)',
   activeOrderData,
+  menuConfig,
 }: BottomNavProps) {
   const { totalItems } = useCart();
   const { profile } = useCustomerProfile();
@@ -38,21 +46,27 @@ export default function BottomNav({
     pendiente: '⏳', pago_en_revision: '⏳', en_cocina: '🔥', listo: '✅', entregado: '📦',
   };
 
-  const tabs = [
-    { key: 'menu' as const,    label: 'Menú',      Icon: UtensilsCrossed },
+  // Feature flags — si no hay menuConfig, mostrar todo (comportamiento legacy)
+  const showPromos  = !menuConfig || menuConfig.enable_promotions !== false;
+  const showHistory = !menuConfig || menuConfig.enable_history !== false;
+  const showProfile = !menuConfig || menuConfig.enable_profiles !== false;
+
+  const allTabs = [
+    { key: 'menu' as const,    label: 'Menú',      Icon: UtensilsCrossed, visible: true },
     {
       key: 'order' as const,
       label: 'Pedido',
       Icon: totalItems > 0 ? ShoppingCart : (activeOrderData ? ChefHat : ShoppingCart),
       badge: totalItems > 0 ? totalItems : undefined,
-      // Indicador de pedido activo cuando carrito está vacío
       activeDot: !totalItems && !!activeOrderData,
       activeEmoji: activeOrderData ? (statusEmoji[activeOrderData.status] || '🍳') : undefined,
+      visible: true,
     },
-    { key: 'promos' as const,  label: 'Promos',    Icon: Tag },
-    { key: 'history' as const, label: 'Historial', Icon: Clock },
-    { key: 'profile' as const, label: 'Perfil',    Icon: User, dot: !!profile },
+    { key: 'promos' as const,  label: 'Promos',    Icon: Tag,   visible: showPromos },
+    { key: 'history' as const, label: 'Historial', Icon: Clock, visible: showHistory },
+    { key: 'profile' as const, label: 'Perfil',    Icon: User,  dot: !!profile, visible: showProfile },
   ];
+  const tabs = allTabs.filter(t => t.visible);
 
   return (
     <nav

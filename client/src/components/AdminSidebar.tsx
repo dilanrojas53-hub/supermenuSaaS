@@ -9,20 +9,17 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck, LayoutGrid, UserCheck, Megaphone,
+  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
 
 export type TabKey =
-  | 'orders' | 'history' | 'staff'
+  | 'orders' | 'history' | 'staff' | 'tables'
   | 'menu' | 'categories' | 'modifiers'
-  | 'analytics' | 'performance' | 'qr' | 'closing'
-  | 'settings' | 'theme'
-  | 'delivery'    // Delivery OS add-on
-  | 'tables'      // Mesas del restaurante
-  | 'customers'   // Módulo de clientes
-  | 'promotions'; // Motor de promociones
+  | 'analytics' | 'performance' | 'customers' | 'promotions' | 'qr' | 'closing'
+  | 'settings' | 'experience' | 'theme'
+  | 'delivery';
 
 interface NavItem {
   key: TabKey;
@@ -67,8 +64,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'SISTEMA',
     items: [
-      { key: 'settings', label: 'Configuración', icon: <Settings size={16} /> },
-      { key: 'theme',    label: 'Tema',          icon: <Palette size={16} /> },
+      { key: 'settings',   label: 'Configuración',       icon: <Settings size={16} /> },
+      { key: 'experience', label: 'Experiencia Cliente',  icon: <Sparkles size={16} /> },
+      { key: 'theme',      label: 'Tema',                icon: <Palette size={16} /> },
     ],
   },
   {
@@ -94,6 +92,8 @@ interface AdminSidebarProps {
   planTier?: PlanTier;
   /** Nuevo: si el tenant tiene el add-on Delivery OS activo */
   hasDeliveryOs?: boolean;
+  /** Badge de notificación por tab */
+  badges?: Partial<Record<TabKey, number>>;
 }
 
 export function AdminSidebar({
@@ -107,6 +107,7 @@ export function AdminSidebar({
   planFeatures,
   planTier,
   hasDeliveryOs,
+  badges = {},
 }: AdminSidebarProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -182,10 +183,12 @@ export function AdminSidebar({
                 <div className="space-y-0.5">
                   {visibleItems.map(item => {
                     const isActive = activeTab === item.key;
+                    const badge = badges[item.key];
                     return (
                       <button
                         key={item.key}
                         onClick={() => handleTabClick(item.key)}
+                        data-help-anchor={`sidebar-${item.key}`}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150"
                         style={isActive ? {
                           background: 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(249,115,22,0.12))',
@@ -211,7 +214,12 @@ export function AdminSidebar({
                       >
                         <span style={{ color: isActive ? '#F59E0B' : '#64748B' }}>{item.icon}</span>
                         <span className="truncate">{item.label}</span>
-                        {isActive && (
+                        {badge !== undefined && badge > 0 && (
+                          <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white px-1 flex-shrink-0">
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        )}
+                        {isActive && !badge && (
                           <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
                         )}
                       </button>
