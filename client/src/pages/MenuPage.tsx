@@ -217,16 +217,28 @@ function MenuContent() {
   }
 
   if (error || !data) {
+    // BUG FIX: No usar t('menu.closed') aquí — ese mensaje es para restaurante cerrado intencionalmente.
+    // Este bloque es un error de carga (red, slug inválido, etc.)
+    const isNotFound = error === 'Restaurante no encontrado';
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--menu-bg)' }}>
         <div className="text-center">
-          <p className="text-5xl mb-4">🍴</p>
+          <p className="text-5xl mb-4">{isNotFound ? '🔍' : '⚠️'}</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
-            {t('menu.closed')}
+            {isNotFound
+              ? (lang === 'es' ? 'Restaurante no encontrado' : 'Restaurant not found')
+              : (lang === 'es' ? 'Error al cargar el menú' : 'Error loading menu')}
           </h1>
           <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
             {lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.'}
           </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: 'var(--menu-accent)', color: '#000' }}
+          >
+            {lang === 'es' ? 'Reintentar' : 'Retry'}
+          </button>
         </div>
       </div>
     );
