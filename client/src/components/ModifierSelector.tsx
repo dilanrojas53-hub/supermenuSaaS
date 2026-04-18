@@ -287,8 +287,8 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                             onClick={() => toggleOption(group, opt.id)}
                             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all border"
                             style={{
-                              backgroundColor: isSelected ? `${theme.primary_color}18` : '#0f172a',
-                              borderColor: isSelected ? `${theme.primary_color}60` : '#1e293b',
+                              backgroundColor: isSelected ? `${theme.primary_color}18` : 'var(--bg-surface)',
+                              borderColor: isSelected ? `${theme.primary_color}60` : 'var(--border-color)',
                             }}
                           >
                             {/* Checkbox / Radio indicator */}
@@ -296,7 +296,8 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                               className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
                               style={{
                                 backgroundColor: isSelected ? theme.primary_color : 'transparent',
-                                border: `2px solid ${isSelected ? theme.primary_color : '#475569'}`,
+                                border: `2px solid ${isSelected ? theme.primary_color : 'var(--text-secondary)'}`,
+                                opacity: isSelected ? 1 : 0.5,
                               }}
                             >
                               {isSelected && <Check size={11} className="text-[var(--text-primary)]" />}
@@ -305,7 +306,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                             {/* Option name */}
                             <span
                               className="flex-1 text-sm font-medium"
-                              style={{ color: isSelected ? '#fff' : '#94a3b8' }}
+                              style={{ color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
                             >
                               <span>{opt.name}</span>
                             </span>
@@ -328,7 +329,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
           </div>
 
           {/* Footer — sticky CTA */}
-          <div className="px-5 py-4 border-t border-slate-800">
+          <div className="px-5 py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
             <button
               onClick={handleConfirm}
               className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-between px-5"

@@ -361,23 +361,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const usedCategoryIds = new Set<string>(recommendations.map((r) => r.category_id));
       usedCategoryIds.add(triggerCheck.category_id);
+      const usedItemIds = new Set<string>(recommendations.map((r) => r.id));
 
+      // Paso 1: intentar de categoría diferente (ideal)
       for (const item of allItems || []) {
         if (recommendations.length >= 2) break;
+        if (usedItemIds.has(item.id)) continue;
         if (blockedIds.has(item.id) || globalBlockedIds.has(item.id)) continue;
         if (usedCategoryIds.has(item.category_id)) continue;
-        if (triggerCheck.price > 0 && item.price > triggerCheck.price * 2) continue;
-
         const candidateAttr = fallbackAttrMap.get(item.id) || null;
-
-        // Reglas dietarias duras también en fallback
         if (!passesDietaryServingRules(triggerAttrFallback, candidateAttr, restrictions as string[])) continue;
-
         const role = candidateAttr?.product_role || inferRoleQuick(item.name);
         if (cartHasDrink && (role === "drink" || role === "hot_drink")) continue;
         if (cartHasDessert && role === "dessert") continue;
         if (cartHasSide && role === "side") continue;
-
         recommendations.push({
           id: item.id,
           name: item.name,
@@ -394,6 +391,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           trigger_item_name: triggerCheck.name,
         });
         usedCategoryIds.add(item.category_id);
+        usedItemIds.add(item.id);
+      }
+
+      // Paso 2: si aún faltan, relajar filtro de categoría (misma categoría está OK)
+      if (recommendations.length < 2) {
+        for (const item of allItems || []) {
+          if (recommendations.length >= 2) break;
+          if (usedItemIds.has(item.id)) continue;
+          if (blockedIds.has(item.id) || globalBlockedIds.has(item.id)) continue;
+          if (item.id === trigger_item_id) continue;
+          const candidateAttr = fallbackAttrMap.get(item.id) || null;
+          if (!passesDietaryServingRules(triggerAttrFallback, candidateAttr, restrictions as string[])) continue;
+          const role = candidateAttr?.product_role || inferRoleQuick(item.name);
+          recommendations.push({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            image_url: item.image_url,
+            category_id: item.category_id,
+            pitch: role === "drink" ? "La bebida perfecta para acompañar"
+              : role === "dessert" ? "El cierre perfecto para tu pedido"
+              : role === "side" ? "El complemento ideal"
+              : "También te puede gustar",
+            score: item.is_featured ? 60 : 40,
+            source: "fallback",
+            trigger_item_name: triggerCheck.name,
+          });
+          usedItemIds.add(item.id);
+        }
       }
 
       // Disparar compute en background si no hay pares
