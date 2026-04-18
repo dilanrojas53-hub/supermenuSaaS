@@ -549,45 +549,57 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         price: ci.menuItem.price,
       }));
 
-      console.log('%c[AI Upsell] ► Calling /api/generate-upsell', 'color: #6C63FF; font-weight: bold;', {
-        cart: cartPayload.map(i => i.name),
-        tenant_id: tenant.id,
-        restaurant_name: tenant.name,
-      });
-
-      const response = await fetch('/api/generate-upsell', {
+        // Nuevo motor instantáneo: usar el primer item elegible como trigger
+      const triggerItem = cartPayload[0];
+      const response = await fetch('/api/upsell-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cart: cartPayload,
+          trigger_item_id: triggerItem.id,
           tenant_id: tenant.id,
-          restaurant_name: tenant.name,
+          cart: cartPayload,
+          surface: 'checkout',
         }),
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(5000),
       });
-
-      console.log('%c[AI Upsell] HTTP Status:', 'color: #6C63FF;', response.status, response.statusText);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('%c[AI Upsell] Response:', 'color: #10B981; font-weight: bold;', data);
-
-        if (!data.fallback && data.suggested_items?.length > 0) {
-          // v2: each item now carries trigger_item_name + pitch
-          setAiSuggestedItems(data.suggested_items as AISuggestedItem[]);
-          // Keep AI modal open to show suggestions
+        if (data.recommendations?.length > 0) {
+          const suggestions: AISuggestedItem[] = data.recommendations.map((s: any) => ({
+            trigger_item_id: triggerItem.id,
+            trigger_item_name: triggerItem.name,
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            price: s.price,
+            image_url: s.image_url,
+            pitch: s.pitch || (lang === 'es' ? 'Complementa tu pedido' : 'Complements your order'),
+          }));
+          setAiSuggestedItems(suggestions);
+          // Track shown
+          suggestions.forEach(s => {
+            fetch('/api/track-upsell-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tenant_id: tenant.id,
+                trigger_item_id: triggerItem.id,
+                trigger_item_name: triggerItem.name,
+                suggested_item_id: s.id,
+                suggested_item_name: s.name,
+                suggested_item_price: s.price,
+                event_type: 'recommendation_shown',
+                surface: 'checkout',
+                source: data.source || 'precomputed',
+                cart_item_count: cartPayload.length,
+              }),
+            }).catch(() => {});
+          });
         } else {
-          // AI returned fallback (no API key, Supabase error, etc.)
-          const reason = data.reason || 'no_suggestions';
-          console.warn('%c[AI Upsell] Fallback triggered. Reason:', 'color: #F59E0B; font-weight: bold;', reason);
-          toast.warning(`[DEBUG] AI Upsell fallback: ${reason}`, { duration: 6000 });
           goToStaticFallback();
           return;
         }
       } else {
-        const errText = await response.text().catch(() => 'unknown');
-        console.error('%c[AI Upsell] ✖ API Error:', 'color: #EF4444; font-weight: bold;', response.status, errText);
-        toast.error(`[DEBUG] AI Upsell API ${response.status}: ${errText.slice(0, 80)}`, { duration: 8000 });
         goToStaticFallback();
         return;
       }

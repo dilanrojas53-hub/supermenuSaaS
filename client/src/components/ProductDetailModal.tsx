@@ -35,16 +35,19 @@ interface ProductDetailModalProps {
   tenant: Tenant;
 }
 
-/** Registra feedback de upsell al backend (fire-and-forget) */
-function sendUpsellFeedback(
+/** Registra evento de upsell al nuevo backend (fire-and-forget) */
+function trackUpsellEvent(
   tenantId: string,
   triggerItemId: string,
   triggerItemName: string,
   suggestedItemId: string,
   suggestedItemName: string,
-  action: 'accepted' | 'rejected' | 'ignored'
+  suggestedItemPrice: number,
+  eventType: 'recommendation_shown' | 'recommendation_accepted' | 'recommendation_rejected' | 'recommendation_ignored',
+  surface: string = 'add_to_cart',
+  source: string = 'precomputed'
 ) {
-  fetch('/api/upsell-feedback', {
+  fetch('/api/track-upsell-event', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -53,9 +56,12 @@ function sendUpsellFeedback(
       trigger_item_name: triggerItemName,
       suggested_item_id: suggestedItemId,
       suggested_item_name: suggestedItemName,
-      action,
+      suggested_item_price: suggestedItemPrice,
+      event_type: eventType,
+      surface,
+      source,
     }),
-  }).catch(() => {/* silent fail — feedback is best-effort */});
+  }).catch(() => {});
 }
 
 export default function ProductDetailModal({
@@ -107,24 +113,23 @@ export default function ProductDetailModal({
     const fetchSuggestions = async () => {
       setAiLoading(true);
       try {
-        const response = await fetch('/api/generate-upsell', {
+        // Nuevo endpoint instantáneo (<50ms, pares precalculados)
+        const response = await fetch('/api/upsell-recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cart: [{ id: item.id, name: item.name, price: item.price, category_id: item.category_id }],
+            trigger_item_id: item.id,
             tenant_id: tenant.id,
-            restaurant_name: tenant.name,
-            trigger_category_id: item.category_id,
+            cart: [{ id: item.id, name: item.name, price: item.price }],
+            surface: 'add_to_cart',
           }),
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(5000),
         });
 
         if (response.ok) {
           const data = await response.json();
-          if (!data.fallback && data.suggested_items?.length > 0) {
-            // V18: Guardar subtítulo contextual del servidor (CAPA 5)
-            if (data.subtitle) setUpsellSubtitle(data.subtitle);
-            const suggestions: AISuggestion[] = data.suggested_items.slice(0, 2).map((s: any) => ({
+          if (data.recommendations?.length > 0) {
+            const suggestions: AISuggestion[] = data.recommendations.slice(0, 2).map((s: any) => ({
               id: s.id,
               name: s.name,
               description: s.description,
@@ -134,6 +139,10 @@ export default function ProductDetailModal({
             }));
             setAiSuggestions(suggestions);
             setShownSuggestionIds(suggestions.map(s => s.id));
+            // Track shown events
+            suggestions.forEach(s => {
+              trackUpsellEvent(tenant.id, item.id, item.name, s.id, s.name, s.price, 'recommendation_shown', 'add_to_cart', data.source || 'precomputed');
+            });
             // Initialize qty for each suggestion
             const qtys: Record<string, number> = {};
             suggestions.forEach(s => { qtys[s.id] = 1; });
@@ -157,10 +166,7 @@ export default function ProductDetailModal({
         if (!suggestionAdded[sugId]) {
           const suggestion = aiSuggestions.find(s => s.id === sugId);
           if (suggestion) {
-            sendUpsellFeedback(
-              tenant.id, item.id, item.name,
-              sugId, suggestion.name, 'ignored'
-            );
+            trackUpsellEvent(tenant.id, item.id, item.name, sugId, suggestion.name, suggestion.price, 'recommendation_ignored', 'add_to_cart');
           }
         }
       });
@@ -199,11 +205,8 @@ export default function ProductDetailModal({
       lang === 'es' ? `${suggestion.name} agregado` : `${suggestion.name} added`,
       { duration: 1500 }
     );
-    // Register "accepted" feedback
-    sendUpsellFeedback(
-      tenant.id, item.id, item.name,
-      suggestion.id, suggestion.name, 'accepted'
-    );
+    // Track accepted event
+    trackUpsellEvent(tenant.id, item.id, item.name, suggestion.id, suggestion.name, suggestion.price, 'recommendation_accepted', 'add_to_cart');
   }, [item, suggestionQtys, addItemAdvanced, tenant.id, lang]);
 
   // V22.1: Check if this item has modifier groups assigned
@@ -230,10 +233,7 @@ export default function ProductDetailModal({
       if (!suggestionAdded[sugId]) {
         const suggestion = aiSuggestions.find(s => s.id === sugId);
         if (suggestion) {
-          sendUpsellFeedback(
-            tenant.id, item.id, item.name,
-            sugId, suggestion.name, 'rejected'
-          );
+          trackUpsellEvent(tenant.id, item.id, item.name, sugId, suggestion.name, suggestion.price, 'recommendation_rejected', 'add_to_cart');
         }
       }
     });

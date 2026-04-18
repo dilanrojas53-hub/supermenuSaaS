@@ -53,6 +53,7 @@ import { toast } from 'sonner';
 import { useAIInsights } from '@/lib/aiInsights';
 import type { RawAnalyticsData } from '@/lib/aiInsights';
 import { AIInsightPanel } from '@/components/analytics/AIInsightPanel';
+import UpsellAnalyticsPanel from '@/components/analytics/UpsellAnalyticsPanel';
 
 // ─── Toggle Switch ───
 function ToggleSwitch({ checked, onChange, label, colorOn = '#22C55E', colorOff = '#EF4444' }: {
@@ -3895,6 +3896,10 @@ function AnalyticsTab({ tenant, items, orders }: { tenant: Tenant; items: MenuIt
         onToggle={aiInsights.setEnabled}
         onRefresh={aiInsights.refresh}
       />
+      {/* ═══════════════════════════════════════════════════════════════
+          MOTOR DE UPSELL — Métricas y control del sistema
+      ═══════════════════════════════════════════════════════════════ */}
+      <UpsellAnalyticsPanel tenant={tenant} />
 
       {/* ═══════════════════════════════════════════════════════════════
           A. RESUMEN EJECUTIVO
