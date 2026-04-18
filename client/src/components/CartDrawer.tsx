@@ -381,6 +381,12 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [staticUpsellItem, setStaticUpsellItem] = useState<MenuItem | null>(null);
   const [staticUpsellText, setStaticUpsellText] = useState<string | null>(null);
 
+  // pendingDirectSubmit: true when upsell is shown for dine_in/takeout (no payment UI).
+  // After the user dismisses/continues the upsell modal, we submit directly instead of
+  // navigating to select_payment. This ensures upsell is shown in the quick-add flow too.
+  const [pendingDirectSubmit, setPendingDirectSubmit] = useState(false);
+  const pendingDirectMethodRef = React.useRef<PaymentMethod | null>(null);
+
   const handleCopySinpe = useCallback(() => {
     if (tenant.sinpe_number) {
       navigator.clipboard.writeText(tenant.sinpe_number.replace(/-/g, '')).catch(() => {});
@@ -621,12 +627,28 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   const handleAIUpsellContinue = () => {
     setShowAIUpsell(false);
-    setStep('select_payment');
+    if (pendingDirectSubmit) {
+      // dine_in / takeout: submit directly, no payment screen
+      setPendingDirectSubmit(false);
+      const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
+      pendingDirectMethodRef.current = null;
+      handleSubmitOrderWithMethod(method);
+    } else {
+      setStep('select_payment');
+    }
   };
 
   const handleAIUpsellClose = () => {
     setShowAIUpsell(false);
-    setStep('select_payment');
+    if (pendingDirectSubmit) {
+      // dine_in / takeout: user skipped upsell — still submit the order
+      setPendingDirectSubmit(false);
+      const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
+      pendingDirectMethodRef.current = null;
+      handleSubmitOrderWithMethod(method);
+    } else {
+      setStep('select_payment');
+    }
   };
 
   // V17.2: SINPE ya no va a un step separado. Todos los métodos se confirman desde select_payment.
@@ -945,11 +967,134 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     await handleSubmitOrderWithMethod(paymentMethod);
   };
 
-  // PAYMENT GATING: dine-in/takeout skip payment selection, submit directly
-  const handleProceedDirect = useCallback(async (_allMenuItemsArg?: MenuItem[]) => {
+  // PAYMENT GATING: dine-in/takeout — show upsell FIRST, then submit directly.
+  // This ensures the upsell appears even when the user adds items with the quick + button
+  // without opening the product detail modal.
+  const handleProceedDirect = useCallback(async (allMenuItemsArg?: MenuItem[]) => {
     const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
-    await handleSubmitOrderWithMethod(defaultMethod);
-  }, [deliveryType, customerName, openTab, items, totalPrice, appliedPromo, appliedCoupon]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Check if there are eligible items for upsell (not already upselled)
+    const eligibleItems = items.filter(ci => !ci.prevent_checkout_upsell && !ci.isUpsell);
+    if (eligibleItems.length === 0) {
+      // All items already went through upsell in ProductDetailModal — submit directly
+      await handleSubmitOrderWithMethod(defaultMethod);
+      return;
+    }
+
+    // Set flag so upsell callbacks know to submit instead of navigate to select_payment
+    setPendingDirectSubmit(true);
+    pendingDirectMethodRef.current = defaultMethod;
+
+    // Show upsell modal with loading state
+    setShowAIUpsell(true);
+    setAiLoading(true);
+    setAiSuggestedItems([]);
+
+    const goToStaticFallbackDirect = () => {
+      setShowAIUpsell(false);
+      setAiLoading(false);
+      // 1º: Cross-sell inteligente por categorías
+      const usableMenuItems = allMenuItemsArg && allMenuItemsArg.length > 0 ? allMenuItemsArg : allMenuItems;
+      if (usableMenuItems.length > 0 && allCategories.length > 0) {
+        const crossSellItems = getSmartCrossSellCandidates(usableMenuItems, 3);
+        if (crossSellItems.length > 0) {
+          const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
+            trigger_item_id: eligibleItems.reduce((best, cur) => cur.menuItem.price > best.menuItem.price ? cur : best, eligibleItems[0])?.menuItem.id || null,
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            image_url: item.image_url,
+            trigger_item_name: undefined,
+            pitch: lang === 'es' ? 'Complementa perfectamente tu pedido' : 'Perfectly complements your order',
+          }));
+          setAiSuggestedItems(crossSellSuggestions);
+          setShowAIUpsell(true);
+          return;
+        }
+      }
+      // 2º: Fallback estático (upsell_item_id en el platillo)
+      const candidate = usableMenuItems.length > 0 ? getStaticUpsellCandidate(usableMenuItems) : null;
+      if (candidate) {
+        setStaticUpsellItem(candidate.item);
+        setStaticUpsellText(candidate.text);
+        setShowStaticUpsell(true);
+      } else {
+        // No hay candidatos de upsell — enviar pedido directamente
+        setPendingDirectSubmit(false);
+        pendingDirectMethodRef.current = null;
+        handleSubmitOrderWithMethod(defaultMethod);
+      }
+    };
+
+    try {
+      const cartPayload = eligibleItems.map(ci => ({
+        id: ci.menuItem.id,
+        name: ci.menuItem.name,
+        price: ci.menuItem.price,
+      }));
+      const triggerItem = cartPayload.reduce(
+        (best, cur) => cur.price > best.price ? cur : best,
+        cartPayload[0]
+      );
+      const response = await fetch('/api/upsell-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger_item_id: triggerItem.id,
+          tenant_id: tenant.id,
+          cart: cartPayload,
+          surface: 'checkout',
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.recommendations?.length > 0) {
+          const suggestions: AISuggestedItem[] = data.recommendations.map((s: any) => ({
+            trigger_item_id: triggerItem.id,
+            trigger_item_name: triggerItem.name,
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            price: s.price,
+            image_url: s.image_url,
+            pitch: s.pitch || (lang === 'es' ? 'Complementa tu pedido' : 'Complements your order'),
+          }));
+          setAiSuggestedItems(suggestions);
+          suggestions.forEach(s => {
+            fetch('/api/track-upsell-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tenant_id: tenant.id,
+                trigger_item_id: triggerItem.id,
+                trigger_item_name: triggerItem.name,
+                suggested_item_id: s.id,
+                suggested_item_name: s.name,
+                suggested_item_price: s.price,
+                event_type: 'recommendation_shown',
+                surface: 'checkout_direct',
+                source: data.source || 'fallback',
+                cart_item_count: cartPayload.length,
+              }),
+            }).catch(() => {});
+          });
+        } else {
+          goToStaticFallbackDirect();
+          return;
+        }
+      } else {
+        goToStaticFallbackDirect();
+        return;
+      }
+    } catch (_err) {
+      goToStaticFallbackDirect();
+      return;
+    } finally {
+      setAiLoading(false);
+    }
+  }, [deliveryType, customerName, openTab, items, totalPrice, appliedPromo, appliedCoupon, allMenuItems, allCategories, lang, tenant, getSmartCrossSellCandidates, getStaticUpsellCandidate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const paymentMethodLabel = (method: PaymentMethod | null): string => {
     if (!method) return '';
@@ -2306,7 +2451,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           setShowStaticUpsell(false);
           setStaticUpsellItem(null);
           setStaticUpsellText(null);
-          setStep('select_payment');
+          if (pendingDirectSubmit) {
+            // dine_in / takeout: submit directly after static upsell dismissed
+            setPendingDirectSubmit(false);
+            const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
+            pendingDirectMethodRef.current = null;
+            handleSubmitOrderWithMethod(method);
+          } else {
+            setStep('select_payment');
+          }
         }}
         upsellItem={staticUpsellItem}
         upsellText={staticUpsellText}
