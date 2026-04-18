@@ -8,6 +8,11 @@
  *   - Los pares se validan contra el tenant del trigger item antes de servir
  *   - El fallback también filtra por tenant_id
  *
+ * Resiliencia ante migración pendiente:
+ *   - Las queries a upsell_pairs, upsell_overrides y product_attributes están
+ *     envueltas en safeQuery(). Si las tablas no existen (migración no ejecutada),
+ *     retornan null y el código continúa al fallback que solo usa menu_items.
+ *
  * Reglas dietarias duras en serving:
  *   - Se aplican ANTES de devolver cualquier recomendación
  *   - Si el trigger tiene atributos dietarios, se filtran candidatos incompatibles
@@ -20,7 +25,7 @@
  *     cart: Array<{ id: string, name: string, price: number }>,
  *     session_id?: string,
  *     surface: "product_detail" | "cart" | "checkout",
- *     restrictions?: string[]  // "vegan" | "gluten_free" | "halal" | "dairy_free" | etc.
+ *     restrictions?: string[]
  *   }
  */
 import { createClient } from "@supabase/supabase-js";
@@ -33,12 +38,7 @@ const supabaseAnonKey =
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-}
+interface CartItem { id: string; name: string; price: number; }
 
 interface UpsellRecommendation {
   id: string;
@@ -90,17 +90,11 @@ function inferRoleQuick(name: string): string {
 }
 
 // ─── Reglas dietarias duras para el serving ──────────────────────────────────
-/**
- * Dado el atributo del trigger y del candidato, retorna false si hay
- * incompatibilidad dietaria dura. Se aplica en serving para no devolver
- * candidatos incompatibles aunque estén en upsell_pairs.
- */
 function passesDietaryServingRules(
   triggerAttr: ProductAttrServing | null,
   candidateAttr: ProductAttrServing | null,
   clientRestrictions: string[]
 ): boolean {
-  // ── Restricciones del cliente (explícitas en el request) ──────────────────
   if (clientRestrictions.includes("vegan") || clientRestrictions.includes("vegano")) {
     if (candidateAttr && !candidateAttr.is_vegan) return false;
     if (candidateAttr && candidateAttr.contains_alcohol) return false;
@@ -130,10 +124,7 @@ function passesDietaryServingRules(
   if (clientRestrictions.includes("no_shellfish")) {
     if (candidateAttr && candidateAttr.contains_shellfish) return false;
   }
-
-  // ── Restricciones heredadas del trigger ───────────────────────────────────
-  if (!triggerAttr || !candidateAttr) return true; // sin datos → no excluir
-
+  if (!triggerAttr || !candidateAttr) return true;
   if (triggerAttr.is_vegan) {
     if (!candidateAttr.is_vegan) return false;
     if (candidateAttr.contains_alcohol) return false;
@@ -154,12 +145,38 @@ function passesDietaryServingRules(
     if (candidateAttr.contains_shellfish) return false;
     if (PORK_ROLES.has(candidateAttr.product_role)) return false;
   }
-
   return true;
 }
 
-// ─── Handler principal ────────────────────────────────────────────────────────
+// ─── safeQuery: wrapper para tablas opcionales ────────────────────────────────
+/**
+ * Ejecuta una query de Supabase y retorna null si la tabla no existe o hay error.
+ * Permite que el endpoint funcione antes de ejecutar la migración de upsell.
+ */
+async function safeQuery<T>(
+  queryFn: () => Promise<{ data: T | null; error: any }>
+): Promise<T | null> {
+  try {
+    const { data, error } = await queryFn();
+    if (error) {
+      // 42P01 = undefined_table en PostgreSQL
+      if (
+        error.code === "42P01" ||
+        (error.message && error.message.includes("does not exist"))
+      ) {
+        return null;
+      }
+      console.warn("[upsell-recommendations] safeQuery non-fatal:", error.message);
+      return null;
+    }
+    return data;
+  } catch (e: any) {
+    console.warn("[upsell-recommendations] safeQuery exception:", e?.message);
+    return null;
+  }
+}
 
+// ─── Handler principal ────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -170,7 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     trigger_item_id,
     tenant_id,
     cart = [],
-    session_id,
     surface = "product_detail",
     restrictions = [],
   } = req.body || {};
@@ -179,77 +195,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "trigger_item_id and tenant_id are required" });
   }
 
-  // Validar que tenant_id es un UUID válido (prevenir injection)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(tenant_id) || !uuidRegex.test(trigger_item_id)) {
     return res.status(400).json({ error: "Invalid tenant_id or trigger_item_id format" });
   }
 
   try {
-    // ── Verificar que el trigger_item pertenece al tenant (tenant isolation) ──
+    // ── Verificar que el trigger_item pertenece al tenant ──────────────────────
     const { data: triggerCheck } = await supabase
       .from("menu_items")
       .select("id, name, price, category_id, tenant_id")
       .eq("id", trigger_item_id)
-      .eq("tenant_id", tenant_id)  // ← CRÍTICO: tenant isolation
+      .eq("tenant_id", tenant_id)
       .single();
 
     if (!triggerCheck) {
-      // El item no existe en este tenant → no devolver nada
-      return res.json({ recommendations: [], source: "tenant_mismatch", elapsed_ms: Date.now() - startTime });
+      return res.json({
+        recommendations: [],
+        source: "tenant_mismatch",
+        elapsed_ms: Date.now() - startTime,
+      });
     }
 
     // ── Contexto del carrito ──────────────────────────────────────────────────
     const cartIds = new Set<string>((cart as CartItem[]).map((i) => i.id));
     cartIds.add(trigger_item_id);
-
     const cartNames = (cart as CartItem[]).map((i) => i.name.toLowerCase());
     const cartHasDrink = cartNames.some((n) => {
-      const r = inferRoleQuick(n); return r === "drink" || r === "hot_drink";
+      const r = inferRoleQuick(n);
+      return r === "drink" || r === "hot_drink";
     });
     const cartHasDessert = cartNames.some((n) => inferRoleQuick(n) === "dessert");
     const cartHasSide = cartNames.some((n) => inferRoleQuick(n) === "side");
 
-    // ── 1. Buscar pares precalculados — filtrar por tenant_id explícitamente ──
-    const { data: pairs } = await supabase
-      .from("upsell_pairs")
-      .select("suggested_item_id, score, pitch, is_manual_override")
-      .eq("trigger_item_id", trigger_item_id)
-      .eq("tenant_id", tenant_id)  // ← CRÍTICO: tenant isolation
-      .eq("is_active", true)
-      .order("score", { ascending: false })
-      .limit(10);
+    // ── 1. Buscar pares precalculados (tabla puede no existir aún) ────────────
+    const pairs = await safeQuery<any[]>(() =>
+      supabase
+        .from("upsell_pairs")
+        .select("suggested_item_id, score, pitch, is_manual_override")
+        .eq("trigger_item_id", trigger_item_id)
+        .eq("tenant_id", tenant_id)
+        .eq("is_active", true)
+        .order("score", { ascending: false })
+        .limit(10)
+    );
 
-    // ── 2. Cargar overrides del admin — filtrar por tenant_id ─────────────────
-    const { data: overrides } = await supabase
-      .from("upsell_overrides")
-      .select("override_type, trigger_item_id, target_item_id, custom_pitch, priority")
-      .eq("tenant_id", tenant_id)  // ← CRÍTICO: tenant isolation
-      .eq("is_active", true)
-      .or(`trigger_item_id.eq.${trigger_item_id},override_type.eq.global_block`);
+    // ── 2. Cargar overrides del admin (tabla puede no existir aún) ────────────
+    const overrides = await safeQuery<any[]>(() =>
+      supabase
+        .from("upsell_overrides")
+        .select("override_type, trigger_item_id, target_item_id, custom_pitch, priority")
+        .eq("tenant_id", tenant_id)
+        .eq("is_active", true)
+        .or(`trigger_item_id.eq.${trigger_item_id},override_type.eq.global_block`)
+    );
 
     const blockedIds = new Set<string>(
       (overrides || [])
-        .filter((o) => o.override_type === "block" && o.trigger_item_id === trigger_item_id)
-        .map((o) => o.target_item_id)
+        .filter((o: any) => o.override_type === "block" && o.trigger_item_id === trigger_item_id)
+        .map((o: any) => o.target_item_id)
         .filter(Boolean) as string[]
     );
     const globalBlockedIds = new Set<string>(
       (overrides || [])
-        .filter((o) => o.override_type === "global_block")
-        .map((o) => o.target_item_id)
+        .filter((o: any) => o.override_type === "global_block")
+        .map((o: any) => o.target_item_id)
         .filter(Boolean) as string[]
     );
     const pinnedPairs = (overrides || [])
-      .filter((o) => o.override_type === "pin" && o.trigger_item_id === trigger_item_id)
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      .filter((o: any) => o.override_type === "pin" && o.trigger_item_id === trigger_item_id)
+      .sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0));
 
     // ── 3. Construir lista de IDs candidatos ──────────────────────────────────
-    const pinnedIds = pinnedPairs.map((p) => p.target_item_id).filter(Boolean) as string[];
+    const pinnedIds = pinnedPairs
+      .map((p: any) => p.target_item_id)
+      .filter(Boolean) as string[];
     const pairIds = (pairs || [])
-      .map((p) => p.suggested_item_id)
-      .filter((id) => !blockedIds.has(id) && !globalBlockedIds.has(id) && !cartIds.has(id));
-
+      .map((p: any) => p.suggested_item_id)
+      .filter(
+        (id: string) =>
+          !blockedIds.has(id) && !globalBlockedIds.has(id) && !cartIds.has(id)
+      );
     const candidateIds = Array.from(new Set([...pinnedIds, ...pairIds])).slice(0, 10);
 
     // ── 4. Cargar datos + atributos de candidatos ─────────────────────────────
@@ -257,49 +283,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let source: "precomputed" | "fallback" = "precomputed";
 
     if (candidateIds.length > 0) {
-      // Verificar que los candidatos pertenecen al mismo tenant (tenant isolation)
       const { data: items } = await supabase
         .from("menu_items")
         .select("id, name, description, price, image_url, category_id")
         .in("id", candidateIds)
-        .eq("tenant_id", tenant_id)  // ← CRÍTICO: tenant isolation
+        .eq("tenant_id", tenant_id)
         .eq("is_available", true);
 
-      // Cargar atributos del trigger + candidatos para filtro dietario
+      // Atributos de candidatos (tabla puede no existir)
       const allAttrIds = [trigger_item_id, ...candidateIds];
-      const { data: attrs } = await supabase
-        .from("product_attributes")
-        .select("item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol")
-        .in("item_id", allAttrIds);
+      const attrs = await safeQuery<any[]>(() =>
+        supabase
+          .from("product_attributes")
+          .select(
+            "item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol"
+          )
+          .in("item_id", allAttrIds)
+      );
 
       const attrMap = new Map<string, ProductAttrServing>(
-        (attrs || []).map((a) => [a.item_id, a])
+        (attrs || []).map((a: any) => [a.item_id, a])
       );
       const triggerAttr = attrMap.get(trigger_item_id) || null;
 
       for (const item of items || []) {
         if (!item) continue;
         const candidateAttr = attrMap.get(item.id) || null;
-
-        // ── Reglas dietarias duras en serving ─────────────────────────────
-        if (!passesDietaryServingRules(triggerAttr, candidateAttr, restrictions as string[])) continue;
-
-        // ── Filtros de contexto del carrito ───────────────────────────────
+        if (
+          !passesDietaryServingRules(
+            triggerAttr,
+            candidateAttr,
+            restrictions as string[]
+          )
+        )
+          continue;
         const itemRole = candidateAttr?.product_role || inferRoleQuick(item.name);
         if (cartHasDrink && (itemRole === "drink" || itemRole === "hot_drink")) continue;
         if (cartHasDessert && itemRole === "dessert") continue;
         if (cartHasSide && itemRole === "side") continue;
 
-        const pair = (pairs || []).find((p) => p.suggested_item_id === item.id);
-        const pinnedOverride = pinnedPairs.find((p) => p.target_item_id === item.id);
-
+        const pair = (pairs || []).find(
+          (p: any) => p.suggested_item_id === item.id
+        );
+        const pinnedOverride = pinnedPairs.find(
+          (p: any) => p.target_item_id === item.id
+        );
         const pitch =
-          pinnedOverride?.custom_pitch ||
-          pair?.pitch ||
-          (itemRole === "drink" ? "La bebida perfecta para acompañar" :
-           itemRole === "dessert" ? "El cierre perfecto para tu pedido" :
-           itemRole === "side" ? "El complemento ideal" :
-           "Recomendado para ti");
+          (pinnedOverride as any)?.custom_pitch ||
+          (pair as any)?.pitch ||
+          (itemRole === "drink"
+            ? "La bebida perfecta para acompañar"
+            : itemRole === "dessert"
+            ? "El cierre perfecto para tu pedido"
+            : itemRole === "side"
+            ? "El complemento ideal"
+            : "Recomendado para ti");
 
         recommendations.push({
           id: item.id,
@@ -309,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           image_url: item.image_url,
           category_id: item.category_id,
           pitch,
-          score: pair?.score || (pinnedOverride ? 100 : 50),
+          score: (pair as any)?.score || (pinnedOverride ? 100 : 50),
           source: pinnedOverride ? "override" : "precomputed",
           trigger_item_name: triggerCheck.name,
         });
@@ -322,44 +360,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // ── 5. Fallback determinístico — siempre filtrado por tenant_id ───────────
+    // ── 5. Fallback determinístico — solo usa menu_items (siempre existe) ─────
     if (recommendations.length < 2) {
       source = "fallback";
-
-      // Excluir IDs del carrito de forma segura (sin spread de Set)
       const excludeIds = Array.from(cartIds);
 
       const { data: allItems } = await supabase
         .from("menu_items")
         .select("id, name, description, price, image_url, category_id, is_featured, badge")
-        .eq("tenant_id", tenant_id)  // ← CRÍTICO: tenant isolation
+        .eq("tenant_id", tenant_id)
         .eq("is_available", true)
         .not("id", "in", `(${excludeIds.join(",")})`)
         .limit(40);
 
-      // Cargar atributos del trigger para filtro dietario en fallback
-      const { data: triggerAttrData } = await supabase
-        .from("product_attributes")
-        .select("item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol")
-        .eq("item_id", trigger_item_id)
-        .single();
-
-      const triggerAttrFallback = triggerAttrData || null;
-
-      // Cargar atributos de candidatos fallback
-      const fallbackIds = (allItems || []).map((i) => i.id);
-      const { data: fallbackAttrs } = fallbackIds.length > 0
-        ? await supabase
-            .from("product_attributes")
-            .select("item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol")
-            .in("item_id", fallbackIds)
-        : { data: [] };
-
-      const fallbackAttrMap = new Map<string, ProductAttrServing>(
-        (fallbackAttrs || []).map((a) => [a.item_id, a])
+      // Atributos del trigger para filtro dietario (tabla puede no existir)
+      const triggerAttrFallback = await safeQuery<ProductAttrServing>(() =>
+        supabase
+          .from("product_attributes")
+          .select(
+            "item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol"
+          )
+          .eq("item_id", trigger_item_id)
+          .single()
       );
 
-      const usedCategoryIds = new Set<string>(recommendations.map((r) => r.category_id));
+      // Atributos de candidatos fallback (tabla puede no existir)
+      const fallbackIds = (allItems || []).map((i: any) => i.id);
+      const fallbackAttrs =
+        fallbackIds.length > 0
+          ? await safeQuery<any[]>(() =>
+              supabase
+                .from("product_attributes")
+                .select(
+                  "item_id, product_role, is_vegan, is_vegetarian, is_gluten_free, is_dairy_free, is_halal, is_kosher, contains_nuts, contains_shellfish, contains_alcohol"
+                )
+                .in("item_id", fallbackIds)
+            )
+          : null;
+
+      const fallbackAttrMap = new Map<string, ProductAttrServing>(
+        (fallbackAttrs || []).map((a: any) => [a.item_id, a])
+      );
+
+      const usedCategoryIds = new Set<string>(
+        recommendations.map((r) => r.category_id)
+      );
       usedCategoryIds.add(triggerCheck.category_id);
       const usedItemIds = new Set<string>(recommendations.map((r) => r.id));
 
@@ -370,11 +415,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (blockedIds.has(item.id) || globalBlockedIds.has(item.id)) continue;
         if (usedCategoryIds.has(item.category_id)) continue;
         const candidateAttr = fallbackAttrMap.get(item.id) || null;
-        if (!passesDietaryServingRules(triggerAttrFallback, candidateAttr, restrictions as string[])) continue;
+        if (
+          !passesDietaryServingRules(
+            triggerAttrFallback,
+            candidateAttr,
+            restrictions as string[]
+          )
+        )
+          continue;
         const role = candidateAttr?.product_role || inferRoleQuick(item.name);
         if (cartHasDrink && (role === "drink" || role === "hot_drink")) continue;
         if (cartHasDessert && role === "dessert") continue;
         if (cartHasSide && role === "side") continue;
+
         recommendations.push({
           id: item.id,
           name: item.name,
@@ -382,10 +435,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           price: item.price,
           image_url: item.image_url,
           category_id: item.category_id,
-          pitch: role === "drink" ? "La bebida perfecta para acompañar"
-            : role === "dessert" ? "El cierre perfecto para tu pedido"
-            : role === "side" ? "El complemento ideal"
-            : "Recomendado para ti",
+          pitch:
+            role === "drink"
+              ? "La bebida perfecta para acompañar"
+              : role === "dessert"
+              ? "El cierre perfecto para tu pedido"
+              : role === "side"
+              ? "El complemento ideal"
+              : "Recomendado para ti",
           score: item.is_featured ? 70 : 50,
           source: "fallback",
           trigger_item_name: triggerCheck.name,
@@ -394,7 +451,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         usedItemIds.add(item.id);
       }
 
-      // Paso 2: si aún faltan, relajar filtro de categoría (misma categoría está OK)
+      // Paso 2: relajar filtro de categoría si aún faltan
       if (recommendations.length < 2) {
         for (const item of allItems || []) {
           if (recommendations.length >= 2) break;
@@ -402,8 +459,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (blockedIds.has(item.id) || globalBlockedIds.has(item.id)) continue;
           if (item.id === trigger_item_id) continue;
           const candidateAttr = fallbackAttrMap.get(item.id) || null;
-          if (!passesDietaryServingRules(triggerAttrFallback, candidateAttr, restrictions as string[])) continue;
+          if (
+            !passesDietaryServingRules(
+              triggerAttrFallback,
+              candidateAttr,
+              restrictions as string[]
+            )
+          )
+            continue;
           const role = candidateAttr?.product_role || inferRoleQuick(item.name);
+
           recommendations.push({
             id: item.id,
             name: item.name,
@@ -411,10 +476,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             price: item.price,
             image_url: item.image_url,
             category_id: item.category_id,
-            pitch: role === "drink" ? "La bebida perfecta para acompañar"
-              : role === "dessert" ? "El cierre perfecto para tu pedido"
-              : role === "side" ? "El complemento ideal"
-              : "También te puede gustar",
+            pitch:
+              role === "drink"
+                ? "La bebida perfecta para acompañar"
+                : role === "dessert"
+                ? "El cierre perfecto para tu pedido"
+                : role === "side"
+                ? "El complemento ideal"
+                : "También te puede gustar",
             score: item.is_featured ? 60 : 40,
             source: "fallback",
             trigger_item_name: triggerCheck.name,
@@ -425,8 +494,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Disparar compute en background si no hay pares
       if (!pairs?.length) {
-        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-        fetch(`${baseUrl}/api/compute-upsell-pairs`, {
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : "";
+        if (baseUrl) {
+          fetch(`${baseUrl}/api/compute-upsell-pairs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ item_id: trigger_item_id, tenant_id }),
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // ── 6. Disparar enriquecimiento background si no tiene atributos ──────────
+    const existingAttr = await safeQuery<any>(() =>
+      supabase
+        .from("product_attributes")
+        .select("id")
+        .eq("item_id", trigger_item_id)
+        .eq("tenant_id", tenant_id)
+        .maybeSingle()
+    );
+    if (existingAttr === null) {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "";
+      if (baseUrl) {
+        fetch(`${baseUrl}/api/analyze-product`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ item_id: trigger_item_id, tenant_id }),
@@ -434,25 +529,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // ── 6. Disparar enriquecimiento background si no tiene atributos ──────────
-    const { data: existingAttr } = await supabase
-      .from("product_attributes")
-      .select("id")
-      .eq("item_id", trigger_item_id)
-      .eq("tenant_id", tenant_id)
-      .maybeSingle();
-
-    if (!existingAttr) {
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-      fetch(`${baseUrl}/api/analyze-product`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item_id: trigger_item_id, tenant_id }),
-      }).catch(() => {});
-    }
-
     const elapsed = Date.now() - startTime;
-    console.log(`[upsell-recommendations] ${recommendations.length} recs in ${elapsed}ms (source: ${source}, tenant: ${tenant_id.slice(0, 8)})`);
+    console.log(
+      `[upsell-recommendations] ${recommendations.length} recs in ${elapsed}ms (source: ${source}, surface: ${surface}, tenant: ${tenant_id.slice(0, 8)})`
+    );
 
     return res.json({
       recommendations: recommendations.slice(0, 2),
@@ -460,9 +540,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       elapsed_ms: elapsed,
       cart_context: { cartHasDrink, cartHasDessert, cartHasSide },
     });
-
   } catch (err: any) {
-    console.error("[upsell-recommendations] Error:", err.message);
+    console.error("[upsell-recommendations] Fatal error:", err.message);
     return res.json({
       recommendations: [],
       source: "error",

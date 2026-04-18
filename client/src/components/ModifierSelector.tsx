@@ -218,8 +218,8 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
         onClick={onCancel}
       >
         <motion.div
-          className="w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl overflow-hidden"
-          style={{ maxHeight: '92vh', border: `1px solid ${theme.primary_color}30` }}
+          className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden"
+          style={{ maxHeight: '92vh', backgroundColor: 'var(--bg-surface)', border: `1px solid ${theme.primary_color}30` }}
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
@@ -288,7 +288,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
                             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all border"
                             style={{
                               backgroundColor: isSelected ? `${theme.primary_color}18` : 'var(--bg-surface)',
-                              borderColor: isSelected ? `${theme.primary_color}60` : 'var(--border-color)',
+                              borderColor: isSelected ? `${theme.primary_color}60` : 'var(--border)',
                             }}
                           >
                             {/* Checkbox / Radio indicator */}
@@ -329,7 +329,7 @@ export default function ModifierSelector({ item, theme, onConfirm, onCancel, lan
           </div>
 
           {/* Footer — sticky CTA */}
-          <div className="px-5 py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="px-5 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
             <button
               onClick={handleConfirm}
               className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-between px-5"
