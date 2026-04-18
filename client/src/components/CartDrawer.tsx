@@ -505,7 +505,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         if (crossSellItems.length > 0) {
           console.log('%c[Cross-Sell] Sugerencias por categoría:', 'color: #10B981; font-weight: bold;', crossSellItems.map(i => i.name));
           const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
-            trigger_item_id: items[0]?.menuItem.id || null, // ID del primer item del carrito como disparador
+            trigger_item_id: items.reduce((best, cur) => cur.menuItem.price > best.menuItem.price ? cur : best, items[0])?.menuItem.id || null, // Trigger = item de mayor precio
             id: item.id,
             name: item.name,
             description: item.description,
@@ -543,14 +543,18 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         setStep('select_payment');
         return;
       }
+      // Carrito completo como contexto (Fix #6)
       const cartPayload = eligibleItems.map(ci => ({
         id: ci.menuItem.id,
         name: ci.menuItem.name,
         price: ci.menuItem.price,
       }));
-
-        // Nuevo motor instantáneo: usar el primer item elegible como trigger
-      const triggerItem = cartPayload[0];
+      // Elegir el mejor trigger: el item de mayor precio del carrito
+      // (más probable que tenga pares precalculados y genera mayor revenue de upsell)
+      const triggerItem = cartPayload.reduce(
+        (best, cur) => cur.price > best.price ? cur : best,
+        cartPayload[0]
+      );
       const response = await fetch('/api/upsell-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

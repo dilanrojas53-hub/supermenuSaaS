@@ -1,32 +1,37 @@
 /**
  * POST /api/compute-upsell-pairs
  *
- * Motor de ranking determinístico que calcula los mejores pares de upsell
- * para un producto dado (o todos los productos de un tenant).
+ * Motor de ranking determinístico que calcula los mejores pares de upsell.
+ * Usa service_role key para poder escribir en upsell_pairs (RLS).
  *
  * Score compuesto (0-100):
  *   40% compatibilidad culinaria (product_attributes)
- *   30% historial (attach_rate de upsell_feedback/upsell_events)
+ *   30% historial REAL (upsell_events — accepted/rejected/shown)
  *   15% margen (precio sugerido vs precio trigger)
  *   10% popularidad (is_featured, badge)
- *    5% diversidad (penalizar si ya aparece mucho)
+ *    5% diversidad (penalizar si ya aparece mucho en el tenant)
  *
- * Exclusiones duras:
- *   - Mismo producto
- *   - Misma categoría (evitar duplicar)
- *   - Incompatibilidad dietaria (ej: vegan trigger → no recomendar carne)
- *   - Roles incompatibles según product_attributes
- *   - Precio > 2x el trigger (guardrail)
- *   - is_available = false
+ * Exclusiones DURAS (se aplican antes del ranking, no son probabilísticas):
+ *   1. Mismo producto
+ *   2. Misma categoría (evitar duplicar)
+ *   3. is_available = false
+ *   4. Precio > 2x el trigger (guardrail de precio)
+ *   5. VEGANO → excluye no-vegano (contains_alcohol, is_vegan=false si candidato tiene carne/lácteos/huevo)
+ *   6. VEGETARIANO → excluye carne, pollo, mariscos (product_role: meat/chicken/seafood)
+ *   7. SIN GLUTEN → excluye candidatos con gluten (is_gluten_free=false si trigger lo requiere)
+ *   8. SIN LÁCTEOS → excluye candidatos con lácteos
+ *   9. HALAL → excluye alcohol y cerdo
+ *  10. KOSHER → excluye shellfish y cerdo
+ *  11. Roles incompatibles según incompatible_roles del trigger
  */
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const supabaseUrl = "https://zddytyncmnivfbvehrth.supabase.co";
+// compute-upsell-pairs escribe en upsell_pairs → necesita service_role
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkZHl0eW5jbW5pdmZidmVocnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MTY1NDMsImV4cCI6MjA4NzQ5MjU0M30.aNQBiSsV-RXHze7D6LF4WGBwEdHyov-umuTh0t-Patk";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -57,11 +62,72 @@ interface ProductAttr {
   suggested_pitch: string | null;
 }
 
-interface FeedbackStats {
+interface EventStats {
   suggested_item_id: string;
   accepted: number;
   rejected: number;
   shown: number;
+}
+
+// ─── Roles que implican carne/animal ─────────────────────────────────────────
+const MEAT_ROLES = new Set(["meat", "chicken", "seafood", "fish", "pork", "beef", "lamb"]);
+const DAIRY_ROLES = new Set(["dairy", "cheese", "milk", "cream", "butter", "yogurt"]);
+const PORK_ROLES = new Set(["pork", "bacon", "ham"]);
+
+// ─── Exclusiones dietarias DURAS ─────────────────────────────────────────────
+/**
+ * Retorna true si el candidato es compatible con las restricciones del trigger.
+ * Retorna false si hay una incompatibilidad dura → el candidato se excluye completamente.
+ */
+function passesDietaryHardRules(
+  triggerAttr: ProductAttr | null,
+  candidateAttr: ProductAttr | null
+): boolean {
+  // Sin atributos: pasar (no podemos saber → no excluir)
+  if (!triggerAttr || !candidateAttr) return true;
+
+  // ── VEGANO ──────────────────────────────────────────────────────────────────
+  // Si el trigger es vegano, el candidato DEBE ser vegano también.
+  // Excepción: si el candidato no tiene atributos enriquecidos, dejamos pasar
+  // pero con score bajo (no excluir por falta de datos).
+  if (triggerAttr.is_vegan) {
+    if (!candidateAttr.is_vegan) return false;
+    if (candidateAttr.contains_alcohol) return false;
+    if (MEAT_ROLES.has(candidateAttr.product_role)) return false;
+    if (DAIRY_ROLES.has(candidateAttr.product_role)) return false;
+  }
+
+  // ── VEGETARIANO ─────────────────────────────────────────────────────────────
+  // Si el trigger es vegetariano, excluir carne, pollo, mariscos.
+  if (triggerAttr.is_vegetarian && !triggerAttr.is_vegan) {
+    if (MEAT_ROLES.has(candidateAttr.product_role)) return false;
+  }
+
+  // ── SIN GLUTEN ──────────────────────────────────────────────────────────────
+  // Si el trigger es gluten_free, el candidato también debe serlo.
+  if (triggerAttr.is_gluten_free && !candidateAttr.is_gluten_free) return false;
+
+  // ── SIN LÁCTEOS ─────────────────────────────────────────────────────────────
+  if (triggerAttr.is_dairy_free && !candidateAttr.is_dairy_free) return false;
+  if (triggerAttr.is_dairy_free && DAIRY_ROLES.has(candidateAttr.product_role)) return false;
+
+  // ── HALAL ────────────────────────────────────────────────────────────────────
+  if (triggerAttr.is_halal) {
+    if (candidateAttr.contains_alcohol) return false;
+    if (PORK_ROLES.has(candidateAttr.product_role)) return false;
+  }
+
+  // ── KOSHER ───────────────────────────────────────────────────────────────────
+  if (triggerAttr.is_kosher) {
+    if (candidateAttr.contains_shellfish) return false;
+    if (PORK_ROLES.has(candidateAttr.product_role)) return false;
+  }
+
+  // ── ROLES INCOMPATIBLES EXPLÍCITOS ──────────────────────────────────────────
+  const incompatibleRoles = triggerAttr.incompatible_roles || [];
+  if (incompatibleRoles.includes(candidateAttr.product_role)) return false;
+
+  return true;
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
@@ -73,50 +139,30 @@ function scoreCompatibility(
   if (!triggerAttr || !candidateAttr) return 30; // neutral si no hay atributos
 
   const affinityRoles = triggerAttr.affinity_roles || [];
-  const incompatibleRoles = triggerAttr.incompatible_roles || [];
 
-  if (incompatibleRoles.includes(candidateAttr.product_role)) return 0;
   if (affinityRoles.includes(candidateAttr.product_role)) {
-    // Bonus por posición en la lista (primero = más compatible)
     const idx = affinityRoles.indexOf(candidateAttr.product_role);
     return Math.max(60, 100 - idx * 10);
   }
-  return 20; // no es afín pero tampoco incompatible
+  return 20; // no es afín pero tampoco incompatible (ya pasó los hard rules)
 }
 
-function scoreDietaryCompatibility(
-  triggerAttr: ProductAttr | null,
-  candidateAttr: ProductAttr | null
-): boolean {
-  if (!triggerAttr || !candidateAttr) return true;
-
-  // Si el trigger es vegano, no recomendar productos con alcohol o carne implícita
-  if (triggerAttr.is_vegan && candidateAttr.contains_alcohol) return false;
-
-  // Si el trigger es halal, no recomendar alcohol
-  if (triggerAttr.is_halal && candidateAttr.contains_alcohol) return false;
-
-  // Si el trigger es kosher, no recomendar shellfish
-  if (triggerAttr.is_kosher && candidateAttr.contains_shellfish) return false;
-
-  return true;
-}
-
-function scoreHistory(stats: FeedbackStats | null): number {
+function scoreHistory(stats: EventStats | null): number {
   if (!stats || stats.shown === 0) return 50; // neutral sin historial
   const attachRate = stats.accepted / stats.shown;
-  return Math.round(attachRate * 100);
+  // Penalizar si hay muchos rechazos
+  const rejectPenalty = stats.shown > 5 ? (stats.rejected / stats.shown) * 20 : 0;
+  return Math.max(0, Math.round(attachRate * 100 - rejectPenalty));
 }
 
 function scoreMargin(triggerPrice: number, candidatePrice: number): number {
   if (triggerPrice <= 0) return 50;
   const ratio = candidatePrice / triggerPrice;
-  // Óptimo: 0.3x - 0.8x del precio del trigger (complemento asequible)
   if (ratio >= 0.3 && ratio <= 0.8) return 90;
   if (ratio > 0.8 && ratio <= 1.2) return 70;
-  if (ratio < 0.3) return 40; // muy barato, parece poco valor
+  if (ratio < 0.3) return 40;
   if (ratio > 1.2 && ratio <= 1.8) return 50;
-  return 20; // muy caro
+  return 20;
 }
 
 function scorePopularity(item: MenuItem): number {
@@ -131,7 +177,7 @@ function computeCompositeScore(
   triggerAttr: ProductAttr | null,
   candidate: MenuItem,
   candidateAttr: ProductAttr | null,
-  historyStats: FeedbackStats | null
+  historyStats: EventStats | null
 ): { score: number; components: Record<string, number> } {
   const compatibility = scoreCompatibility(triggerAttr, candidateAttr);
   const history = scoreHistory(historyStats);
@@ -140,10 +186,10 @@ function computeCompositeScore(
 
   const composite =
     compatibility * 0.40 +
-    history * 0.30 +
-    margin * 0.15 +
-    popularity * 0.10 +
-    50 * 0.05; // diversity placeholder
+    history      * 0.30 +
+    margin       * 0.15 +
+    popularity   * 0.10 +
+    50           * 0.05; // diversity placeholder
 
   return {
     score: Math.round(composite * 100) / 100,
@@ -163,6 +209,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!tenant_id) {
     return res.status(400).json({ error: "tenant_id is required" });
   }
+
+  // Usar service_role para poder escribir en upsell_pairs (RLS)
+  const writeKey = supabaseServiceKey || supabaseAnonKey;
+  const supabase = createClient(supabaseUrl, writeKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 
   try {
     // 1. Cargar todos los items del tenant
@@ -186,36 +238,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (allAttrs || []).map((a) => [a.item_id, a])
     );
 
-    // 3. Cargar historial de feedback (upsell_feedback existente)
-    const { data: feedbackData } = await supabase
-      .from("upsell_feedback")
-      .select("trigger_item_id, suggested_item_id, action")
-      .eq("tenant_id", tenant_id);
+    // 3. Historial REAL desde upsell_events (Fix #4)
+    // Agregar eventos de los últimos 90 días para evitar data stale
+    const since90Days = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: eventsData } = await supabase
+      .from("upsell_events")
+      .select("trigger_item_id, suggested_item_id, event_type")
+      .eq("tenant_id", tenant_id)
+      .in("event_type", [
+        "recommendation_shown",
+        "recommendation_accepted",
+        "recommendation_rejected",
+        "recommendation_ignored",
+      ])
+      .gte("created_at", since90Days);
 
-    // Agregar estadísticas por par
-    const feedbackMap = new Map<string, FeedbackStats>();
-    for (const fb of feedbackData || []) {
-      const key = `${fb.trigger_item_id}:${fb.suggested_item_id}`;
-      if (!feedbackMap.has(key)) {
-        feedbackMap.set(key, {
-          suggested_item_id: fb.suggested_item_id,
+    // Agregar estadísticas por par desde upsell_events
+    const eventStatsMap = new Map<string, EventStats>();
+    for (const ev of eventsData || []) {
+      if (!ev.trigger_item_id || !ev.suggested_item_id) continue;
+      const key = `${ev.trigger_item_id}:${ev.suggested_item_id}`;
+      if (!eventStatsMap.has(key)) {
+        eventStatsMap.set(key, {
+          suggested_item_id: ev.suggested_item_id,
           accepted: 0,
           rejected: 0,
           shown: 0,
         });
       }
-      const stats = feedbackMap.get(key)!;
-      stats.shown++;
-      if (fb.action === "accepted" || fb.action === "added") stats.accepted++;
-      if (fb.action === "rejected" || fb.action === "dismissed") stats.rejected++;
+      const stats = eventStatsMap.get(key)!;
+      if (ev.event_type === "recommendation_shown") stats.shown++;
+      if (ev.event_type === "recommendation_accepted") stats.accepted++;
+      if (ev.event_type === "recommendation_rejected" || ev.event_type === "recommendation_ignored") stats.rejected++;
     }
 
-    // 4. Determinar qué items procesar
+    // 4. También incorporar historial legacy de upsell_feedback (si existe)
+    // para no perder datos históricos antes de la migración
+    try {
+      const { data: legacyData } = await supabase
+        .from("upsell_feedback")
+        .select("trigger_item_id, suggested_item_id, action")
+        .eq("tenant_id", tenant_id);
+
+      for (const fb of legacyData || []) {
+        if (!fb.trigger_item_id || !fb.suggested_item_id) continue;
+        const key = `${fb.trigger_item_id}:${fb.suggested_item_id}`;
+        if (!eventStatsMap.has(key)) {
+          eventStatsMap.set(key, {
+            suggested_item_id: fb.suggested_item_id,
+            accepted: 0,
+            rejected: 0,
+            shown: 0,
+          });
+        }
+        const stats = eventStatsMap.get(key)!;
+        stats.shown++;
+        if (fb.action === "accepted" || fb.action === "added") stats.accepted++;
+        if (fb.action === "rejected" || fb.action === "dismissed") stats.rejected++;
+      }
+    } catch {
+      // upsell_feedback puede no existir — ignorar
+    }
+
+    // 5. Determinar qué items procesar
     const triggerItems = item_id
       ? allItems.filter((i) => i.id === item_id)
       : recompute_all
       ? allItems
-      : allItems.slice(0, 50); // límite para no sobrecargar
+      : allItems.slice(0, 50);
 
     const pairsToUpsert: any[] = [];
     let processedCount = 0;
@@ -230,24 +320,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }> = [];
 
       for (const candidate of allItems) {
-        // Exclusiones duras
+        // ── Exclusiones duras ──────────────────────────────────────────────
         if (candidate.id === trigger.id) continue;
-        if (candidate.category_id === trigger.category_id) continue; // misma categoría
+        if (candidate.category_id === trigger.category_id) continue;
 
         const candidateAttr = attrMap.get(candidate.id) || null;
 
-        // Exclusión dietaria
-        if (!scoreDietaryCompatibility(triggerAttr, candidateAttr)) continue;
+        // Reglas dietarias duras — HARD EXCLUSION
+        if (!passesDietaryHardRules(triggerAttr, candidateAttr)) continue;
 
-        // Guardrail de precio: no más de 2x el trigger
+        // Guardrail de precio
         if (trigger.price > 0 && candidate.price > trigger.price * 2) continue;
 
-        // Compatibilidad = 0 → excluir (incompatible explícito)
+        // Compatibilidad = 0 → excluir (roles incompatibles explícitos)
         const compat = scoreCompatibility(triggerAttr, candidateAttr);
         if (compat === 0) continue;
 
         const historyKey = `${trigger.id}:${candidate.id}`;
-        const historyStats = feedbackMap.get(historyKey) || null;
+        const historyStats = eventStatsMap.get(historyKey) || null;
 
         const { score, components } = computeCompositeScore(
           trigger,
@@ -273,7 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       for (const c of top5) {
         const historyKey = `${trigger.id}:${c.item.id}`;
-        const histStats = feedbackMap.get(historyKey);
+        const histStats = eventStatsMap.get(historyKey);
 
         pairsToUpsert.push({
           tenant_id,
@@ -302,7 +392,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       processedCount++;
     }
 
-    // 5. Upsert en batch
+    // 6. Upsert en batch (service_role bypassa RLS)
     if (pairsToUpsert.length > 0) {
       const BATCH_SIZE = 50;
       for (let i = 0; i < pairsToUpsert.length; i += BATCH_SIZE) {
@@ -312,7 +402,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .upsert(batch, { onConflict: "trigger_item_id,suggested_item_id" });
 
         if (upsertError) {
-          console.error("[compute-upsell-pairs] Upsert error:", upsertError);
+          console.error("[compute-upsell-pairs] Upsert error:", upsertError.message);
         }
       }
     }
@@ -321,6 +411,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status: "ok",
       processed_triggers: processedCount,
       pairs_computed: pairsToUpsert.length,
+      history_source: "upsell_events",
+      event_pairs_found: eventStatsMap.size,
     });
 
   } catch (err: any) {

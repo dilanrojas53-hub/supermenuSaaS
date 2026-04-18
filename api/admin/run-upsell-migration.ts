@@ -1,13 +1,18 @@
 /**
  * API Route: POST /api/admin/run-upsell-migration
  *
- * Crea las 4 tablas del motor de upsell híbrido:
- *   - product_attributes  (atributos estructurados enriquecidos por GPT)
- *   - upsell_pairs        (pares precalculados con score compuesto)
- *   - upsell_events       (tracking granular de eventos)
- *   - upsell_overrides    (control manual del admin)
+ * Crea las 4 tablas del motor de upsell híbrido con RLS seguro por tenant.
  *
- * Requiere header X-Admin-Secret para autenticación.
+ * Políticas RLS:
+ *   - product_attributes : anon puede SELECT solo de su tenant (via tenant_id en query param)
+ *                          service_role puede hacer todo (para compute/analyze en backend)
+ *   - upsell_pairs       : anon SELECT por tenant_id; service_role ALL
+ *   - upsell_events      : anon INSERT solo con tenant_id válido; service_role ALL
+ *   - upsell_overrides   : anon SELECT por tenant_id; service_role ALL
+ *
+ * NOTA: Las operaciones de escritura en estas tablas se hacen SIEMPRE desde el
+ * backend (serverless functions) usando la service_role key, nunca desde el cliente.
+ * El cliente anon solo necesita SELECT en pairs/attributes y INSERT en events.
  */
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -132,18 +137,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           suggested_item_id   uuid REFERENCES public.menu_items(id) ON DELETE SET NULL,
           suggested_item_name text,
           suggested_item_price numeric(10,2),
-          event_type          text NOT NULL,
-          surface             text NOT NULL DEFAULT 'unknown',
+          event_type          text NOT NULL CHECK (event_type IN (
+            'recommendation_generated','recommendation_shown','recommendation_clicked',
+            'recommendation_accepted','recommendation_rejected','recommendation_removed_from_cart',
+            'recommendation_ignored'
+          )),
+          surface             text NOT NULL DEFAULT 'unknown' CHECK (surface IN (
+            'product_detail','checkout','cart','unknown'
+          )),
           cart_total          numeric(10,2),
           cart_item_count     integer,
           cart_has_drink      boolean DEFAULT false,
           cart_has_dessert    boolean DEFAULT false,
           cart_has_side       boolean DEFAULT false,
-          hour_of_day         smallint,
-          day_of_week         smallint,
+          hour_of_day         smallint CHECK (hour_of_day BETWEEN 0 AND 23),
+          day_of_week         smallint CHECK (day_of_week BETWEEN 0 AND 6),
           active_restrictions text[] DEFAULT '{}',
-          revenue_value       numeric(10,2),
-          time_to_show_ms     integer,
+          revenue_value       numeric(10,2) CHECK (revenue_value IS NULL OR revenue_value >= 0),
+          time_to_show_ms     integer CHECK (time_to_show_ms IS NULL OR time_to_show_ms >= 0),
           source              text DEFAULT 'deterministic',
           created_at          timestamptz DEFAULT now()
         );
@@ -169,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         CREATE TABLE IF NOT EXISTS public.upsell_overrides (
           id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           tenant_id           uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-          override_type       text NOT NULL,
+          override_type       text NOT NULL CHECK (override_type IN ('pin','block','global_block')),
           trigger_item_id     uuid REFERENCES public.menu_items(id) ON DELETE CASCADE,
           target_item_id      uuid REFERENCES public.menu_items(id) ON DELETE CASCADE,
           custom_pitch        text,
@@ -188,47 +199,131 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sql: "CREATE INDEX IF NOT EXISTS idx_upsell_overrides_tenant ON public.upsell_overrides(tenant_id, override_type) WHERE is_active = true;",
     },
 
-    // ── 5. RLS policies ────────────────────────────────────────────────────
+    // ── 5. RLS — product_attributes ───────────────────────────────────────
+    // anon: SELECT solo de su propio tenant (tenant_id debe coincidir con el row)
+    // service_role: bypass RLS completo (default en Supabase)
     {
-      name: "rls_product_attributes",
+      name: "rls_product_attributes_drop_old",
       sql: `
         ALTER TABLE public.product_attributes ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS anon_all_product_attributes ON public.product_attributes;
+      `,
+    },
+    {
+      name: "rls_product_attributes_anon_select",
+      sql: `
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_attributes' AND policyname = 'anon_all_product_attributes') THEN
-            CREATE POLICY anon_all_product_attributes ON public.product_attributes FOR ALL TO anon USING (true) WITH CHECK (true);
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE tablename = 'product_attributes'
+            AND policyname = 'anon_select_own_tenant_product_attributes'
+          ) THEN
+            CREATE POLICY anon_select_own_tenant_product_attributes
+              ON public.product_attributes
+              FOR SELECT TO anon
+              USING (
+                tenant_id IN (
+                  SELECT id FROM public.tenants WHERE is_active = true
+                )
+              );
           END IF;
         END $$;
       `,
     },
+
+    // ── 6. RLS — upsell_pairs ─────────────────────────────────────────────
+    // anon: SELECT solo de tenants activos (lectura pública de pares precalculados)
+    // Escritura: solo service_role (compute-upsell-pairs usa service key)
     {
-      name: "rls_upsell_pairs",
+      name: "rls_upsell_pairs_drop_old",
       sql: `
         ALTER TABLE public.upsell_pairs ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS anon_all_upsell_pairs ON public.upsell_pairs;
+      `,
+    },
+    {
+      name: "rls_upsell_pairs_anon_select",
+      sql: `
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'upsell_pairs' AND policyname = 'anon_all_upsell_pairs') THEN
-            CREATE POLICY anon_all_upsell_pairs ON public.upsell_pairs FOR ALL TO anon USING (true) WITH CHECK (true);
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE tablename = 'upsell_pairs'
+            AND policyname = 'anon_select_own_tenant_upsell_pairs'
+          ) THEN
+            CREATE POLICY anon_select_own_tenant_upsell_pairs
+              ON public.upsell_pairs
+              FOR SELECT TO anon
+              USING (
+                tenant_id IN (
+                  SELECT id FROM public.tenants WHERE is_active = true
+                )
+              );
           END IF;
         END $$;
       `,
     },
+
+    // ── 7. RLS — upsell_events ────────────────────────────────────────────
+    // anon: INSERT solo con tenant_id válido y activo; NO puede SELECT ni UPDATE ni DELETE
+    // service_role: ALL (para analytics y compute)
     {
-      name: "rls_upsell_events",
+      name: "rls_upsell_events_drop_old",
       sql: `
         ALTER TABLE public.upsell_events ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS anon_all_upsell_events ON public.upsell_events;
+      `,
+    },
+    {
+      name: "rls_upsell_events_anon_insert",
+      sql: `
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'upsell_events' AND policyname = 'anon_all_upsell_events') THEN
-            CREATE POLICY anon_all_upsell_events ON public.upsell_events FOR ALL TO anon USING (true) WITH CHECK (true);
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE tablename = 'upsell_events'
+            AND policyname = 'anon_insert_own_tenant_upsell_events'
+          ) THEN
+            CREATE POLICY anon_insert_own_tenant_upsell_events
+              ON public.upsell_events
+              FOR INSERT TO anon
+              WITH CHECK (
+                tenant_id IN (
+                  SELECT id FROM public.tenants WHERE is_active = true
+                )
+              );
           END IF;
         END $$;
       `,
     },
+
+    // ── 8. RLS — upsell_overrides ─────────────────────────────────────────
+    // anon: SELECT solo de su tenant (para que el serving pueda leer pins/blocks)
+    // Escritura: solo service_role o authenticated (admin)
     {
-      name: "rls_upsell_overrides",
+      name: "rls_upsell_overrides_drop_old",
       sql: `
         ALTER TABLE public.upsell_overrides ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS anon_all_upsell_overrides ON public.upsell_overrides;
+      `,
+    },
+    {
+      name: "rls_upsell_overrides_anon_select",
+      sql: `
         DO $$ BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'upsell_overrides' AND policyname = 'anon_all_upsell_overrides') THEN
-            CREATE POLICY anon_all_upsell_overrides ON public.upsell_overrides FOR ALL TO anon USING (true) WITH CHECK (true);
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE tablename = 'upsell_overrides'
+            AND policyname = 'anon_select_own_tenant_upsell_overrides'
+          ) THEN
+            CREATE POLICY anon_select_own_tenant_upsell_overrides
+              ON public.upsell_overrides
+              FOR SELECT TO anon
+              USING (
+                is_active = true
+                AND (expires_at IS NULL OR expires_at > now())
+                AND tenant_id IN (
+                  SELECT id FROM public.tenants WHERE is_active = true
+                )
+              );
           END IF;
         END $$;
       `,
@@ -241,8 +336,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { error } = await supabaseAdmin.rpc("exec_sql", { query: m.sql });
       if (error) {
-        // Try direct query as fallback
-        const { error: err2 } = await (supabaseAdmin as any).from("_migrations_dummy").select().limit(0);
         results.push({ name: m.name, success: false, error: error.message });
       } else {
         results.push({ name: m.name, success: true });

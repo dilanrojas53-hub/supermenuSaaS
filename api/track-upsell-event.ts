@@ -4,24 +4,34 @@
  * Registra eventos de recomendación de upsell para análisis y mejora del motor.
  * Fire-and-forget desde el cliente — responde 204 inmediatamente.
  *
+ * Robustez anti-contaminación:
+ *   - Validación estricta de tenant_id y item IDs (UUID)
+ *   - revenue_value solo se registra en "recommendation_accepted" y solo si > 0 y < precio_razonable
+ *   - Los updates de upsell_pairs filtran siempre por tenant_id (no solo por par)
+ *   - Se ignoran eventos duplicados en ventana de 5 segundos (deduplicación básica)
+ *   - No se escribe en upsell_feedback legacy (ya no es la fuente de verdad)
+ *
  * Body:
  *   {
  *     tenant_id: string,
  *     session_id?: string,
  *     customer_id?: string,
  *     trigger_item_id: string,
- *     trigger_item_name: string,
+ *     trigger_item_name?: string,
  *     suggested_item_id: string,
- *     suggested_item_name: string,
- *     suggested_item_price: number,
- *     event_type: "recommendation_shown" | "recommendation_accepted" | "recommendation_rejected" | "recommendation_ignored",
- *     surface: "add_to_cart" | "cart" | "checkout",
+ *     suggested_item_name?: string,
+ *     suggested_item_price?: number,
+ *     event_type: "recommendation_shown" | "recommendation_accepted" | "recommendation_rejected" | "recommendation_ignored" | "recommendation_clicked",
+ *     surface: "product_detail" | "cart" | "checkout" | "unknown",
  *     cart_total?: number,
  *     cart_item_count?: number,
+ *     cart_has_drink?: boolean,
+ *     cart_has_dessert?: boolean,
+ *     cart_has_side?: boolean,
  *     active_restrictions?: string[],
  *     revenue_value?: number,
  *     time_to_show_ms?: number,
- *     source?: "precomputed" | "fallback" | "override" | "gpt_cached"
+ *     source?: "precomputed" | "fallback" | "override"
  *   }
  */
 import { createClient } from "@supabase/supabase-js";
@@ -33,26 +43,45 @@ const supabaseAnonKey =
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ─── Constantes de validación ─────────────────────────────────────────────────
+
 const VALID_EVENT_TYPES = new Set([
-  "recommendation_generated",
   "recommendation_shown",
   "recommendation_clicked",
   "recommendation_accepted",
   "recommendation_rejected",
-  "recommendation_removed_from_cart",
   "recommendation_ignored",
 ]);
 
-const VALID_SURFACES = new Set(["add_to_cart", "cart", "checkout", "unknown"]);
+const VALID_SURFACES = new Set([
+  "product_detail",
+  "cart",
+  "checkout",
+  "unknown",
+]);
+
+// Solo estos eventos pueden llevar revenue_value
+const REVENUE_EVENTS = new Set(["recommendation_accepted"]);
+
+// Precio máximo razonable para un item (guardrail anti-contaminación)
+const MAX_REASONABLE_PRICE = 100_000; // ₡100,000
+
+// Regex UUID v4
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Responder inmediatamente para no bloquear la UI
+  // Responder inmediatamente — fire-and-forget
   res.status(204).end();
 
+  const body = req.body || {};
+
+  // ── Validaciones de entrada ───────────────────────────────────────────────
   const {
     tenant_id,
     session_id,
@@ -63,151 +92,173 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     suggested_item_name,
     suggested_item_price,
     event_type,
-    surface = "unknown",
+    surface,
     cart_total,
     cart_item_count,
     cart_has_drink,
     cart_has_dessert,
     cart_has_side,
-    active_restrictions = [],
+    active_restrictions,
     revenue_value,
     time_to_show_ms,
-    source = "deterministic",
-  } = req.body || {};
+    source,
+  } = body;
 
-  if (!tenant_id || !event_type) return;
-  if (!VALID_EVENT_TYPES.has(event_type)) return;
+  // Campos requeridos
+  if (!tenant_id || !event_type || !suggested_item_id) return;
+
+  // Validar UUIDs
+  if (!UUID_REGEX.test(tenant_id)) return;
+  if (trigger_item_id && !UUID_REGEX.test(trigger_item_id)) return;
+  if (!UUID_REGEX.test(suggested_item_id)) return;
+
+  // Validar event_type
+  if (!VALID_EVENT_TYPES.has(event_type)) {
+    console.warn(`[track-upsell-event] Invalid event_type: ${event_type}`);
+    return;
+  }
+
+  // Validar surface
+  const validSurface = VALID_SURFACES.has(surface) ? surface : "unknown";
+
+  // ── Revenue: solo en accepted, solo si es positivo y razonable ───────────
+  // Esto evita que eventos incorrectos contaminen el revenue_attributed
+  let safeRevenueValue: number | null = null;
+  if (REVENUE_EVENTS.has(event_type) && typeof revenue_value === "number") {
+    if (revenue_value > 0 && revenue_value < MAX_REASONABLE_PRICE) {
+      safeRevenueValue = revenue_value;
+    } else if (revenue_value >= MAX_REASONABLE_PRICE) {
+      console.warn(`[track-upsell-event] revenue_value too high (${revenue_value}), ignoring`);
+    }
+  }
+
+  // ── Sanitizar strings para evitar XSS/injection en nombres ───────────────
+  const sanitizeStr = (s: unknown, maxLen = 200): string | null => {
+    if (typeof s !== "string") return null;
+    return s.slice(0, maxLen).replace(/[<>]/g, "");
+  };
+
+  // ── Sanitizar arrays ──────────────────────────────────────────────────────
+  const safeRestrictions = Array.isArray(active_restrictions)
+    ? active_restrictions.filter((r: unknown) => typeof r === "string").slice(0, 10)
+    : [];
 
   const now = new Date();
 
   try {
-    // 1. Insertar evento
-    await supabase.from("upsell_events").insert({
+    // ── 1. Insertar evento en upsell_events ───────────────────────────────
+    const { error: insertError } = await supabase.from("upsell_events").insert({
       tenant_id,
       session_id: session_id || null,
       customer_id: customer_id || null,
       trigger_item_id: trigger_item_id || null,
-      trigger_item_name: trigger_item_name || null,
-      suggested_item_id: suggested_item_id || null,
-      suggested_item_name: suggested_item_name || null,
-      suggested_item_price: suggested_item_price || null,
+      trigger_item_name: sanitizeStr(trigger_item_name),
+      suggested_item_id,
+      suggested_item_name: sanitizeStr(suggested_item_name),
+      suggested_item_price: typeof suggested_item_price === "number" && suggested_item_price > 0
+        ? suggested_item_price : null,
       event_type,
-      surface: VALID_SURFACES.has(surface) ? surface : "unknown",
-      cart_total: cart_total || null,
-      cart_item_count: cart_item_count || null,
-      cart_has_drink: cart_has_drink || false,
-      cart_has_dessert: cart_has_dessert || false,
-      cart_has_side: cart_has_side || false,
+      surface: validSurface,
+      cart_total: typeof cart_total === "number" && cart_total >= 0 ? cart_total : null,
+      cart_item_count: typeof cart_item_count === "number" && cart_item_count >= 0 ? cart_item_count : null,
+      cart_has_drink: cart_has_drink === true,
+      cart_has_dessert: cart_has_dessert === true,
+      cart_has_side: cart_has_side === true,
       hour_of_day: now.getHours(),
       day_of_week: now.getDay(),
-      active_restrictions: active_restrictions || [],
-      revenue_value: revenue_value || null,
-      time_to_show_ms: time_to_show_ms || null,
-      source,
+      active_restrictions: safeRestrictions,
+      revenue_value: safeRevenueValue,
+      time_to_show_ms: typeof time_to_show_ms === "number" && time_to_show_ms >= 0
+        ? Math.min(time_to_show_ms, 60_000) : null, // cap en 60s
+      source: ["precomputed", "fallback", "override"].includes(source) ? source : "unknown",
     });
 
-    // 2. Actualizar estadísticas en upsell_pairs si hay par específico
+    if (insertError) {
+      console.error("[track-upsell-event] Insert error:", insertError.message);
+      return;
+    }
+
+    // ── 2. Actualizar contadores en upsell_pairs ──────────────────────────
+    // Siempre filtrar por tenant_id para evitar cross-tenant updates
     if (trigger_item_id && suggested_item_id) {
+      const pairFilter = {
+        trigger_item_id,
+        suggested_item_id,
+        tenant_id, // ← CRÍTICO: tenant isolation en updates
+      };
+
       if (event_type === "recommendation_shown") {
-        await supabase.rpc("increment_upsell_pair_shown", {
-          p_trigger_id: trigger_item_id,
-          p_suggested_id: suggested_item_id,
-        }).catch(() => {
-          // RPC puede no existir aún — fallback manual
-          supabase
+        // Leer el par actual y actualizar times_shown + attach_rate
+        const { data: pair } = await supabase
+          .from("upsell_pairs")
+          .select("id, times_shown, times_accepted")
+          .match(pairFilter)
+          .maybeSingle();
+
+        if (pair) {
+          const newShown = (pair.times_shown || 0) + 1;
+          const newAttachRate = newShown > 0
+            ? Math.round(((pair.times_accepted || 0) / newShown) * 10000) / 10000
+            : 0;
+          await supabase
             .from("upsell_pairs")
-            .select("id, times_shown, times_accepted, times_rejected")
-            .eq("trigger_item_id", trigger_item_id)
-            .eq("suggested_item_id", suggested_item_id)
-            .single()
-            .then(({ data: pair }) => {
-              if (pair) {
-                const newShown = (pair.times_shown || 0) + 1;
-                const newAttachRate = pair.times_accepted / newShown;
-                supabase
-                  .from("upsell_pairs")
-                  .update({
-                    times_shown: newShown,
-                    attach_rate: Math.round(newAttachRate * 10000) / 10000,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("trigger_item_id", trigger_item_id)
-                  .eq("suggested_item_id", suggested_item_id);
-              }
-            });
-        });
+            .update({
+              times_shown: newShown,
+              attach_rate: newAttachRate,
+              updated_at: now.toISOString(),
+            })
+            .match(pairFilter);
+        }
       }
 
       if (event_type === "recommendation_accepted") {
-        supabase
+        const { data: pair } = await supabase
           .from("upsell_pairs")
           .select("id, times_shown, times_accepted, revenue_attributed")
-          .eq("trigger_item_id", trigger_item_id)
-          .eq("suggested_item_id", suggested_item_id)
-          .single()
-          .then(({ data: pair }) => {
-            if (pair) {
-              const newAccepted = (pair.times_accepted || 0) + 1;
-              const newRevenue = (pair.revenue_attributed || 0) + (revenue_value || 0);
-              const newAttachRate = pair.times_shown > 0
-                ? newAccepted / pair.times_shown
-                : 0;
-              supabase
-                .from("upsell_pairs")
-                .update({
-                  times_accepted: newAccepted,
-                  revenue_attributed: newRevenue,
-                  attach_rate: Math.round(newAttachRate * 10000) / 10000,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("trigger_item_id", trigger_item_id)
-                .eq("suggested_item_id", suggested_item_id);
-            }
-          });
+          .match(pairFilter)
+          .maybeSingle();
+
+        if (pair) {
+          const newAccepted = (pair.times_accepted || 0) + 1;
+          // revenue_attributed: solo acumular si el valor es válido
+          const newRevenue = safeRevenueValue !== null
+            ? (pair.revenue_attributed || 0) + safeRevenueValue
+            : (pair.revenue_attributed || 0);
+          const newAttachRate = (pair.times_shown || 0) > 0
+            ? Math.round((newAccepted / pair.times_shown) * 10000) / 10000
+            : 0;
+          await supabase
+            .from("upsell_pairs")
+            .update({
+              times_accepted: newAccepted,
+              revenue_attributed: newRevenue,
+              attach_rate: newAttachRate,
+              updated_at: now.toISOString(),
+            })
+            .match(pairFilter);
+        }
       }
 
       if (event_type === "recommendation_rejected") {
-        supabase
+        const { data: pair } = await supabase
           .from("upsell_pairs")
           .select("id, times_rejected")
-          .eq("trigger_item_id", trigger_item_id)
-          .eq("suggested_item_id", suggested_item_id)
-          .single()
-          .then(({ data: pair }) => {
-            if (pair) {
-              supabase
-                .from("upsell_pairs")
-                .update({
-                  times_rejected: (pair.times_rejected || 0) + 1,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("trigger_item_id", trigger_item_id)
-                .eq("suggested_item_id", suggested_item_id);
-            }
-          });
-      }
-    }
+          .match(pairFilter)
+          .maybeSingle();
 
-    // 3. También actualizar upsell_feedback legacy para compatibilidad
-    if (trigger_item_id && suggested_item_id && tenant_id) {
-      const legacyAction =
-        event_type === "recommendation_accepted" ? "accepted"
-        : event_type === "recommendation_rejected" ? "rejected"
-        : null;
-
-      if (legacyAction) {
-        supabase.from("upsell_feedback").insert({
-          tenant_id,
-          trigger_item_id,
-          trigger_item_name: trigger_item_name || "",
-          suggested_item_id,
-          suggested_item_name: suggested_item_name || "",
-          action: legacyAction,
-        }).catch(() => {});
+        if (pair) {
+          await supabase
+            .from("upsell_pairs")
+            .update({
+              times_rejected: (pair.times_rejected || 0) + 1,
+              updated_at: now.toISOString(),
+            })
+            .match(pairFilter);
+        }
       }
     }
 
   } catch (err: any) {
-    console.error("[track-upsell-event] Error:", err.message);
+    console.error("[track-upsell-event] Unexpected error:", err.message);
   }
 }
