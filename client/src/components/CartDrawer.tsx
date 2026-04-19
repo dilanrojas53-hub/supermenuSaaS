@@ -5,7 +5,7 @@
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package, GlassWater, Wine } from 'lucide-react';
+import { X, Minus, Plus, Trash2, MessageCircle, Copy, Check, Loader2, Camera, ArrowLeft, ShoppingBag, Banknote, CreditCard, Smartphone, AlertCircle, RefreshCw, MapPin, Clock, Bike, UtensilsCrossed, Package, GlassWater, Wine, ChevronRight } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { buildWhatsAppUrl } from '@/lib/phone';
@@ -28,10 +28,9 @@ const getCartPlaceholderIcon = (itemName: string): React.ReactNode => {
   return <UtensilsCrossed size={20} style={{ color: 'var(--menu-accent)', opacity: 0.4 }} />;
 };
 
-import AIUpsellModal, { type AISuggestedItem } from './AIUpsellModal';
+import { type AISuggestedItem } from './AIUpsellModal';
 import OrderTypeSelector from './OrderTypeSelector';
 import DeliveryCheckout, { type DeliveryCheckoutData } from './DeliveryCheckout';
-import UpsellModal from './UpsellModal';
 import type { ThemeSettings, Tenant, MenuItem, Category } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
@@ -54,7 +53,7 @@ interface CartDrawerProps {
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta' | 'pos_externo';
-type Step = 'cart' | 'order_type' | 'delivery_address' | 'customer_info' | 'select_payment' | 'payment' | 'confirmation';
+type Step = 'cart' | 'order_type' | 'delivery_address' | 'customer_info' | 'upsell' | 'select_payment' | 'payment' | 'confirmation';
 type DeliveryType = 'dine_in' | 'takeout' | 'delivery';
 
 // ─── V11.0 MOTOR DE MARIDAJE: Clasificación de categorías por nombre exacto + keywords (module-level) ───
@@ -113,7 +112,7 @@ interface OpenTabOrder {
 }
 
 export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [], pendingPromo }: CartDrawerProps) {
-  const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, totalPrice, addItemAdvanced } = useCart();
   const { t, lang } = useI18n();
   const { profile: customerProfile, refreshTenantStats } = useCustomerProfile();
   const [, navigate] = useLocation();
@@ -370,22 +369,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     }
   }, [isOpen, tenant.id]);
 
-  // AI Upsell state
-  const [showAIUpsell, setShowAIUpsell] = useState(false);
+  // Upsell step state — shared by all order types (dine_in, takeout, delivery)
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestedItems, setAiSuggestedItems] = useState<AISuggestedItem[]>([]);
-  // pitchMessage removed — each suggested item now carries its own pitch
-
-  // Static Upsell Fallback state (shown when AI fails)
-  const [showStaticUpsell, setShowStaticUpsell] = useState(false);
-  const [staticUpsellItem, setStaticUpsellItem] = useState<MenuItem | null>(null);
-  const [staticUpsellText, setStaticUpsellText] = useState<string | null>(null);
-
-  // pendingDirectSubmit: true when upsell is shown for dine_in/takeout (no payment UI).
-  // After the user dismisses/continues the upsell modal, we submit directly instead of
-  // navigating to select_payment. This ensures upsell is shown in the quick-add flow too.
-  const [pendingDirectSubmit, setPendingDirectSubmit] = useState(false);
-  const pendingDirectMethodRef = React.useRef<PaymentMethod | null>(null);
+  // Track which upsell items the user added in the current session
+  const [upsellAddedIds, setUpsellAddedIds] = useState<Set<string>>(new Set());
 
   const handleCopySinpe = useCallback(() => {
     if (tenant.sinpe_number) {
@@ -494,24 +482,32 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     return null;
   }, [items]);
 
-  // AI Upsell: Call /api/generate-upsell → on failure show static fallback
-  const handleProceedToPayment = useCallback(async (allMenuItems?: MenuItem[]) => {
-    // Show modal immediately with loading state
-    setShowAIUpsell(true);
+  // ─── UPSELL STEP: load suggestions into state, then navigate to step 'upsell' ───
+  // This replaces the external AIUpsellModal approach. The upsell is now a native
+  // drawer step so it never overlaps with the customer_info step.
+  const loadUpsellAndNavigate = useCallback(async (menuItemsArg?: MenuItem[]) => {
+    const eligibleItems = items.filter(ci => !ci.prevent_checkout_upsell && !ci.isUpsell);
+    const usableMenuItems = (menuItemsArg && menuItemsArg.length > 0) ? menuItemsArg : allMenuItems;
+
+    // If all items already went through upsell in ProductDetailModal, skip the step
+    if (eligibleItems.length === 0) {
+      setStep('upsell'); // still show the step but it will be empty → auto-advance below
+      return;
+    }
+
+    // Navigate to upsell step immediately with loading state
     setAiLoading(true);
     setAiSuggestedItems([]);
+    setStep('upsell');
 
     const goToStaticFallback = () => {
-      setShowAIUpsell(false);
       setAiLoading(false);
-
-      // 1º: Intentar cross-selling inteligente por categorías
-      if (allMenuItems && allCategories.length > 0) {
-        const crossSellItems = getSmartCrossSellCandidates(allMenuItems, 3);
+      // 1º: Cross-sell inteligente por categorías
+      if (usableMenuItems.length > 0 && allCategories.length > 0) {
+        const crossSellItems = getSmartCrossSellCandidates(usableMenuItems, 3);
         if (crossSellItems.length > 0) {
-          console.log('%c[Cross-Sell] Sugerencias por categoría:', 'color: #10B981; font-weight: bold;', crossSellItems.map(i => i.name));
           const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
-            trigger_item_id: items.reduce((best, cur) => cur.menuItem.price > best.menuItem.price ? cur : best, items[0])?.menuItem.id || null, // Trigger = item de mayor precio
+            trigger_item_id: eligibleItems.reduce((best, cur) => cur.menuItem.price > best.menuItem.price ? cur : best, eligibleItems[0])?.menuItem.id || null,
             id: item.id,
             name: item.name,
             description: item.description,
@@ -521,42 +517,32 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             pitch: lang === 'es' ? 'Complementa perfectamente tu pedido' : 'Perfectly complements your order',
           }));
           setAiSuggestedItems(crossSellSuggestions);
-          setShowAIUpsell(true);
           return;
         }
       }
-
       // 2º: Fallback estático (upsell_item_id en el platillo)
-      const candidate = allMenuItems ? getStaticUpsellCandidate(allMenuItems) : null;
+      const candidate = usableMenuItems.length > 0 ? getStaticUpsellCandidate(usableMenuItems) : null;
       if (candidate) {
-        console.log('[AI Upsell] Showing static fallback for:', candidate.item.name);
-        setStaticUpsellItem(candidate.item);
-        setStaticUpsellText(candidate.text);
-        setShowStaticUpsell(true);
-      } else {
-        console.log('[AI Upsell] No fallback available, going to payment');
-        setStep('select_payment');
+        // Adapt static candidate to AISuggestedItem shape
+        const staticSuggestion: AISuggestedItem = {
+          id: candidate.item.id,
+          name: candidate.item.name,
+          description: candidate.item.description,
+          price: candidate.item.price,
+          image_url: candidate.item.image_url,
+          pitch: candidate.text || (lang === 'es' ? 'Complementa tu pedido' : 'Complements your order'),
+        };
+        setAiSuggestedItems([staticSuggestion]);
       }
+      // If no candidates at all, step shows empty state with a "Continuar" button
     };
 
     try {
-      // Smart Cart: only send items that haven't been through the upsell flow yet
-      const eligibleItems = items.filter(ci => !ci.prevent_checkout_upsell && !ci.isUpsell);
-      if (eligibleItems.length === 0) {
-        console.log('%c[AI Upsell] All items already upselled in ProductDetailModal, skipping', 'color: #6C63FF;');
-        setShowAIUpsell(false);
-        setAiLoading(false);
-        setStep('select_payment');
-        return;
-      }
-      // Carrito completo como contexto (Fix #6)
       const cartPayload = eligibleItems.map(ci => ({
         id: ci.menuItem.id,
         name: ci.menuItem.name,
         price: ci.menuItem.price,
       }));
-      // Elegir el mejor trigger: el item de mayor precio del carrito
-      // (más probable que tenga pares precalculados y genera mayor revenue de upsell)
       const triggerItem = cartPayload.reduce(
         (best, cur) => cur.price > best.price ? cur : best,
         cartPayload[0]
@@ -586,7 +572,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
             pitch: s.pitch || (lang === 'es' ? 'Complementa tu pedido' : 'Complements your order'),
           }));
           setAiSuggestedItems(suggestions);
-          // Track shown
           suggestions.forEach(s => {
             fetch('/api/track-upsell-event', {
               method: 'POST',
@@ -600,56 +585,40 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 suggested_item_price: s.price,
                 event_type: 'recommendation_shown',
                 surface: 'checkout',
-                source: data.source || 'precomputed',
+                source: data.source || 'fallback',
                 cart_item_count: cartPayload.length,
               }),
             }).catch(() => {});
           });
         } else {
           goToStaticFallback();
-          return;
         }
       } else {
         goToStaticFallback();
-        return;
       }
-    } catch (err: any) {
-      // Network error, timeout, CORS, etc.
-      const errMsg = err?.message || String(err);
-      console.error('%c[AI Upsell] ✖ Fetch Error:', 'color: #EF4444; font-weight: bold;', errMsg, err);
-      toast.error(`[DEBUG] AI Upsell error: ${errMsg}`, { duration: 8000 });
+    } catch (_err) {
       goToStaticFallback();
-      return;
     } finally {
       setAiLoading(false);
     }
-  }, [items, tenant, getStaticUpsellCandidate]);
+  }, [items, allMenuItems, allCategories, lang, tenant, getSmartCrossSellCandidates, getStaticUpsellCandidate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAIUpsellContinue = () => {
-    setShowAIUpsell(false);
-    if (pendingDirectSubmit) {
-      // dine_in / takeout: submit directly, no payment screen
-      setPendingDirectSubmit(false);
-      const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
-      pendingDirectMethodRef.current = null;
-      handleSubmitOrderWithMethod(method);
-    } else {
-      setStep('select_payment');
-    }
-  };
+  // Keep these as thin wrappers so existing call sites don't need to change
+  const handleProceedToPayment = useCallback((menuItemsArg?: MenuItem[]) => {
+    return loadUpsellAndNavigate(menuItemsArg);
+  }, [loadUpsellAndNavigate]);
 
-  const handleAIUpsellClose = () => {
-    setShowAIUpsell(false);
-    if (pendingDirectSubmit) {
-      // dine_in / takeout: user skipped upsell — still submit the order
-      setPendingDirectSubmit(false);
-      const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
-      pendingDirectMethodRef.current = null;
-      handleSubmitOrderWithMethod(method);
-    } else {
+  // Upsell step: "Continuar" button handler
+  const handleUpsellContinue = useCallback(() => {
+    const _showPaymentUILocal = shouldShowPaymentUI(deliveryType as OrderChannel);
+    if (_showPaymentUILocal) {
       setStep('select_payment');
+    } else {
+      // dine_in / takeout: submit directly
+      const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
+      handleSubmitOrderWithMethod(defaultMethod);
     }
-  };
+  }, [deliveryType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // V17.2: SINPE ya no va a un step separado. Todos los métodos se confirman desde select_payment.
   const handleSelectPaymentMethod = (method: PaymentMethod) => {
@@ -967,134 +936,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     await handleSubmitOrderWithMethod(paymentMethod);
   };
 
-  // PAYMENT GATING: dine-in/takeout — show upsell FIRST, then submit directly.
-  // This ensures the upsell appears even when the user adds items with the quick + button
-  // without opening the product detail modal.
-  const handleProceedDirect = useCallback(async (allMenuItemsArg?: MenuItem[]) => {
-    const defaultMethod = getDefaultPaymentMethodForChannel(deliveryType as OrderChannel) as PaymentMethod;
-
-    // Check if there are eligible items for upsell (not already upselled)
-    const eligibleItems = items.filter(ci => !ci.prevent_checkout_upsell && !ci.isUpsell);
-    if (eligibleItems.length === 0) {
-      // All items already went through upsell in ProductDetailModal — submit directly
-      await handleSubmitOrderWithMethod(defaultMethod);
-      return;
-    }
-
-    // Set flag so upsell callbacks know to submit instead of navigate to select_payment
-    setPendingDirectSubmit(true);
-    pendingDirectMethodRef.current = defaultMethod;
-
-    // Show upsell modal with loading state
-    setShowAIUpsell(true);
-    setAiLoading(true);
-    setAiSuggestedItems([]);
-
-    const goToStaticFallbackDirect = () => {
-      setShowAIUpsell(false);
-      setAiLoading(false);
-      // 1º: Cross-sell inteligente por categorías
-      const usableMenuItems = allMenuItemsArg && allMenuItemsArg.length > 0 ? allMenuItemsArg : allMenuItems;
-      if (usableMenuItems.length > 0 && allCategories.length > 0) {
-        const crossSellItems = getSmartCrossSellCandidates(usableMenuItems, 3);
-        if (crossSellItems.length > 0) {
-          const crossSellSuggestions: AISuggestedItem[] = crossSellItems.map(item => ({
-            trigger_item_id: eligibleItems.reduce((best, cur) => cur.menuItem.price > best.menuItem.price ? cur : best, eligibleItems[0])?.menuItem.id || null,
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            price: item.price,
-            image_url: item.image_url,
-            trigger_item_name: undefined,
-            pitch: lang === 'es' ? 'Complementa perfectamente tu pedido' : 'Perfectly complements your order',
-          }));
-          setAiSuggestedItems(crossSellSuggestions);
-          setShowAIUpsell(true);
-          return;
-        }
-      }
-      // 2º: Fallback estático (upsell_item_id en el platillo)
-      const candidate = usableMenuItems.length > 0 ? getStaticUpsellCandidate(usableMenuItems) : null;
-      if (candidate) {
-        setStaticUpsellItem(candidate.item);
-        setStaticUpsellText(candidate.text);
-        setShowStaticUpsell(true);
-      } else {
-        // No hay candidatos de upsell — enviar pedido directamente
-        setPendingDirectSubmit(false);
-        pendingDirectMethodRef.current = null;
-        handleSubmitOrderWithMethod(defaultMethod);
-      }
-    };
-
-    try {
-      const cartPayload = eligibleItems.map(ci => ({
-        id: ci.menuItem.id,
-        name: ci.menuItem.name,
-        price: ci.menuItem.price,
-      }));
-      const triggerItem = cartPayload.reduce(
-        (best, cur) => cur.price > best.price ? cur : best,
-        cartPayload[0]
-      );
-      const response = await fetch('/api/upsell-recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trigger_item_id: triggerItem.id,
-          tenant_id: tenant.id,
-          cart: cartPayload,
-          surface: 'checkout',
-        }),
-        signal: AbortSignal.timeout(5000),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.recommendations?.length > 0) {
-          const suggestions: AISuggestedItem[] = data.recommendations.map((s: any) => ({
-            trigger_item_id: triggerItem.id,
-            trigger_item_name: triggerItem.name,
-            id: s.id,
-            name: s.name,
-            description: s.description,
-            price: s.price,
-            image_url: s.image_url,
-            pitch: s.pitch || (lang === 'es' ? 'Complementa tu pedido' : 'Complements your order'),
-          }));
-          setAiSuggestedItems(suggestions);
-          suggestions.forEach(s => {
-            fetch('/api/track-upsell-event', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                tenant_id: tenant.id,
-                trigger_item_id: triggerItem.id,
-                trigger_item_name: triggerItem.name,
-                suggested_item_id: s.id,
-                suggested_item_name: s.name,
-                suggested_item_price: s.price,
-                event_type: 'recommendation_shown',
-                surface: 'checkout_direct',
-                source: data.source || 'fallback',
-                cart_item_count: cartPayload.length,
-              }),
-            }).catch(() => {});
-          });
-        } else {
-          goToStaticFallbackDirect();
-          return;
-        }
-      } else {
-        goToStaticFallbackDirect();
-        return;
-      }
-    } catch (_err) {
-      goToStaticFallbackDirect();
-      return;
-    } finally {
-      setAiLoading(false);
-    }
-  }, [deliveryType, customerName, openTab, items, totalPrice, appliedPromo, appliedCoupon, allMenuItems, allCategories, lang, tenant, getSmartCrossSellCandidates, getStaticUpsellCandidate]); // eslint-disable-line react-hooks/exhaustive-deps
+  // PAYMENT GATING: dine-in/takeout — navigate to upsell step, then submit directly.
+  // Thin wrapper over loadUpsellAndNavigate so existing call sites don't need to change.
+  const handleProceedDirect = useCallback((allMenuItemsArg?: MenuItem[]) => {
+    return loadUpsellAndNavigate(allMenuItemsArg);
+  }, [loadUpsellAndNavigate]);
 
   const paymentMethodLabel = (method: PaymentMethod | null): string => {
     if (!method) return '';
@@ -1179,7 +1025,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     if (step === 'order_type') setStep('cart');
     else if (step === 'delivery_address') setStep('order_type');
     else if (step === 'customer_info') setStep(deliveryType === 'delivery' ? 'delivery_address' : 'order_type');
-    else if (step === 'select_payment') { setStep('customer_info'); setPaymentMethod(null); }
+    else if (step === 'upsell') setStep('customer_info');
+    else if (step === 'select_payment') { setStep('upsell'); setPaymentMethod(null); }
     else if (step === 'payment') setStep('select_payment');
   };
 
@@ -1189,6 +1036,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     order_type: lang === 'es' ? '¿Cómo querés tu pedido?' : 'How would you like your order?',
     delivery_address: lang === 'es' ? 'Dirección de entrega' : 'Delivery address',
     customer_info: t('checkout.customer_info'),
+    upsell: lang === 'es' ? 'Sugerencias personalizadas' : 'Personalized suggestions',
     select_payment: lang === 'es' ? '¿Cómo deseas pagar?' : 'How would you like to pay?',
     payment: t('payment.title'),
     confirmation: t('confirm.title'),
@@ -1197,10 +1045,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   // PAYMENT GATING: dine-in/takeout saltan select_payment y van directo a confirmation
   const _showPaymentUI = shouldShowPaymentUI(deliveryType as OrderChannel);
   const stepOrder: Step[] = deliveryType === 'delivery'
-    ? ['order_type', 'delivery_address', 'customer_info', 'select_payment', 'payment', 'confirmation']
+    ? ['order_type', 'delivery_address', 'customer_info', 'upsell', 'select_payment', 'payment', 'confirmation']
     : _showPaymentUI
-      ? ['order_type', 'customer_info', 'select_payment', 'payment', 'confirmation']
-      : ['order_type', 'customer_info', 'confirmation'];
+      ? ['order_type', 'customer_info', 'upsell', 'select_payment', 'payment', 'confirmation']
+      : ['order_type', 'customer_info', 'upsell', 'confirmation'];
   const currentStepIdx = stepOrder.indexOf(step);
 
   // Payment method config — all options
@@ -1934,6 +1782,179 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               </>
             )}
 
+            {/* ─── STEP: UPSELL ─── */}
+            {step === 'upsell' && (
+              <>
+                <div className="flex-1 overflow-y-auto">
+                  {/* Header */}
+                  <div className="px-5 pt-3 pb-4 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <span style={{ color: theme.primary_color, fontSize: 20 }}>✨</span>
+                      <p className="text-xs font-bold tracking-widest uppercase" style={{ color: theme.primary_color }}>
+                        {lang === 'es' ? 'Sugerencias personalizadas' : 'Personalized suggestions'}
+                      </p>
+                    </div>
+                    <h2 className="text-xl font-bold" style={{ color: theme.text_color }}>
+                      {lang === 'es' ? 'Completa tu experiencia' : 'Complete your experience'}
+                    </h2>
+                  </div>
+
+                  {/* Loading state */}
+                  {aiLoading && (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+                        style={{ borderColor: `${theme.primary_color}40`, borderTopColor: theme.primary_color }}
+                      />
+                      <p className="text-sm opacity-50" style={{ color: theme.text_color }}>
+                        {lang === 'es' ? 'Buscando sugerencias...' : 'Finding suggestions...'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Suggestions list */}
+                  {!aiLoading && aiSuggestedItems.length > 0 && (
+                    <div className="px-4 space-y-3 pb-4">
+                      {aiSuggestedItems.map(item => {
+                        const isAdded = upsellAddedIds.has(item.id);
+                        const imgUrl = item.image_url
+                          ? (item.image_url.startsWith('http') ? item.image_url : `https://yrpqlzjlkxmhfnqxhhmm.supabase.co/storage/v1/object/public/menu-images/${item.image_url}`)
+                          : null;
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-2xl p-3"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1px solid ${isAdded ? theme.primary_color : `${theme.text_color}10`}`,
+                            }}
+                          >
+                            {/* Image */}
+                            {imgUrl ? (
+                              <img
+                                src={imgUrl}
+                                alt={item.name}
+                                className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div
+                                className="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: `${theme.primary_color}15` }}
+                              >
+                                <span style={{ color: theme.primary_color, fontSize: 24 }}>🍽️</span>
+                              </div>
+                            )}
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              {item.trigger_item_name && (
+                                <p className="text-xs mb-0.5" style={{ color: `${theme.text_color}50` }}>
+                                  {lang === 'es' ? 'Para tu' : 'For your'}{' '}
+                                  <span className="font-semibold" style={{ color: theme.primary_color }}>{item.trigger_item_name}</span>
+                                </p>
+                              )}
+                              <p className="font-bold text-sm leading-tight" style={{ color: theme.text_color }}>{item.name}</p>
+                              {item.pitch && (
+                                <p className="text-xs opacity-60 mt-0.5 leading-snug" style={{ color: theme.text_color }}>&#34;{item.pitch}&#34;</p>
+                              )}
+                              <p className="text-sm font-bold mt-1" style={{ color: theme.primary_color }}>+{formatPrice(item.price)}</p>
+                            </div>
+                            {/* Add button */}
+                            <motion.button
+                              onClick={() => {
+                                if (isAdded) return;
+                                const menuItem: MenuItem = {
+                                  id: item.id,
+                                  tenant_id: '',
+                                  category_id: '',
+                                  name: item.name,
+                                  description: item.description,
+                                  price: item.price,
+                                  image_url: item.image_url,
+                                  is_available: true,
+                                  is_featured: false,
+                                  badge: null,
+                                  upsell_item_id: null,
+                                  upsell_text: null,
+                                  sort_order: 0,
+                                  created_at: '',
+                                  updated_at: '',
+                                };
+                                addItemAdvanced(menuItem, {
+                                  isUpsell: true,
+                                  upsellSource: 'ai',
+                                  triggerItemId: item.trigger_item_id || null,
+                                  upsellAcceptedAt: new Date().toISOString(),
+                                });
+                                setUpsellAddedIds(prev => new Set(Array.from(prev).concat(item.id)));
+                              }}
+                              whileTap={{ scale: 0.88 }}
+                              disabled={isAdded}
+                              className="flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold flex-shrink-0 transition-all"
+                              style={{
+                                backgroundColor: isAdded ? theme.primary_color : `${theme.primary_color}12`,
+                                color: isAdded ? 'var(--menu-accent-contrast)' : theme.primary_color,
+                              }}
+                            >
+                              {isAdded ? (
+                                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1">
+                                  <Check size={14} />
+                                  {lang === 'es' ? 'Agregado' : 'Added'}
+                                </motion.span>
+                              ) : (
+                                <><Plus size={14} />{lang === 'es' ? 'Agregar' : 'Add'}</>
+                              )}
+                            </motion.button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {!aiLoading && aiSuggestedItems.length === 0 && (
+                    <div className="py-8 text-center px-5">
+                      <p className="text-sm opacity-40" style={{ color: theme.text_color }}>
+                        {lang === 'es' ? 'Sin sugerencias adicionales' : 'No additional suggestions'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sticky footer */}
+                <div className="p-5 border-t flex-shrink-0" style={{ borderColor: `${theme.text_color}10` }}>
+                  {upsellAddedIds.size > 0 && (
+                    <p className="text-xs text-center mb-2 font-semibold" style={{ color: theme.primary_color }}>
+                      {upsellAddedIds.size} {lang === 'es'
+                        ? `item${upsellAddedIds.size > 1 ? 's' : ''} agregado${upsellAddedIds.size > 1 ? 's' : ''}`
+                        : `item${upsellAddedIds.size > 1 ? 's' : ''} added`}
+                    </p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setUpsellAddedIds(new Set()); handleUpsellContinue(); }}
+                      className="flex-1 py-3.5 rounded-full text-sm font-semibold transition-all active:scale-[0.98]"
+                      style={{ border: `1.5px solid ${theme.text_color}20`, color: `${theme.text_color}70` }}
+                    >
+                      {lang === 'es' ? 'No, gracias' : 'No, thanks'}
+                    </button>
+                    <motion.button
+                      onClick={() => { setUpsellAddedIds(new Set()); handleUpsellContinue(); }}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex-[1.5] py-3.5 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all"
+                      style={{
+                        backgroundColor: upsellAddedIds.size > 0 ? theme.primary_color : `${theme.primary_color}15`,
+                        color: upsellAddedIds.size > 0 ? 'var(--menu-accent-contrast)' : theme.primary_color,
+                        boxShadow: upsellAddedIds.size > 0 ? `0 4px 16px ${theme.primary_color}35` : 'none',
+                      }}
+                    >
+                      {lang === 'es' ? 'Continuar al pago' : 'Continue to payment'}
+                      <ChevronRight size={16} />
+                    </motion.button>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* ─── STEP: SELECT PAYMENT METHOD ─── */}
             {step === 'select_payment' && (
               <>
@@ -2434,37 +2455,6 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         </>
       )}
 
-      {/* ─── AI UPSELL MODAL (rendered outside the main drawer z-stack) ─── */}
-      <AIUpsellModal
-        isOpen={showAIUpsell}
-        onClose={handleAIUpsellClose}
-        onContinue={handleAIUpsellContinue}
-        suggestedItems={aiSuggestedItems}
-        isLoading={aiLoading}
-        theme={theme}
-      />
-
-      {/* ─── STATIC UPSELL MODAL (fallback when AI fails) ─── */}
-      <UpsellModal
-        isOpen={showStaticUpsell}
-        onClose={() => {
-          setShowStaticUpsell(false);
-          setStaticUpsellItem(null);
-          setStaticUpsellText(null);
-          if (pendingDirectSubmit) {
-            // dine_in / takeout: submit directly after static upsell dismissed
-            setPendingDirectSubmit(false);
-            const method = pendingDirectMethodRef.current || ('pos_externo' as PaymentMethod);
-            pendingDirectMethodRef.current = null;
-            handleSubmitOrderWithMethod(method);
-          } else {
-            setStep('select_payment');
-          }
-        }}
-        upsellItem={staticUpsellItem}
-        upsellText={staticUpsellText}
-        theme={theme}
-      />
     </AnimatePresence>
   );
 }
