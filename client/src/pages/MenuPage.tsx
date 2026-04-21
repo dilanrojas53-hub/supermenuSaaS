@@ -839,7 +839,8 @@ function MenuContent() {
         })}
       </div>
 
-      {/* Floating Cart — desactivado: el acceso al carrito vive en BottomNav tab 'order' */}
+      {/* Floating Cart — carrito tipo nube, aparece al agregar productos */}
+      <FloatingCart theme={theme} onOpen={() => setCartOpen(true)} />
 
       {/* Cart Drawer */}
       <CartDrawer

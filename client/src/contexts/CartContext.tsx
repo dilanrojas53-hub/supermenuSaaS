@@ -31,15 +31,19 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
+  /** Last item added to cart (for FloatingCart bubble animation) */
+  lastAddedItem: MenuItem | null;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [lastAddedItem, setLastAddedItem] = useState<MenuItem | null>(null);
 
   // Legacy addItem — for Quick Add button (increments if exists)
   const addItem = useCallback((menuItem: MenuItem, isUpsell?: boolean, upsellSource?: 'ai' | 'static' | null) => {
+    setLastAddedItem(menuItem);
     setItems(prev => {
       const existing = prev.find(i => i.menuItem.id === menuItem.id && !i.isUpsell);
       if (existing) {
@@ -63,6 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Advanced addItem — always creates a new entry, returns the cartItemId
   const addItemAdvanced = useCallback((menuItem: MenuItem, opts?: AddItemOptions): string => {
+    setLastAddedItem(menuItem);
     const newId = uid();
     setItems(prev => [...prev, {
       cartItemId: newId,
@@ -121,7 +126,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <CartContext.Provider value={{
       items, addItem, addItemAdvanced, removeItem, updateQuantity,
-      markUpsellHandled, clearCart, totalItems, totalPrice
+      markUpsellHandled, clearCart, totalItems, totalPrice, lastAddedItem
     }}>
       {children}
     </CartContext.Provider>

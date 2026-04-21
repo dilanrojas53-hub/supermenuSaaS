@@ -122,7 +122,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerTable, setCustomerTable] = useState('');
-  const [availableTables, setAvailableTables] = useState<{ id: string; table_number: string; label: string | null; is_occupied: boolean }[]>([]);
+  const [availableTables, setAvailableTables] = useState<{ id: string; table_number: string; label: string | null; is_occupied: boolean; category: string | null }[]>([]);
   const [notes, setNotes] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
@@ -360,7 +360,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     if (isOpen && tenant.id) {
       supabase
         .from('restaurant_tables')
-        .select('id, table_number, label, is_occupied')
+        .select('id, table_number, label, is_occupied, category')
         .eq('tenant_id', tenant.id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
@@ -1652,121 +1652,229 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                     </div>
                   )}
 
-                  {/* ── Standard fields ── */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                        {t('checkout.name')}
-                        {requiresCustomerData
-                          ? <span style={{ color: theme.primary_color }}> *</span>
-                          : <span style={{ color: `${theme.text_color}40` }}> ({lang === 'es' ? 'opcional' : 'optional'})</span>
-                        }
-                      </label>
-                      <input
-                        type="text"
-                        value={customerName}
-                        onChange={e => setCustomerName(e.target.value)}
-                        placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                        style={{
-                          backgroundColor: `${theme.text_color}06`,
-                          border: `1.5px solid ${customerName ? theme.primary_color : `${theme.text_color}15`}`,
-                          color: theme.text_color,
-                        }}
-                      />
+                  {/* ── Campos para dine_in / takeout: solo mesa + notas ── */}
+                  {!requiresCustomerData ? (
+                    <div className="space-y-5">
+
+                      {/* Usuario logueado: info no editable */}
+                      {customerProfile && (
+                        <div
+                          className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+                          style={{ backgroundColor: `${theme.primary_color}12`, border: `1.5px solid ${theme.primary_color}25` }}
+                        >
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
+                            style={{ backgroundColor: theme.primary_color, color: 'var(--menu-accent-contrast)' }}
+                          >
+                            {(customerProfile.name || '?')[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: theme.text_color }}>
+                              {customerProfile.name || (lang === 'es' ? 'Cliente' : 'Customer')}
+                            </p>
+                            {customerProfile.phone && (
+                              <p className="text-xs truncate" style={{ color: `${theme.text_color}60` }}>
+                                {customerProfile.phone}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${theme.primary_color}20`, color: theme.primary_color }}>
+                            {lang === 'es' ? 'Sesión activa' : 'Logged in'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Selección de mesa — solo dine_in */}
+                      {deliveryType === 'dine_in' && (
+                        <div>
+                          <label className="text-xs font-bold uppercase tracking-wider mb-3 block" style={{ color: `${theme.text_color}55` }}>
+                            {lang === 'es' ? '¿Dónde estás sentado?' : 'Where are you seated?'}
+                          </label>
+                          {availableTables.length > 0 ? (() => {
+                            // Agrupar por categoría
+                            const categoryOrder = ['mesa_grande', 'mesa_pequeña', 'taburete', null];
+                            const categoryLabel: Record<string, string> = {
+                              mesa_grande: lang === 'es' ? 'Mesa grande' : 'Large table',
+                              'mesa_pequeña': lang === 'es' ? 'Mesa pequeña' : 'Small table',
+                              taburete: lang === 'es' ? 'Taburete' : 'Bar stool',
+                            };
+                            const groups = categoryOrder
+                              .map(cat => ({
+                                cat,
+                                tables: availableTables.filter(t => (t.category ?? null) === cat),
+                              }))
+                              .filter(g => g.tables.length > 0);
+                            const hasGroups = groups.some(g => g.cat !== null);
+                            return (
+                              <div className="space-y-4">
+                                {groups.map(({ cat, tables }) => (
+                                  <div key={cat ?? 'other'}>
+                                    {hasGroups && cat && (
+                                      <p className="text-[11px] font-semibold mb-2" style={{ color: `${theme.text_color}50` }}>
+                                        {categoryLabel[cat] ?? cat}
+                                      </p>
+                                    )}
+                                    <div className="grid grid-cols-4 gap-2">
+                                      {tables.map(tbl => {
+                                        const isSelected = customerTable === tbl.table_number;
+                                        const label = tbl.label || `${tbl.table_number}`;
+                                        return (
+                                          <button
+                                            key={tbl.id}
+                                            type="button"
+                                            disabled={tbl.is_occupied}
+                                            onClick={() => setCustomerTable(isSelected ? '' : tbl.table_number)}
+                                            className="relative py-3 rounded-2xl text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5"
+                                            style={{
+                                              backgroundColor: tbl.is_occupied
+                                                ? `${theme.text_color}06`
+                                                : isSelected
+                                                  ? theme.primary_color
+                                                  : `${theme.text_color}08`,
+                                              border: `2px solid ${
+                                                tbl.is_occupied
+                                                  ? `${theme.text_color}10`
+                                                  : isSelected
+                                                    ? theme.primary_color
+                                                    : `${theme.text_color}12`
+                                              }`,
+                                              color: tbl.is_occupied
+                                                ? `${theme.text_color}25`
+                                                : isSelected
+                                                  ? 'var(--menu-accent-contrast)'
+                                                  : theme.text_color,
+                                              cursor: tbl.is_occupied ? 'not-allowed' : 'pointer',
+                                              boxShadow: isSelected ? `0 4px 12px ${theme.primary_color}35` : 'none',
+                                            }}
+                                          >
+                                            <span className="text-base leading-none">{label}</span>
+                                            {tbl.is_occupied && (
+                                              <span className="text-[9px] font-medium" style={{ color: `${theme.text_color}30` }}>
+                                                {lang === 'es' ? 'ocupada' : 'busy'}
+                                              </span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })() : (
+                            <input
+                              type="text"
+                              value={customerTable}
+                              onChange={e => setCustomerTable(e.target.value)}
+                              placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra' : 'E.g.: Table 5, Bar'}
+                              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                              style={{
+                                backgroundColor: `${theme.text_color}06`,
+                                border: `1.5px solid ${theme.text_color}15`,
+                                color: theme.text_color,
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Notas */}
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider mb-2 block" style={{ color: `${theme.text_color}55` }}>
+                          {lang === 'es' ? 'Notas del pedido' : 'Order notes'}
+                        </label>
+                        <textarea
+                          value={notes}
+                          onChange={e => setNotes(e.target.value)}
+                          placeholder={lang === 'es' ? 'Alergias, preferencias, instrucciones especiales...' : 'Allergies, preferences, special instructions...'}
+                          rows={3}
+                          className="w-full px-4 py-3 rounded-2xl text-sm outline-none resize-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${notes ? theme.primary_color : `${theme.text_color}12`}`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                        {t('checkout.phone')}
-                      </label>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={e => setCustomerPhone(e.target.value)}
-                        placeholder="8888-8888"
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                        style={{
-                          backgroundColor: `${theme.text_color}06`,
-                          border: `1.5px solid ${theme.text_color}15`,
-                          color: theme.text_color,
-                        }}
-                      />
-                    </div>
-                    {deliveryType === 'dine_in' && (
+                  ) : (
+                    /* ── Campos para delivery: nombre + teléfono + notas ── */
+                    <div className="space-y-3">
                       <div>
                         <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                          {t('checkout.table')}
+                          {t('checkout.name')}
+                          <span style={{ color: theme.primary_color }}> *</span>
                         </label>
-                        {availableTables.length > 0 ? (
-                          <div className="grid grid-cols-4 gap-1.5">
-                            {availableTables.map(tbl => (
-                              <button
-                                key={tbl.id}
-                                type="button"
-                                disabled={tbl.is_occupied}
-                                onClick={() => setCustomerTable(tbl.table_number)}
-                                className="py-2 rounded-xl text-xs font-bold transition-all"
-                                style={{
-                                  backgroundColor: tbl.is_occupied
-                                    ? 'rgba(239,68,68,0.15)'
-                                    : customerTable === tbl.table_number
-                                      ? 'var(--menu-accent)'
-                                      : `${theme.text_color}08`,
-                                  border: `1.5px solid ${
-                                    tbl.is_occupied
-                                      ? 'rgba(239,68,68,0.3)'
-                                      : customerTable === tbl.table_number
-                                        ? 'var(--menu-accent)'
-                                        : `${theme.text_color}15`
-                                  }`,
-                                  color: tbl.is_occupied
-                                    ? 'rgba(239,68,68,0.5)'
-                                    : customerTable === tbl.table_number
-                                      ? '#000'
-                                      : theme.text_color,
-                                  cursor: tbl.is_occupied ? 'not-allowed' : 'pointer',
-                                  opacity: tbl.is_occupied ? 0.6 : 1,
-                                }}
-                              >
-                                {tbl.label || `Mesa ${tbl.table_number}`}
-                                {tbl.is_occupied && <span className="block text-[9px] opacity-70">{lang === 'es' ? 'Ocupada' : 'Occupied'}</span>}
-                              </button>
-                            ))}
+                        {customerProfile ? (
+                          <div
+                            className="w-full px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+                            style={{ backgroundColor: `${theme.text_color}06`, border: `1.5px solid ${theme.text_color}10`, color: theme.text_color }}
+                          >
+                            <span className="flex-1">{customerProfile.name}</span>
+                            <span className="text-[10px]" style={{ color: `${theme.text_color}40` }}>{lang === 'es' ? 'del perfil' : 'from profile'}</span>
                           </div>
                         ) : (
                           <input
                             type="text"
-                            value={customerTable}
-                            onChange={e => setCustomerTable(e.target.value)}
-                            placeholder={lang === 'es' ? 'Ej: Mesa 5, Barra' : 'E.g.: Table 5, Bar'}
+                            value={customerName}
+                            onChange={e => setCustomerName(e.target.value)}
+                            placeholder={lang === 'es' ? 'Tu nombre completo' : 'Your full name'}
                             className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                             style={{
                               backgroundColor: `${theme.text_color}06`,
-                              border: `1.5px solid ${theme.text_color}15`,
+                              border: `1.5px solid ${customerName ? theme.primary_color : `${theme.text_color}15`}`,
                               color: theme.text_color,
                             }}
                           />
                         )}
                       </div>
-                    )}
-                    <div>
-                      <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                        {t('checkout.notes')}
-                      </label>
-                      <textarea
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                        placeholder={lang === 'es' ? 'Alergias, preferencias, instrucciones especiales...' : 'Allergies, preferences, special instructions...'}
-                        rows={2}
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
-                        style={{
-                          backgroundColor: `${theme.text_color}06`,
-                          border: `1.5px solid ${theme.text_color}15`,
-                          color: theme.text_color,
-                        }}
-                      />
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          {t('checkout.phone')}
+                          <span style={{ color: theme.primary_color }}> *</span>
+                        </label>
+                        {customerProfile?.phone ? (
+                          <div
+                            className="w-full px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+                            style={{ backgroundColor: `${theme.text_color}06`, border: `1.5px solid ${theme.text_color}10`, color: theme.text_color }}
+                          >
+                            <span className="flex-1">{customerProfile.phone}</span>
+                            <span className="text-[10px]" style={{ color: `${theme.text_color}40` }}>{lang === 'es' ? 'del perfil' : 'from profile'}</span>
+                          </div>
+                        ) : (
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={e => setCustomerPhone(e.target.value)}
+                            placeholder="8888-8888"
+                            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                            style={{
+                              backgroundColor: `${theme.text_color}06`,
+                              border: `1.5px solid ${customerPhone ? theme.primary_color : `${theme.text_color}15`}`,
+                              color: theme.text_color,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
+                          {t('checkout.notes')}
+                        </label>
+                        <textarea
+                          value={notes}
+                          onChange={e => setNotes(e.target.value)}
+                          placeholder={lang === 'es' ? 'Alergias, preferencias, instrucciones especiales...' : 'Allergies, preferences, special instructions...'}
+                          rows={2}
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-all"
+                          style={{
+                            backgroundColor: `${theme.text_color}06`,
+                            border: `1.5px solid ${theme.text_color}15`,
+                            color: theme.text_color,
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="p-5 border-t" style={{ borderColor: `${theme.text_color}10` }}>
