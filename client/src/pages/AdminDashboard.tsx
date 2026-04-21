@@ -849,24 +849,37 @@ function DeliveryTabWithHistory({ tenant, kanbanNode, pendingCount }: { tenant: 
 }
 
 // ─── Tables Config Section ───
+type TableCategory = 'mesa_grande' | 'mesa_pequeña' | 'taburete';
+const TABLE_CATEGORY_LABELS: Record<TableCategory, string> = {
+  mesa_grande: 'Mesa grande',
+  mesa_pequeña: 'Mesa pequeña',
+  taburete: 'Taburete de bar',
+};
+const TABLE_CATEGORY_ICONS: Record<TableCategory, string> = {
+  mesa_grande: '🔲',
+  mesa_pequeña: '🗒️',
+  taburete: '🪺',
+};
 function TablesConfigSection({ tenant }: { tenant: Tenant }) {
-  const [tables, setTables] = useState<{ id: string; table_number: string; label: string; capacity: string; sort_order: number }[]>([]);
+  const [tables, setTables] = useState<{ id: string; table_number: string; label: string; capacity: string; sort_order: number; category: TableCategory | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [newTable, setNewTable] = useState({ table_number: '', label: '', capacity: '' });
+  const [newTable, setNewTable] = useState({ table_number: '', label: '', capacity: '', category: '' as TableCategory | '' });
   const [showAdd, setShowAdd] = useState(false);
-  const [bulkCount, setBulkCount] = useState('');
+  const [bulkFrom, setBulkFrom] = useState('');
+  const [bulkTo, setBulkTo] = useState('');
+  const [bulkCategory, setBulkCategory] = useState<TableCategory | ''>('');
   const [showBulk, setShowBulk] = useState(false);
 
   const fetchTables = useCallback(async () => {
     const { data } = await supabase
       .from('restaurant_tables')
-      .select('id, table_number, label, capacity, sort_order, is_active')
+      .select('id, table_number, label, capacity, sort_order, is_active, category')
       .eq('tenant_id', tenant.id)
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('table_number', { ascending: true });
-    setTables((data || []).map((t: any) => ({ ...t, capacity: String(t.capacity || '') })));
+    setTables((data || []).map((t: any) => ({ ...t, capacity: String(t.capacity || ''), category: t.category || null })));
     setLoading(false);
   }, [tenant.id]);
 
@@ -880,6 +893,7 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
       table_number: newTable.table_number.trim(),
       label: newTable.label.trim() || null,
       capacity: parseInt(newTable.capacity) || null,
+      category: newTable.category || null,
       is_active: true,
       is_occupied: false,
       sort_order: tables.length,
@@ -887,19 +901,23 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
     setSaving(false);
     if (error) { toast.error('Error: ' + error.message); return; }
     toast.success('Mesa agregada');
-    setNewTable({ table_number: '', label: '', capacity: '' });
+    setNewTable({ table_number: '', label: '', capacity: '', category: '' });
     setShowAdd(false);
     fetchTables();
   };
 
   const handleBulkCreate = async () => {
-    const count = parseInt(bulkCount);
-    if (!count || count < 1 || count > 50) { toast.error('Ingresa un número entre 1 y 50'); return; }
+    const from = parseInt(bulkFrom);
+    const to = parseInt(bulkTo);
+    if (!from || !to || from > to || to - from > 99) {
+      toast.error('Ingresa un rango válido (ej: 1 a 6, máximo 100 espacios)');
+      return;
+    }
+    if (!bulkCategory) { toast.error('Selecciona una categoría'); return; }
     setSaving(true);
     const existingNumbers = new Set(tables.map(t => t.table_number));
     const toInsert = [];
-    let num = 1;
-    while (toInsert.length < count) {
+    for (let num = from; num <= to; num++) {
       const numStr = String(num);
       if (!existingNumbers.has(numStr)) {
         toInsert.push({
@@ -907,18 +925,21 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
           table_number: numStr,
           label: null,
           capacity: null,
+          category: bulkCategory,
           is_active: true,
           is_occupied: false,
           sort_order: tables.length + toInsert.length,
         });
       }
-      num++;
     }
+    if (toInsert.length === 0) { toast.error('Todos esos números ya existen'); setSaving(false); return; }
     const { error } = await supabase.from('restaurant_tables').insert(toInsert);
     setSaving(false);
     if (error) { toast.error('Error: ' + error.message); return; }
-    toast.success(`${count} mesas creadas`);
-    setBulkCount('');
+    toast.success(`${toInsert.length} espacios creados como "${TABLE_CATEGORY_LABELS[bulkCategory]}"`);
+    setBulkFrom('');
+    setBulkTo('');
+    setBulkCategory('');
     setShowBulk(false);
     fetchTables();
   };
@@ -957,22 +978,70 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
 
       {/* Creación en lote */}
       {showBulk && (
-        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
-          <p className="text-xs text-slate-400 mb-3">Crea múltiples mesas numeradas automáticamente (Mesa 1, Mesa 2, etc.)</p>
+        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] space-y-3">
+          <p className="text-xs font-semibold text-[var(--text-secondary)]">Crear espacios por rango numérico</p>
+          {/* Rango */}
           <div className="flex items-center gap-2">
-            <input
-              type="number" min={1} max={50}
-              value={bulkCount}
-              onChange={e => setBulkCount(e.target.value)}
-              placeholder="¿Cuántas mesas?"
-              className="flex-1 px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
-            />
+            <div className="flex-1">
+              <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Desde #</label>
+              <input
+                type="number" min={1}
+                value={bulkFrom}
+                onChange={e => setBulkFrom(e.target.value)}
+                placeholder="1"
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              />
+            </div>
+            <span className="text-[var(--text-secondary)] text-sm mt-4">–</span>
+            <div className="flex-1">
+              <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Hasta #</label>
+              <input
+                type="number" min={1}
+                value={bulkTo}
+                onChange={e => setBulkTo(e.target.value)}
+                placeholder="6"
+                className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
+              />
+            </div>
+          </div>
+          {/* Categoría obligatoria */}
+          <div>
+            <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Categoría *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(TABLE_CATEGORY_LABELS) as TableCategory[]).map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setBulkCategory(cat)}
+                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-xs font-bold border transition-all ${
+                    bulkCategory === cat
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                      : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:border-amber-500/40'
+                  }`}
+                >
+                  <span className="text-base">{TABLE_CATEGORY_ICONS[cat]}</span>
+                  <span>{TABLE_CATEGORY_LABELS[cat]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Preview */}
+          {bulkFrom && bulkTo && bulkCategory && parseInt(bulkFrom) <= parseInt(bulkTo) && (
+            <p className="text-[10px] text-amber-400/80 bg-amber-500/10 px-3 py-1.5 rounded-lg">
+              Se crearán {parseInt(bulkTo) - parseInt(bulkFrom) + 1} espacios ({bulkFrom}–{bulkTo}) como «{TABLE_CATEGORY_LABELS[bulkCategory]}»
+            </p>
+          )}
+          <div className="flex gap-2">
             <button
               onClick={handleBulkCreate}
               disabled={saving}
-              className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
-              {saving ? 'Creando...' : 'Crear'}
+              {saving ? 'Creando...' : 'Crear espacios'}
+            </button>
+            <button onClick={() => setShowBulk(false)}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:opacity-80 transition-colors">
+              Cancelar
             </button>
           </div>
         </div>
@@ -980,8 +1049,8 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
 
       {/* Formulario agregar mesa individual */}
       {showAdd && (
-        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
-          <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="mb-4 p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] space-y-3">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Número *</label>
               <input
@@ -1009,6 +1078,24 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
                 placeholder="Ej: 4"
                 className="w-full px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none"
               />
+            </div>
+          </div>
+          {/* Categoría */}
+          <div>
+            <label className="block text-[10px] text-[var(--text-secondary)] mb-1">Categoría</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(Object.keys(TABLE_CATEGORY_LABELS) as TableCategory[]).map(cat => (
+                <button key={cat} type="button"
+                  onClick={() => setNewTable({ ...newTable, category: newTable.category === cat ? '' : cat })}
+                  className={`flex items-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
+                    newTable.category === cat
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                      : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:border-amber-500/40'
+                  }`}>
+                  <span>{TABLE_CATEGORY_ICONS[cat]}</span>
+                  <span>{TABLE_CATEGORY_LABELS[cat]}</span>
+                </button>
+              ))}
             </div>
           </div>
           <div className="flex gap-2">
@@ -1039,14 +1126,22 @@ function TablesConfigSection({ tenant }: { tenant: Tenant }) {
           {tables.map(table => (
             <div key={table.id}
               className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)]">
-              <div>
-                <p className="text-sm font-bold text-[var(--text-primary)]">Mesa {table.table_number}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-1">
+                  {table.category && <span>{TABLE_CATEGORY_ICONS[table.category]}</span>}
+                  #{table.table_number}
+                </p>
+                {table.category && (
+                  <p className="text-[9px] font-semibold text-amber-400/80 uppercase tracking-wide mt-0.5">
+                    {TABLE_CATEGORY_LABELS[table.category]}
+                  </p>
+                )}
                 {table.label && <p className="text-[10px] text-[var(--text-secondary)]">{table.label}</p>}
                 {table.capacity && <p className="text-[10px] text-[var(--text-secondary)] opacity-70">{table.capacity} pax</p>}
               </div>
               <button
                 onClick={() => handleDeleteTable(table.id)}
-                className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
                 title="Eliminar mesa"
               >
                 <Trash2 size={12} />

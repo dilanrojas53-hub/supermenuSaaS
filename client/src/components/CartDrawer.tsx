@@ -627,9 +627,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     // V17.2: No más step 'payment' para SINPE — el comprobante se sube después en OrderStatus
   };
 
+  // Validación centralizada: nombre/teléfono solo obligatorio para delivery
+  const isDelivery = deliveryType === 'delivery';
+  const requiresCustomerData = isDelivery;
+
   // Submit order: INSERT new or UPDATE existing (Cuenta Abierta)
   const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
-    if (!customerName.trim() && !openTab) return;
+    // Para delivery: nombre obligatorio. Para dine_in/takeout: puede enviarse sin nombre.
+    if (requiresCustomerData && !customerName.trim() && !openTab) return;
     setUploading(true);
     setErrorMsg('');
 
@@ -1018,7 +1023,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     }
   };
 
-  const canProceedToPayment = customerName.trim().length > 0;
+  // Para delivery: requiere nombre. Para dine_in/takeout: siempre puede continuar.
+  const canProceedToPayment = !requiresCustomerData || customerName.trim().length > 0;
 
   const handleBack = () => {
     setErrorMsg('');
@@ -1650,7 +1656,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs font-semibold mb-1.5 block" style={{ color: `${theme.text_color}80` }}>
-                        {t('checkout.name')} *
+                        {t('checkout.name')}
+                        {requiresCustomerData
+                          ? <span style={{ color: theme.primary_color }}> *</span>
+                          : <span style={{ color: `${theme.text_color}40` }}> ({lang === 'es' ? 'opcional' : 'optional'})</span>
+                        }
                       </label>
                       <input
                         type="text"

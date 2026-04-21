@@ -11,6 +11,18 @@ import { toast } from 'sonner';
 import { Loader2, RefreshCw, X, ChefHat, Clock, UtensilsCrossed } from 'lucide-react';
 import { formatPrice } from '@/lib/types';
 
+type TableCategory = 'mesa_grande' | 'mesa_pequeña' | 'taburete';
+const TABLE_CAT_ICONS: Record<TableCategory, string> = {
+  mesa_grande: '🔲',
+  mesa_pequeña: '🗒️',
+  taburete: '🪺',
+};
+const TABLE_CAT_LABELS: Record<TableCategory, string> = {
+  mesa_grande: 'Mesa grande',
+  mesa_pequeña: 'Mesa pequeña',
+  taburete: 'Taburete',
+};
+
 interface RestaurantTable {
   id: string;
   table_number: string;
@@ -19,6 +31,7 @@ interface RestaurantTable {
   is_occupied: boolean;
   current_order_id: string | null;
   sort_order: number;
+  category: TableCategory | null;
 }
 
 interface OrderItem {
@@ -68,12 +81,12 @@ export default function TablesMapPanel({ tenant }: Props) {
   const fetchTables = useCallback(async () => {
     const { data } = await supabase
       .from('restaurant_tables')
-      .select('id, table_number, label, capacity, is_occupied, current_order_id, sort_order')
+      .select('id, table_number, label, capacity, is_occupied, current_order_id, sort_order, category')
       .eq('tenant_id', tenant.id)
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('table_number', { ascending: true });
-    setTables((data || []) as RestaurantTable[]);
+    setTables((data || []).map((t: any) => ({ ...t, category: t.category || null })) as RestaurantTable[]);
     setLoading(false);
   }, [tenant.id]);
 
@@ -205,6 +218,12 @@ export default function TablesMapPanel({ tenant }: Props) {
             >
               {table.table_number}
             </span>
+            {/* Categoría */}
+            {table.category && (
+              <span className="text-[10px] mt-0.5" title={TABLE_CAT_LABELS[table.category]}>
+                {TABLE_CAT_ICONS[table.category]}
+              </span>
+            )}
             {/* Etiqueta */}
             {table.label && (
               <span className="text-[9px] mt-0.5 font-medium" style={{ color: table.is_occupied ? 'rgba(252,165,165,0.7)' : 'rgba(134,239,172,0.7)' }}>
