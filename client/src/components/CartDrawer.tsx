@@ -123,6 +123,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerTable, setCustomerTable] = useState('');
   const [availableTables, setAvailableTables] = useState<{ id: string; table_number: string; label: string | null; is_occupied: boolean; category: string | null }[]>([]);
+  const [openTableGroup, setOpenTableGroup] = useState<string | null>(null); // acordeón de categoría de mesas
   const [notes, setNotes] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
@@ -1691,9 +1692,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             {lang === 'es' ? '¿Dónde estás sentado?' : 'Where are you seated?'}
                           </label>
                           {availableTables.length > 0 ? (() => {
-                            // Agrupar por categoría
                             const categoryOrder = ['mesa_grande', 'mesa_pequeña', 'taburete', null];
                             const categoryLabel: Record<string, string> = {
+                              mesa_grande: lang === 'es' ? 'Mesa grande' : 'Large table',
+                              'mesa_pequeña': lang === 'es' ? 'Mesa pequeña' : 'Small table',
+                              taburete: lang === 'es' ? 'Taburete' : 'Bar stool',
+                            };
+                            // Prefijo legible por categoría
+                            const categoryPrefix: Record<string, string> = {
                               mesa_grande: lang === 'es' ? 'Mesa grande' : 'Large table',
                               'mesa_pequeña': lang === 'es' ? 'Mesa pequeña' : 'Small table',
                               taburete: lang === 'es' ? 'Taburete' : 'Bar stool',
@@ -1704,61 +1710,101 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                                 tables: availableTables.filter(t => (t.category ?? null) === cat),
                               }))
                               .filter(g => g.tables.length > 0);
-                            const hasGroups = groups.some(g => g.cat !== null);
+                            const hasMultipleGroups = groups.length > 1;
                             return (
-                              <div className="space-y-4">
-                                {groups.map(({ cat, tables }) => (
-                                  <div key={cat ?? 'other'}>
-                                    {hasGroups && cat && (
-                                      <p className="text-[11px] font-semibold mb-2" style={{ color: `${theme.text_color}50` }}>
-                                        {categoryLabel[cat] ?? cat}
-                                      </p>
-                                    )}
-                                    <div className="grid grid-cols-4 gap-2">
-                                      {tables.map(tbl => {
-                                        const isSelected = customerTable === tbl.table_number;
-                                        const label = tbl.label || `${tbl.table_number}`;
-                                        return (
-                                          <button
-                                            key={tbl.id}
-                                            type="button"
-                                            disabled={tbl.is_occupied}
-                                            onClick={() => setCustomerTable(isSelected ? '' : tbl.table_number)}
-                                            className="relative py-3 rounded-2xl text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5"
-                                            style={{
-                                              backgroundColor: tbl.is_occupied
-                                                ? `${theme.text_color}06`
-                                                : isSelected
-                                                  ? theme.primary_color
-                                                  : `${theme.text_color}08`,
-                                              border: `2px solid ${
-                                                tbl.is_occupied
-                                                  ? `${theme.text_color}10`
-                                                  : isSelected
-                                                    ? theme.primary_color
-                                                    : `${theme.text_color}12`
-                                              }`,
-                                              color: tbl.is_occupied
-                                                ? `${theme.text_color}25`
-                                                : isSelected
-                                                  ? 'var(--menu-accent-contrast)'
-                                                  : theme.text_color,
-                                              cursor: tbl.is_occupied ? 'not-allowed' : 'pointer',
-                                              boxShadow: isSelected ? `0 4px 12px ${theme.primary_color}35` : 'none',
-                                            }}
-                                          >
-                                            <span className="text-base leading-none">{label}</span>
-                                            {tbl.is_occupied && (
-                                              <span className="text-[9px] font-medium" style={{ color: `${theme.text_color}30` }}>
-                                                {lang === 'es' ? 'ocupada' : 'busy'}
+                              <div className="space-y-2">
+                                {groups.map(({ cat, tables }) => {
+                                  const groupKey = cat ?? 'other';
+                                  const groupName = cat ? (categoryLabel[cat] ?? cat) : (lang === 'es' ? 'Otros espacios' : 'Other spaces');
+                                  const prefix = cat ? (categoryPrefix[cat] ?? '') : '';
+                                  // Si solo hay un grupo, mostrarlo directo sin acordeón
+                                  const isOpen = !hasMultipleGroups || openTableGroup === groupKey;
+                                  // Detectar si alguna mesa de este grupo está seleccionada
+                                  const selectedInGroup = tables.find(t => t.table_number === customerTable);
+                                  return (
+                                    <div key={groupKey} className="rounded-2xl overflow-hidden" style={{ border: `1.5px solid ${theme.text_color}12` }}>
+                                      {/* Header del acordeón */}
+                                      {hasMultipleGroups && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setOpenTableGroup(isOpen ? null : groupKey)}
+                                          className="w-full flex items-center justify-between px-4 py-3 transition-all"
+                                          style={{
+                                            backgroundColor: selectedInGroup
+                                              ? `${theme.primary_color}18`
+                                              : `${theme.text_color}05`,
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
+                                              {groupName}
+                                            </span>
+                                            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: `${theme.text_color}10`, color: `${theme.text_color}70` }}>
+                                              {tables.length}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            {selectedInGroup && (
+                                              <span className="text-xs font-bold" style={{ color: theme.primary_color }}>
+                                                {prefix} {selectedInGroup.table_number}
                                               </span>
                                             )}
-                                          </button>
-                                        );
-                                      })}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                                              style={{ color: `${theme.text_color}50`, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                                              <polyline points="6 9 12 15 18 9" />
+                                            </svg>
+                                          </div>
+                                        </button>
+                                      )}
+                                      {/* Grid de mesas */}
+                                      {isOpen && (
+                                        <div className="p-3 grid grid-cols-3 gap-2" style={{ backgroundColor: `${theme.text_color}03` }}>
+                                          {tables.map(tbl => {
+                                            const isSelected = customerTable === tbl.table_number;
+                                            const displayLabel = `${prefix} ${tbl.table_number}`.trim();
+                                            return (
+                                              <button
+                                                key={tbl.id}
+                                                type="button"
+                                                disabled={tbl.is_occupied}
+                                                onClick={() => setCustomerTable(isSelected ? '' : tbl.table_number)}
+                                                className="relative px-2 py-3 rounded-xl text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 text-center leading-tight"
+                                                style={{
+                                                  backgroundColor: tbl.is_occupied
+                                                    ? `${theme.text_color}04`
+                                                    : isSelected
+                                                      ? theme.primary_color
+                                                      : `${theme.text_color}08`,
+                                                  border: `1.5px solid ${
+                                                    tbl.is_occupied
+                                                      ? `${theme.text_color}08`
+                                                      : isSelected
+                                                        ? theme.primary_color
+                                                        : `${theme.text_color}10`
+                                                  }`,
+                                                  color: tbl.is_occupied
+                                                    ? `${theme.text_color}25`
+                                                    : isSelected
+                                                      ? 'var(--menu-accent-contrast)'
+                                                      : theme.text_color,
+                                                  cursor: tbl.is_occupied ? 'not-allowed' : 'pointer',
+                                                  boxShadow: isSelected ? `0 3px 10px ${theme.primary_color}40` : 'none',
+                                                }}
+                                              >
+                                                <span className="leading-tight">{displayLabel}</span>
+                                                {tbl.is_occupied && (
+                                                  <span className="text-[9px]" style={{ color: `${theme.text_color}30` }}>
+                                                    {lang === 'es' ? 'ocupada' : 'busy'}
+                                                  </span>
+                                                )}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             );
                           })() : (
