@@ -25,6 +25,7 @@ interface Promotion {
   start_time: string | null;
   end_time: string | null;
   item_ids: string[] | null;
+  promo_price: number | null;
   is_active: boolean;
   is_new_customer: boolean;
   is_new_customer_only: boolean;
@@ -107,6 +108,7 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [itemSearch, setItemSearch] = useState('');
   const [showItemSelector, setShowItemSelector] = useState(false);
+  const [promoPrice, setPromoPrice] = useState('');
 
   const [couponCode, setCouponCode] = useState('');
   const [couponPct, setCouponPct] = useState('');
@@ -155,13 +157,14 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
       active_hours_start: promoStartTime || null,
       active_hours_end: promoEndTime || null,
       item_ids: selectedItemIds.length > 0 ? selectedItemIds : null,
+      promo_price: promoPrice ? parseFloat(promoPrice) : null,
       is_active: true,
       is_new_customer: promoNewOnly,
       is_reactivation: promoReactivation,
     });
     if (error) { console.error('Error saving promo:', error); return; }
     setShowForm(false);
-    setPromoName(''); setPromoPct(''); setPromoFixed('');
+    setPromoName(''); setPromoPct(''); setPromoFixed(''); setPromoPrice('');
     setPromoMinOrder(''); setPromoLevel(''); setPromoStartTime(''); setPromoEndTime('');
     setPromoNewOnly(false); setPromoReactivation(false);
     setSelectedItemIds([]); setItemSearch(''); setShowItemSelector(false);
@@ -325,6 +328,26 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                       {LEVEL_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   )}
+                  {/* Precio especial de la promo — visible para todos los tipos */}
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: '#F59E0B' }}>Precio especial de la promoción</label>
+                    <input
+                      value={promoPrice}
+                      onChange={e => setPromoPrice(e.target.value)}
+                      placeholder={promoType === '2x1' ? 'Ej: 2500 (precio del 2x1)' : promoType === 'combo' ? 'Ej: 8000 (precio del combo)' : 'Precio especial ₡ (opcional)'}
+                      type="number"
+                      min="0"
+                      className={inputCls}
+                      style={inputStyle}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {promoType === '2x1'
+                        ? 'El precio que paga el cliente por el 2×1 (no el precio unitario del producto).'
+                        : promoType === 'combo'
+                        ? 'El precio total del combo como paquete.'
+                        : 'Si esta promo tiene un precio fijo especial, ingrésalo aquí. Dejar vacío si solo aplica descuento.'}
+                    </p>
+                  </div>
                   <input value={promoMinOrder} onChange={e => setPromoMinOrder(e.target.value)} placeholder="Monto mínimo de pedido ₡ (opcional)" type="number" className={inputCls} style={inputStyle} />
 
                   {/* Item selector */}
@@ -418,6 +441,9 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                           {typeInfo?.label}
                           {p.discount_pct ? ` · ${p.discount_pct}%` : ''}
                           {p.discount_fixed ? ` · ₡${p.discount_fixed}` : ''}
+                          {p.promo_price ? (
+                            <span className="ml-1 font-semibold" style={{ color: '#F59E0B' }}>· Precio promo: ₡{p.promo_price.toLocaleString()}</span>
+                          ) : null}
                           {(p.active_hours_start || p.start_time) && (p.active_hours_end || p.end_time) ? ` · ${p.active_hours_start || p.start_time}–${p.active_hours_end || p.end_time}` : ''}
                           {itemCount > 0 ? ` · ${itemCount} platillo${itemCount > 1 ? 's' : ''}` : ''}
                         </div>

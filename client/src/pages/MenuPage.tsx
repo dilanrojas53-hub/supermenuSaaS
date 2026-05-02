@@ -58,7 +58,7 @@ function MenuContent() {
   // Fix 3: pedido activo para tab 'order'
   const [activeOrderData, setActiveOrderData] = useState<{ orderId: string; orderNumber: number; status: string } | null>(null);
   const [showLoginSheet, setShowLoginSheet] = useState(false);
-  const [pendingPromo, setPendingPromo] = useState<{ id: string; name: string; type: string; value: number } | null>(null);
+  const [pendingPromo, setPendingPromo] = useState<{ id: string; name: string; type: string; value: number; promo_price?: number | null } | null>(null);
   useEffect(() => {
     const check = () => {
       try {
@@ -886,6 +886,7 @@ function MenuContent() {
         onClose={() => setBottomNavTab('menu')}
         theme={theme}
         tenant={tenant}
+        allItems={data.menuItems}
         onPromoSelect={(promo) => {
           setPendingPromo(promo);
           setBottomNavTab('menu');

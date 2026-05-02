@@ -49,7 +49,7 @@ interface CartDrawerProps {
   /** All categories — used for smart cross-selling by category type */
   allCategories?: Category[];
   /** Promo pre-aplicada desde la pantalla de Promos */
-  pendingPromo?: { id: string; name: string; type: string; value: number } | null;
+  pendingPromo?: { id: string; name: string; type: string; value: number; promo_price?: number | null } | null;
 }
 
 type PaymentMethod = 'sinpe' | 'efectivo' | 'tarjeta' | 'pos_externo';
@@ -154,9 +154,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   // Aplicar promo pendiente cuando se abre el carrito (inline calc para evitar hoisting)
   useEffect(() => {
     if (isOpen && pendingPromo && pendingPromo.id) {
-      const discAmt = pendingPromo.type === 'percentage'
-        ? Math.round(totalPrice * pendingPromo.value / 100)
-        : Math.min(pendingPromo.value, totalPrice);
+      let discAmt = 0;
+      if (pendingPromo.promo_price) {
+        // promo_price define el precio final de la promo; el descuento es la diferencia
+        discAmt = Math.max(0, totalPrice - pendingPromo.promo_price);
+      } else if (pendingPromo.type === 'percentage') {
+        discAmt = Math.round(totalPrice * pendingPromo.value / 100);
+      } else if (pendingPromo.type === 'fixed') {
+        discAmt = Math.min(pendingPromo.value, totalPrice);
+      }
       setAppliedPromo({ ...pendingPromo, discountAmount: discAmt });
     }
   }, [isOpen, pendingPromo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -292,14 +298,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [openTab, setOpenTab] = useState<OpenTabOrder | null>(null);
 
   // ─── FUNCIONES DE DESCUENTO ───
-  const calcPromoDiscount = (type: string, value: number, subtotal: number): number => {
+  const calcPromoDiscount = (type: string, value: number, subtotal: number, promoPrice?: number | null): number => {
+    if (promoPrice) return Math.max(0, subtotal - promoPrice);
     if (type === 'percentage') return Math.round(subtotal * value / 100);
     if (type === 'fixed') return Math.min(value, subtotal);
     return 0;
   };
-
-  const applyPromoToCart = (promo: { id: string; name: string; type: string; value: number }) => {
-    const discAmt = calcPromoDiscount(promo.type, promo.value, totalPrice);
+  const applyPromoToCart = (promo: { id: string; name: string; type: string; value: number; promo_price?: number | null }) => {
+    const discAmt = calcPromoDiscount(promo.type, promo.value, totalPrice, promo.promo_price);
     setAppliedPromo({ ...promo, discountAmount: discAmt });
   };
 
