@@ -302,7 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 5. Determinar qué items procesar
     const triggerItems = item_id
-      ? allItems.filter((i) => i.id === item_id)
+      ? allItems.filter((i: any) => i.id === item_id)
       : recompute_all
       ? allItems
       : allItems.slice(0, 50);
