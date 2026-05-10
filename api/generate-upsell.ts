@@ -198,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── 2. Inferir rol del trigger ─────────────────────────────────────────
     const triggerCategoryName =
-      (menuItems.find((m) => m.id === triggerItemId) as any)?.categories?.name || "";
+      (menuItems.find((m: any) => m.id === triggerItemId) as any)?.categories?.name || "";
     const triggerRole = inferRole(triggerItem?.name || "", triggerCategoryName);
     const allowedTargetRoles = ALLOWED_TARGETS[triggerRole] ?? ALLOWED_TARGETS.unknown;
     const maxPriceMultiplier = PRICE_GUARDRAIL[triggerRole] ?? 1.6;
@@ -226,12 +226,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (feedbackData) {
         acceptedPairs = feedbackData
-          .filter((f) => f.action === "accepted")
-          .map((f) => f.suggested_item_id)
+          .filter((f: any) => f.action === "accepted")
+          .map((f: any) => f.suggested_item_id)
           .slice(0, 10);
         rejectedPairs = feedbackData
-          .filter((f) => f.action === "rejected")
-          .map((f) => f.suggested_item_id)
+          .filter((f: any) => f.action === "rejected")
+          .map((f: any) => f.suggested_item_id)
           .slice(0, 20);
       }
 
@@ -467,7 +467,7 @@ Responde exactamente:
     // ── 7. Respuesta enriquecida con image_url ─────────────────────────────
     const suggestedItems = finalUpsells
       .map((u) => {
-        const item = menuItems.find((m) => m.id === u.id);
+        const item = menuItems.find((m: any) => m.id === u.id);
         if (!item) return null;
         const scored = scoredCatalog.find((c) => c.id === u.id);
         console.log(

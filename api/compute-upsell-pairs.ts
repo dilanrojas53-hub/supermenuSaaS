@@ -235,7 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq("tenant_id", tenant_id);
 
     const attrMap = new Map<string, ProductAttr>(
-      (allAttrs || []).map((a) => [a.item_id, a])
+      (allAttrs || []).map((a: any) => [a.item_id, a])
     );
 
     // 3. Historial REAL desde upsell_events (Fix #4)

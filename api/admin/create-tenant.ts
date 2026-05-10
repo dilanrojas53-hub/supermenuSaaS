@@ -40,7 +40,7 @@ if (!supabaseServiceKey) {
   // Don't throw here, handle in the handler
 }
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey!, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -118,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Step 2: Create user in Supabase Auth
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authUser, error: authError } = await (supabaseAdmin.auth as any).admin.createUser({
       email: admin_email,
       password: admin_password,
       email_confirm: true, // Auto-confirm email
@@ -155,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (tenantError || !newTenant) {
       console.error("[create-tenant] Tenant insert error:", tenantError);
       // If tenant creation fails, delete the auth user to keep things clean
-      await supabaseAdmin.auth.admin.deleteUser(adminUserId);
+      await (supabaseAdmin.auth as any).admin.deleteUser(adminUserId);
       return res.status(400).json({ error: `Failed to create tenant: ${tenantError?.message}` });
     }
 
