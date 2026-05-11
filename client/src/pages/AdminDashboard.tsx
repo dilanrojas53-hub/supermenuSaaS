@@ -29,6 +29,7 @@ import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
 import TablesMapPanel from '@/components/TablesMapPanel';
 import CustomersTab from '@/pages/CustomersTab';
 import PromotionsTab from '@/pages/PromotionsTab';
+import TaxSettingsTab from '@/pages/TaxSettingsTab';
 import TeamIntelligenceTab from '@/components/TeamIntelligenceTab';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -3107,18 +3108,32 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
                 <span className="text-[10px] text-amber-300">🎟️ Cupón: <span className="font-mono font-bold">{(order as any).coupon_code}</span></span>
               </div>
             )}
+            {/* IVA incluido */}
+            {(order as any).tax_amount > 0 && (order as any).prices_include_tax && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] opacity-60" style={{ color: 'var(--text-secondary)' }}>└ IVA incluido {(order as any).tax_rate}%</span>
+                <span className="text-[10px] opacity-60" style={{ color: 'var(--text-secondary)' }}>{formatPrice((order as any).tax_amount)}</span>
+              </div>
+            )}
+            {/* IVA sumado */}
+            {(order as any).tax_amount > 0 && !(order as any).prices_include_tax && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>IVA {(order as any).tax_rate}%</span>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>+{formatPrice((order as any).tax_amount)}</span>
+              </div>
+            )}
+            {/* Cargo de servicio */}
+            {(order as any).service_amount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-amber-400">Servicio de mesa {(order as any).service_rate}%</span>
+                <span className="text-[10px] font-semibold text-amber-400">+{formatPrice((order as any).service_amount)}</span>
+              </div>
+            )}
             {/* Discount amount */}
             {(order as any).discount_amount > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-amber-400 font-bold">Descuento</span>
-                <span className="text-[10px] text-amber-400 font-bold">-{formatPrice((order as any).discount_amount)}</span>
-              </div>
-            )}
-            {/* Subtotal vs total */}
-            {(order as any).subtotal && (order as any).subtotal !== order.total && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[var(--text-secondary)]">Precio original</span>
-                <span className="text-[10px] text-[var(--text-secondary)] line-through">{formatPrice((order as any).subtotal)}</span>
+                <span className="text-[10px] text-green-400 font-bold">Descuento</span>
+                <span className="text-[10px] text-green-400 font-bold">-{formatPrice((order as any).discount_amount)}</span>
               </div>
             )}
           </div>
@@ -5264,7 +5279,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables' | 'experience' | 'customers' | 'promotions';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables' | 'experience' | 'customers' | 'promotions' | 'tax';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -5420,6 +5435,7 @@ export default function AdminDashboard() {
           {activeTab === 'delivery' && <ModuleWelcomeGate module="delivery"><DeliveryOS tenant={tenant} /></ModuleWelcomeGate>}
           {activeTab === 'customers' && <ModuleWelcomeGate module="customers"><CustomersTab tenant={tenant} /></ModuleWelcomeGate>}
           {activeTab === 'promotions' && <ModuleWelcomeGate module="promotions"><PromotionsTab tenant={tenant} /></ModuleWelcomeGate>}
+          {activeTab === 'tax' && <TaxSettingsTab tenant={tenant} />}
           {activeTab === 'tables' && (
             <ModuleWelcomeGate module="tables">
               <div>

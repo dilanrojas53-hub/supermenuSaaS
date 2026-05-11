@@ -13,6 +13,7 @@ import { shouldShowPaymentUI, getDefaultPaymentMethodForChannel } from '@/lib/pa
 import { getDeliveryFeeForDistance, getAvailablePaymentMethods, canAcceptOrdersNow, type DeliveryConfig } from '@/lib/deliveryConfig';
 import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
 import type { OrderChannel } from '@/lib/paymentGating';
+import { calculateOrderTotals, loadTaxSettings, DEFAULT_TAX_SETTINGS, type TaxSettings } from '@/lib/orderTotals';
 
 // V11.0: Placeholder icon para items del carrito sin imagen
 const CART_DRINK_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
@@ -133,6 +134,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   const [errorMsg, setErrorMsg] = useState<string>('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const receiptCameraInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── IVA Y CARGO DE SERVICIO ───
+  const [taxSettings, setTaxSettings] = useState<TaxSettings>(DEFAULT_TAX_SETTINGS);
+  useEffect(() => {
+    if (isOpen) {
+      loadTaxSettings(tenant.id).then(cfg => { if (cfg) setTaxSettings(cfg); });
+    }
+  }, [isOpen, tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── PROMOCIONES Y CUPONES (declarados aquí para que estén disponibles en los useEffects) ───
   interface AppliedPromo { id: string; name: string; type: string; value: number; discountAmount: number; }
@@ -340,9 +349,19 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     return Math.min(d, totalPrice);
   }, [appliedPromo, appliedCoupon, totalPrice]);
 
-  const finalTotal = Math.max(0, totalPrice - discountAmount);
-
-  // Detect open tab order from localStorage when drawer opens
+  // ─── CÁLCULO DE TOTALES CON IVA Y SERVICIO ───
+  const orderTotals = React.useMemo(() => {
+    const hasTable = deliveryType === 'dine_in' || !!customerTable;
+    return calculateOrderTotals({
+      itemsSubtotal: totalPrice,
+      orderType: deliveryType || 'dine_in',
+      hasTable,
+      taxSettings,
+      discountAmount,
+    });
+  }, [totalPrice, deliveryType, customerTable, taxSettings, discountAmount]);
+  const finalTotal = orderTotals.totalAmount;
+  // Detect open tab order from localStorage when drawer openss
   useEffect(() => {
     if (isOpen) {
       try {
@@ -760,7 +779,16 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       const snapshotPromoDiscount = appliedPromo?.discountAmount ?? 0;
       const snapshotCouponDiscount = appliedCoupon?.discountAmount ?? 0;
       const snapshotDiscountAmount = snapshotPromoDiscount + snapshotCouponDiscount;
-      const snapshotFinalTotal = Math.max(0, snapshotSubtotal - snapshotDiscountAmount);
+      // Calcular totales con IVA y servicio en el momento del pedido
+      const snapshotHasTable = deliveryType === 'dine_in' || !!customerTable;
+      const snapshotOrderTotals = calculateOrderTotals({
+        itemsSubtotal: snapshotSubtotal,
+        orderType: deliveryType || 'dine_in',
+        hasTable: snapshotHasTable,
+        taxSettings,
+        discountAmount: snapshotDiscountAmount,
+      });
+      const snapshotFinalTotal = snapshotOrderTotals.totalAmount;
       const snapshotPromoLabel = appliedPromo?.name ?? null;
       const snapshotPromoType = appliedPromo?.type ?? null;
       const snapshotCouponCode = appliedCoupon?.code ?? null;
@@ -777,6 +805,15 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           subtotal: snapshotSubtotal,
           total: snapshotFinalTotal,
           discount_amount: snapshotDiscountAmount,
+          // Campos de IVA y servicio
+          items_subtotal: snapshotSubtotal,
+          tax_rate: snapshotOrderTotals.taxRate,
+          tax_amount: snapshotOrderTotals.taxAmount,
+          prices_include_tax: snapshotOrderTotals.taxIncluded,
+          service_rate: snapshotOrderTotals.serviceRate,
+          service_amount: snapshotOrderTotals.serviceAmount,
+          service_applied: snapshotOrderTotals.serviceApplied,
+          service_calculation_base: taxSettings.service_calculation_base,
           coupon_code: snapshotCouponCode,
           promotion_id: snapshotPromotionId,
           promo_label: snapshotPromoLabel,
@@ -1355,20 +1392,31 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         )}
                       </div>
                     )}
-                    {/* Descuento total */}
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-green-400">{lang === 'es' ? 'Descuento total' : 'Total discount'}</span>
-                        <span className="text-sm font-bold text-green-400">-{formatPrice(discountAmount)}</span>
+                    {/* Desglose IVA + Servicio + Descuento */}
+                    {orderTotals.breakdown.filter(l => l.type !== 'subtotal' && l.type !== 'total').map((line, i) => (
+                      <div key={i} className="flex justify-between items-center">
+                        <span className={`text-xs ${
+                          line.type === 'tax_included' ? 'opacity-60' :
+                          line.type === 'service' ? 'font-semibold' :
+                          line.type === 'discount' ? 'font-semibold text-green-400' : ''
+                        }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : `${theme.text_color}90` }}>
+                          {line.type === 'tax_included' ? '\u2514 ' : ''}{line.label}
+                        </span>
+                        <span className={`text-xs font-semibold ${
+                          line.type === 'discount' ? 'text-green-400' :
+                          line.type === 'tax_included' ? 'opacity-60' : ''
+                        }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : theme.text_color }}>
+                          {line.negative ? '-' : ''}{formatPrice(line.amount)}
+                        </span>
                       </div>
-                    )}
+                    ))}
                     {/* Total final */}
                     <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                       <span className="text-base font-semibold" style={{ color: theme.text_color }}>
                         {t('cart.total')}
                       </span>
                       <div className="text-right">
-                        {discountAmount > 0 && (
+                        {(discountAmount > 0 || orderTotals.serviceAmount > 0) && totalPrice !== finalTotal && (
                           <div className="text-xs line-through opacity-40" style={{ color: theme.text_color }}>{formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}</div>
                         )}
                         <span className="text-xl font-bold" style={{ color: theme.primary_color }}>

@@ -9,7 +9,7 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles, BookOpen,
+  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles, BookOpen, Receipt,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
@@ -18,7 +18,7 @@ export type TabKey =
   | 'orders' | 'history' | 'staff' | 'tables'
   | 'menu' | 'categories' | 'modifiers'
   | 'analytics' | 'performance' | 'customers' | 'promotions' | 'qr' | 'closing'
-  | 'settings' | 'experience' | 'theme'
+  | 'settings' | 'experience' | 'theme' | 'tax'
   | 'delivery';
 
 interface NavItem {
@@ -65,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'SISTEMA',
     items: [
       { key: 'settings',   label: 'Configuración',       icon: <Settings size={16} /> },
+      { key: 'tax',        label: 'IVA y Servicio',      icon: <Receipt size={16} /> },
       { key: 'experience', label: 'Experiencia Cliente',  icon: <Sparkles size={16} /> },
       { key: 'theme',      label: 'Tema',                icon: <Palette size={16} /> },
     ],
