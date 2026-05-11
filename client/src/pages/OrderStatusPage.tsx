@@ -927,6 +927,27 @@ export default function OrderStatusPage() {
                 <span className="font-semibold" style={{ color: '#4ADE80' }}>-{formatPrice((order as any).discount_amount > 0 ? (order as any).discount_amount : 0)}</span>
               </div>
             )}
+            {/* IVA incluido en precio */}
+            {(order as any).tax_amount > 0 && (order as any).prices_include_tax && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: th.muted }}>└ IVA incluido {(order as any).tax_rate}%</span>
+                <span style={{ color: th.muted }}>{formatPrice((order as any).tax_amount)}</span>
+              </div>
+            )}
+            {/* IVA sumado al precio */}
+            {(order as any).tax_amount > 0 && !(order as any).prices_include_tax && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: th.muted }}>IVA {(order as any).tax_rate}%</span>
+                <span style={{ color: th.muted }}>+{formatPrice((order as any).tax_amount)}</span>
+              </div>
+            )}
+            {/* Cargo de servicio de mesa */}
+            {(order as any).service_amount > 0 && (
+              <div className="flex justify-between text-sm font-semibold">
+                <span style={{ color: th.muted }}>Servicio de mesa {(order as any).service_rate}%</span>
+                <span style={{ color: th.muted }}>+{formatPrice((order as any).service_amount)}</span>
+              </div>
+            )}
             {/* Total discount line */}
             {(order as any).discount_amount > 0 && (
               <div className="flex justify-between text-sm font-semibold">
@@ -949,7 +970,9 @@ export default function OrderStatusPage() {
                 {(order as any).discount_amount > 0 && (
                   <span className="text-sm line-through" style={{ color: th.muted }}>{formatPrice((order as any).subtotal || order.total)}</span>
                 )}
-                <span className="text-xl font-black" style={{ color: th.accent }}>{formatPrice(order.total)}</span>
+                <span className="text-xl font-black" style={{ color: th.accent }}>
+                  {order.total > 0 ? formatPrice(order.total) : (order.items && order.items.length > 0 ? formatPrice(order.items.reduce((s: number, i: any) => s + (i.price || 0) * (i.quantity || 1), 0)) : 'Por confirmar')}
+                </span>
               </div>
             </div>
           </div>

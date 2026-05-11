@@ -215,6 +215,8 @@ const ORDER_SELECT = `
   delivery_eta_minutes, delivery_distance_km,
   subtotal, total, discount_amount, coupon_code,
   promo_label, promo_type, promotion_id,
+  items_subtotal, tax_rate, tax_amount, prices_include_tax,
+  service_rate, service_amount, service_applied, service_calculation_base,
   delivery_fee_final, delivery_fee_pending,
   payment_method, payment_status,
   items,

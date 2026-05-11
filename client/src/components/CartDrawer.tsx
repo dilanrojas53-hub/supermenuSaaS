@@ -659,6 +659,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   // Submit order: INSERT new or UPDATE existing (Cuenta Abierta)
   const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
+    // Validar que el carrito no esté vacío
+    if (!openTab && items.length === 0) {
+      setErrorMsg(lang === 'es' ? 'Tu carrito está vacío. Agrega productos antes de confirmar.' : 'Your cart is empty. Add items before confirming.');
+      return;
+    }
     // Para delivery: nombre obligatorio. Para dine_in/takeout: puede enviarse sin nombre.
     if (requiresCustomerData && !customerName.trim() && !openTab) return;
     setUploading(true);
