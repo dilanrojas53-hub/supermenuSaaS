@@ -1415,14 +1415,30 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : `${theme.text_color}90` }}>
                           {line.type === 'tax_included' ? '\u2514 ' : ''}{line.label}
                         </span>
-                        <span className={`text-xs font-semibold ${
-                          line.type === 'discount' ? 'text-green-400' :
-                          line.type === 'tax_included' ? 'opacity-60' : ''
-                        }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : theme.text_color }}>
-                          {line.negative ? '-' : ''}{formatPrice(line.amount)}
-                        </span>
+                        {/* Líneas informativas (IVA incluido): no muestran monto, solo texto */}
+                        {line.informative ? (
+                          <span className="text-xs opacity-60" style={{ color: `${theme.text_color}60` }}>
+                            incluido
+                          </span>
+                        ) : (
+                          <span className={`text-xs font-semibold ${
+                            line.type === 'discount' ? 'text-green-400' :
+                            line.type === 'tax_included' ? 'opacity-60' : ''
+                          }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : theme.text_color }}>
+                            {line.negative ? '-' : ''}{formatPrice(line.amount)}
+                          </span>
+                        )}
                       </div>
                     ))}
+                    {/* Aviso precios finales: solo cuando no hay cargos adicionales */}
+                    {!orderTotals.serviceApplied && orderTotals.taxIncluded && (
+                      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ backgroundColor: `${theme.primary_color}10` }}>
+                        <span className="text-[10px]" style={{ color: `${theme.primary_color}` }}>✓</span>
+                        <span className="text-[10px] font-medium" style={{ color: `${theme.primary_color}CC` }}>
+                          Precio final. Incluye IVA y servicio.
+                        </span>
+                      </div>
+                    )}
                     {/* Total final */}
                     <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: `${theme.text_color}10` }}>
                       <span className="text-base font-semibold" style={{ color: theme.text_color }}>
@@ -2645,6 +2661,14 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         <div className="flex justify-between pt-2 text-sm" style={{ color: `${theme.text_color}70` }}>
                           <span>{lang === 'es' ? 'Método de pago' : 'Payment method'}</span>
                           <span className="font-semibold">{paymentMethodLabel(paymentMethod)}</span>
+                        </div>
+                      )}
+                      {/* Aviso precios finales en confirmación */}
+                      {orderTotals.taxIncluded && !orderTotals.serviceApplied && (
+                        <div className="flex items-center justify-center gap-1 pt-2 mt-1 border-t" style={{ borderColor: `${theme.text_color}08` }}>
+                          <span className="text-[10px] font-medium opacity-50" style={{ color: theme.text_color }}>
+                            ✓ Precio final. Incluye IVA y servicio.
+                          </span>
                         </div>
                       )}
                     </div>

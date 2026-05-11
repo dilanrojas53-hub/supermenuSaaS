@@ -975,6 +975,14 @@ export default function OrderStatusPage() {
                 </span>
               </div>
             </div>
+            {/* Aviso precios finales: cuando IVA incluido y sin cargo de servicio adicional */}
+            {((order as any).prices_include_tax !== false && (order as any).service_amount <= 0) && (
+              <div className="flex items-center justify-center gap-1 mt-2">
+                <span className="text-[10px] font-medium" style={{ color: th.muted }}>
+                  ✓ Precio final. Incluye IVA y servicio.
+                </span>
+              </div>
+            )}
           </div>
           <div className="mt-4 pt-4 border-t flex items-center justify-between gap-3" style={{ borderColor: th.border }}>
             <div className="flex items-center gap-2 flex-wrap">
