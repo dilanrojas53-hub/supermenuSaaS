@@ -114,6 +114,11 @@ interface OpenTabOrder {
 
 export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItems = [], allCategories = [], pendingPromo }: CartDrawerProps) {
   const { items, updateQuantity, removeItem, clearCart, totalPrice, addItemAdvanced } = useCart();
+  // Ref para capturar siempre los items y totalPrice más recientes (evita stale closure en async)
+  const itemsRef = React.useRef(items);
+  const totalPriceRef = React.useRef(totalPrice);
+  React.useEffect(() => { itemsRef.current = items; }, [items]);
+  React.useEffect(() => { totalPriceRef.current = totalPrice; }, [totalPrice]);
   const { t, lang } = useI18n();
   const { profile: customerProfile, refreshTenantStats } = useCustomerProfile();
   const [, navigate] = useLocation();
@@ -659,8 +664,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   // Submit order: INSERT new or UPDATE existing (Cuenta Abierta)
   const handleSubmitOrderWithMethod = async (method: PaymentMethod) => {
+    // Capturar snapshot de items y totalPrice desde refs (siempre frescos, evita stale closure)
+    const currentItems = itemsRef.current;
+    const currentTotalPrice = totalPriceRef.current;
     // Validar que el carrito no esté vacío
-    if (!openTab && items.length === 0) {
+    if (!openTab && currentItems.length === 0) {
       setErrorMsg(lang === 'es' ? 'Tu carrito está vacío. Agrega productos antes de confirmar.' : 'Your cart is empty. Add items before confirming.');
       return;
     }
@@ -699,7 +707,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       // V11.0 Telemetría Local: Limpieza del payload antes de Supabase.
       // Los campos trigger_item_id y upsell_accepted_at son metadata temporal en memoria.
       // Se excluyen explícitamente con destructuring — NUNCA llegan a la tabla orders.
-      const newOrderItems = items.map(i => {
+       const newOrderItems = currentItems.map(i => {
         // Destructuring explícito: extraer y descartar campos de telemetría local
         const {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -720,12 +728,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           modifiersTotal: cleanCartItem.modifiersTotal || 0,
         };
       });
-
       // Calculate upsell revenue for NEW items only
-      const newUpsellRevenue = items
+      const newUpsellRevenue = currentItems
         .filter(i => i.isUpsell)
         .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
-      const newAiUpsellRevenue = items
+      const newAiUpsellRevenue = currentItems
         .filter(i => i.upsell_source === 'ai')
         .reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0);
 
@@ -780,7 +787,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       };
 
       // ─── SNAPSHOT de descuentos al momento del insert (fuente de verdad) ───
-      const snapshotSubtotal = totalPrice;
+      // Usar currentTotalPrice (desde ref) para garantizar datos frescos incluso en closures async
+      const snapshotSubtotal = currentTotalPrice;
       const snapshotPromoDiscount = appliedPromo?.discountAmount ?? 0;
       const snapshotCouponDiscount = appliedCoupon?.discountAmount ?? 0;
       const snapshotDiscountAmount = snapshotPromoDiscount + snapshotCouponDiscount;
@@ -1002,7 +1010,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       sinpe: { es: 'SINPE Móvil', en: 'SINPE Mobile' },
       efectivo: { es: 'Efectivo', en: 'Cash' },
       tarjeta: { es: 'Tarjeta', en: 'Card' },
-      pos_externo: { es: 'POS Externo', en: 'External POS' },
+      pos_externo: { es: 'Pago en caja', en: 'Pay at counter' },
     };
     return labels[method]?.[lang] || labels[method]?.es || '';
   };

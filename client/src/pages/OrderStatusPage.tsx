@@ -984,7 +984,7 @@ export default function OrderStatusPage() {
             {order.payment_method && (
               <span className="px-2.5 py-1 rounded-full text-[11px] font-black flex-shrink-0"
                 style={{ backgroundColor: 'color-mix(in srgb, var(--menu-accent) 12%, transparent)', color: th.accent, border: '1px solid color-mix(in srgb, var(--menu-accent) 25%, transparent)' }}>
-                {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'efectivo' ? '💵 Efectivo' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : order.payment_method.toUpperCase()}
+                {order.payment_method === 'sinpe' ? '📱 SINPE' : order.payment_method === 'efectivo' ? '💵 Efectivo' : order.payment_method === 'tarjeta' ? '💳 Tarjeta' : order.payment_method === 'pos_externo' ? '🏪 Pago en caja' : order.payment_method.toUpperCase()}
               </span>
             )}
           </div>
