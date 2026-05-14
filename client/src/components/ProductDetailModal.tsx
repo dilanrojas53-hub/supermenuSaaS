@@ -299,20 +299,21 @@ export default function ProductDetailModal({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto">
-              {/* Hero image */}
+              {/* Hero image — altura fija con object-cover centrado, sin zoom */}
               {item.image_url ? (
-                <div className="w-full h-64 relative">
+                <div className="w-full relative overflow-hidden flex-shrink-0" style={{ height: '220px', maxHeight: '220px' }}>
                   <img
-                    src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.detail.width, IMAGE_SIZES.detail.quality)}
+                    src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.detail.width, IMAGE_SIZES.detail.quality, 440)}
                     alt={item.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
+                    style={{ objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
                     loading="eager"
                     decoding="async"
                   />
                   <div
                     className="absolute inset-0"
                     style={{
-                      background: `linear-gradient(to top, ${theme.background_color} 0%, transparent 50%)`,
+                      background: `linear-gradient(to top, ${theme.background_color} 0%, transparent 55%)`,
                     }}
                   />
                 </div>

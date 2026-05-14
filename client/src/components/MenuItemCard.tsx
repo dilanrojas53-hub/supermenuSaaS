@@ -288,18 +288,19 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Imagen — aspect-ratio 4:3 para que escale bien en cualquier ancho */}
+      {/* Imagen — aspect-ratio 1:1 cuadrado, object-cover centrado sin zoom exagerado */}
       <div
         className="relative w-full overflow-hidden flex-shrink-0"
         onClick={handleOpenDetail}
-        style={{ aspectRatio: '4/3', borderRadius: '1.25rem 1.25rem 0 0' }}
+        style={{ aspectRatio: '1/1', borderRadius: '1.25rem 1.25rem 0 0' }}
       >
         {hasImage ? (
           <>
             <img
               src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality, IMAGE_SIZES.card.height)}
               alt={item.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="w-full h-full"
+              style={{ objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
               loading="lazy"
               decoding="async"
             />

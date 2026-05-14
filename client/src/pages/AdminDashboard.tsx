@@ -857,9 +857,9 @@ const TABLE_CATEGORY_LABELS: Record<TableCategory, string> = {
   taburete: 'Taburete de bar',
 };
 const TABLE_CATEGORY_ICONS: Record<TableCategory, string> = {
-  mesa_grande: '🔲',
-  mesa_pequeña: '🗒️',
-  taburete: '🪺',
+  mesa_grande: '🪑',
+  mesa_pequeña: '🍽️',
+  taburete: '🪑',
 };
 function TablesConfigSection({ tenant }: { tenant: Tenant }) {
   const [tables, setTables] = useState<{ id: string; table_number: string; label: string; capacity: string; sort_order: number; category: TableCategory | null }[]>([]);

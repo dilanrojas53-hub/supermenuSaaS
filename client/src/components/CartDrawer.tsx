@@ -1779,13 +1779,18 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             const categoryLabel: Record<string, string> = {
                               mesa_grande: lang === 'es' ? 'Mesa grande' : 'Large table',
                               'mesa_pequeña': lang === 'es' ? 'Mesa pequeña' : 'Small table',
-                              taburete: lang === 'es' ? 'Taburete' : 'Bar stool',
+                              taburete: lang === 'es' ? 'Taburete de bar' : 'Bar stool',
+                            };
+                            const categoryIcon: Record<string, string> = {
+                              mesa_grande: '🍽️',
+                              'mesa_pequeña': '🍽️',
+                              taburete: '🪑',
                             };
                             // Prefijo legible por categoría
                             const categoryPrefix: Record<string, string> = {
-                              mesa_grande: lang === 'es' ? 'Mesa grande' : 'Large table',
-                              'mesa_pequeña': lang === 'es' ? 'Mesa pequeña' : 'Small table',
-                              taburete: lang === 'es' ? 'Taburete' : 'Bar stool',
+                              mesa_grande: '',
+                              'mesa_pequeña': '',
+                              taburete: '',
                             };
                             const groups = categoryOrder
                               .map(cat => ({
@@ -1819,6 +1824,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                                           }}
                                         >
                                           <div className="flex items-center gap-2">
+                                            {cat && categoryIcon[cat] && (
+                                              <span className="text-base">{categoryIcon[cat]}</span>
+                                            )}
                                             <span className="text-sm font-semibold" style={{ color: theme.text_color }}>
                                               {groupName}
                                             </span>

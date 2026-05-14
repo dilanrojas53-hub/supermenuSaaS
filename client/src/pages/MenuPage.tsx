@@ -63,13 +63,20 @@ function MenuContent() {
     const check = () => {
       try {
         const raw = localStorage.getItem('active_order');
-        setActiveOrderData(raw ? JSON.parse(raw) : null);
+        if (!raw) { setActiveOrderData(null); return; }
+        const parsed = JSON.parse(raw);
+        // CROSS-TENANT FIX: solo mostrar el pedido activo si pertenece a este tenant
+        if (parsed.tenantSlug && slug && parsed.tenantSlug !== slug) {
+          setActiveOrderData(null);
+          return;
+        }
+        setActiveOrderData(parsed);
       } catch { setActiveOrderData(null); }
     };
     check();
     const iv = setInterval(check, 3000);
     return () => clearInterval(iv);
-  }, []);
+  }, [slug]);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
