@@ -156,7 +156,7 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
     setEditingItem(item);
     setIsCreating(false);
     setForm({
-      name: item.name, description: item.description || '', price: String(item.price),
+      name: item.name, description: item.description || '', price: String(Math.round(item.price)),
       category_id: item.category_id, image_url: item.image_url || '',
       is_available: item.is_available, is_featured: item.is_featured,
       badge: item.badge || '', upsell_item_id: item.upsell_item_id || '',
@@ -175,7 +175,7 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
     }
     const payload = {
       tenant_id: tenant.id, name: form.name, description: form.description || null,
-      price: parseFloat(form.price), category_id: form.category_id,
+      price: Math.round(parseFloat(form.price.replace(/\./g, '').replace(',', '.')) || 0), category_id: form.category_id,
       image_url: form.image_url || null, is_available: form.is_available,
       is_featured: form.is_featured, badge: form.badge || null,
       upsell_item_id: form.upsell_item_id || null, upsell_text: form.upsell_text || null,
@@ -240,7 +240,17 @@ function MenuTab({ tenant, categories, items, onRefresh }: {
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1">Precio (₡) *</label>
-              <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })}
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={form.price}
+                onChange={e => {
+                  // Solo permitir dígitos (sin punto ni coma)
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  setForm({ ...form, price: raw });
+                }}
+                placeholder="Ej: 3850"
                 className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:outline-none" />
             </div>
             <div className="md:col-span-2">
