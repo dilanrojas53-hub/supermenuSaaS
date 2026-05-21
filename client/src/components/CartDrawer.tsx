@@ -363,8 +363,9 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       hasTable,
       taxSettings,
       discountAmount,
+      itemCount: items.reduce((s, ci) => s + ci.quantity, 0),
     });
-  }, [totalPrice, deliveryType, customerTable, taxSettings, discountAmount]);
+  }, [totalPrice, deliveryType, customerTable, taxSettings, discountAmount, items]);
   const finalTotal = orderTotals.totalAmount;
   // Detect open tab order from localStorage when drawer openss
   useEffect(() => {
@@ -800,6 +801,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
         hasTable: snapshotHasTable,
         taxSettings,
         discountAmount: snapshotDiscountAmount,
+        itemCount: newOrderItems.reduce((s: number, ci: any) => s + (ci.quantity || 1), 0),
       });
       const snapshotFinalTotal = snapshotOrderTotals.totalAmount;
       const snapshotPromoLabel = appliedPromo?.name ?? null;
@@ -827,6 +829,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
           service_amount: snapshotOrderTotals.serviceAmount,
           service_applied: snapshotOrderTotals.serviceApplied,
           service_calculation_base: taxSettings.service_calculation_base,
+          packaging_amount: snapshotOrderTotals.packagingAmount || 0,
+          service_stripped: snapshotOrderTotals.serviceWasStripped,
           coupon_code: snapshotCouponCode,
           promotion_id: snapshotPromotionId,
           promo_label: snapshotPromoLabel,
@@ -1405,37 +1409,54 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         )}
                       </div>
                     )}
-                    {/* Desglose IVA + Servicio + Descuento */}
+                    {/* Desglose IVA + Servicio + Descuento + Empaque */}
                     {orderTotals.breakdown.filter(l => l.type !== 'subtotal' && l.type !== 'total').map((line, i) => (
                       <div key={i} className="flex justify-between items-center">
                         <span className={`text-xs ${
                           line.type === 'tax_included' ? 'opacity-60' :
                           line.type === 'service' ? 'font-semibold' :
+                          line.type === 'service_stripped' ? 'text-blue-400' :
+                          line.type === 'packaging' ? 'font-semibold' :
                           line.type === 'discount' ? 'font-semibold text-green-400' : ''
-                        }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : `${theme.text_color}90` }}>
+                        }`} style={{ color:
+                          line.type === 'discount' ? '#4ADE80' :
+                          line.type === 'service_stripped' ? '#60A5FA' :
+                          line.type === 'tax_included' ? `${theme.text_color}60` :
+                          `${theme.text_color}90`
+                        }}>
                           {line.type === 'tax_included' ? '\u2514 ' : ''}{line.label}
                         </span>
-                        {/* Líneas informativas (IVA incluido): no muestran monto, solo texto */}
                         {line.informative ? (
-                          <span className="text-xs opacity-60" style={{ color: `${theme.text_color}60` }}>
-                            incluido
-                          </span>
+                          <span className="text-xs opacity-60" style={{ color: `${theme.text_color}60` }}>incluido</span>
                         ) : (
                           <span className={`text-xs font-semibold ${
-                            line.type === 'discount' ? 'text-green-400' :
+                            line.type === 'discount' || line.type === 'service_stripped' ? 'text-green-400' :
                             line.type === 'tax_included' ? 'opacity-60' : ''
-                          }`} style={{ color: line.type === 'discount' ? '#4ADE80' : line.type === 'tax_included' ? `${theme.text_color}60` : theme.text_color }}>
+                          }`} style={{ color:
+                            line.type === 'discount' || line.type === 'service_stripped' ? '#4ADE80' :
+                            line.type === 'tax_included' ? `${theme.text_color}60` :
+                            theme.text_color
+                          }}>
                             {line.negative ? '-' : ''}{formatPrice(line.amount)}
                           </span>
                         )}
                       </div>
                     ))}
-                    {/* Aviso precios finales: solo cuando no hay cargos adicionales */}
-                    {!orderTotals.serviceApplied && orderTotals.taxIncluded && (
+                    {/* Aviso para mesa: servicio incluido */}
+                    {orderTotals.isDineIn && orderTotals.taxIncluded && !orderTotals.serviceApplied && !orderTotals.serviceWasStripped && (
                       <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ backgroundColor: `${theme.primary_color}10` }}>
-                        <span className="text-[10px]" style={{ color: `${theme.primary_color}` }}>✓</span>
+                        <span className="text-[10px]" style={{ color: theme.primary_color }}>✓</span>
                         <span className="text-[10px] font-medium" style={{ color: `${theme.primary_color}CC` }}>
-                          Precio final. Incluye IVA y servicio.
+                          Precio final. Incluye IVA y servicio de mesa.
+                        </span>
+                      </div>
+                    )}
+                    {/* Aviso para llevar/delivery: servicio quitado */}
+                    {orderTotals.serviceWasStripped && (
+                      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ backgroundColor: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.15)' }}>
+                        <span className="text-[10px] text-blue-400">ℹ</span>
+                        <span className="text-[10px] font-medium text-blue-300">
+                          Servicio de mesa no aplica para este tipo de pedido.
                         </span>
                       </div>
                     )}
@@ -1445,7 +1466,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         {t('cart.total')}
                       </span>
                       <div className="text-right">
-                        {(discountAmount > 0 || orderTotals.serviceAmount > 0) && totalPrice !== finalTotal && (
+                        {(discountAmount > 0 || orderTotals.serviceAmount > 0 || orderTotals.serviceWasStripped || orderTotals.packagingAmount > 0) && totalPrice !== finalTotal && (
                           <div className="text-xs line-through opacity-40" style={{ color: theme.text_color }}>{formatPrice(totalPrice + (deliveryType === 'delivery' ? estimatedDeliveryFee : 0))}</div>
                         )}
                         <span className="text-xl font-bold" style={{ color: theme.primary_color }}>

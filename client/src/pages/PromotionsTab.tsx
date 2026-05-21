@@ -1,14 +1,12 @@
 /**
  * PromotionsTab — Motor de promociones configurable en el admin.
- * FIXES:
- * - Automatizaciones: usa tabla 'automation_rules' con campos trigger_type/action_type
- * - Promociones: agrega selector de platillos (item_ids jsonb)
- * - Manejo de errores en todas las operaciones de BD
+ * v2: Agrega sección "Disponibilidad" con días activos, horario y zona horaria.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Loader2, Trash2, ToggleLeft, ToggleRight, Tag, Gift, Zap, Search, X, Check } from 'lucide-react';
+import { Plus, Loader2, Trash2, ToggleLeft, ToggleRight, Tag, Gift, Zap, Search, X, Check, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Tenant } from '@/lib/types';
+import { isPromotionCurrentlyActive, DAY_NAMES_SHORT_ES, formatActiveDays } from '@/lib/promoSchedule';
 
 interface Promotion {
   id: string;
@@ -24,6 +22,10 @@ interface Promotion {
   active_hours_end: string | null;
   start_time: string | null;
   end_time: string | null;
+  active_days: number[] | null;
+  always_active: boolean | null;
+  visible_only_when_active: boolean | null;
+  timezone: string | null;
   item_ids: string[] | null;
   promo_price: number | null;
   is_active: boolean;
@@ -103,6 +105,10 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
   const [promoLevel, setPromoLevel] = useState('');
   const [promoStartTime, setPromoStartTime] = useState('');
   const [promoEndTime, setPromoEndTime] = useState('');
+  const [promoActiveDays, setPromoActiveDays] = useState<number[]>([0,1,2,3,4,5,6]);
+  const [promoAlwaysActive, setPromoAlwaysActive] = useState(true);
+  const [promoVisibleOnlyWhenActive, setPromoVisibleOnlyWhenActive] = useState(true);
+  const [promoTimezone, setPromoTimezone] = useState('America/Costa_Rica');
   const [promoNewOnly, setPromoNewOnly] = useState(false);
   const [promoReactivation, setPromoReactivation] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
@@ -154,8 +160,12 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
       value: promoValue,
       min_order_amount: promoMinOrder ? parseFloat(promoMinOrder) : null,
       level_required: promoLevel || null,
-      active_hours_start: promoStartTime || null,
-      active_hours_end: promoEndTime || null,
+      active_hours_start: promoAlwaysActive ? null : (promoStartTime || null),
+      active_hours_end: promoAlwaysActive ? null : (promoEndTime || null),
+      active_days: promoAlwaysActive ? null : (promoActiveDays.length === 7 ? null : promoActiveDays),
+      always_active: promoAlwaysActive,
+      visible_only_when_active: promoVisibleOnlyWhenActive,
+      timezone: promoTimezone || 'America/Costa_Rica',
       item_ids: selectedItemIds.length > 0 ? selectedItemIds : null,
       promo_price: promoPrice ? parseFloat(promoPrice) : null,
       is_active: true,
@@ -166,6 +176,7 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
     setShowForm(false);
     setPromoName(''); setPromoPct(''); setPromoFixed(''); setPromoPrice('');
     setPromoMinOrder(''); setPromoLevel(''); setPromoStartTime(''); setPromoEndTime('');
+    setPromoActiveDays([0,1,2,3,4,5,6]); setPromoAlwaysActive(true); setPromoVisibleOnlyWhenActive(true);
     setPromoNewOnly(false); setPromoReactivation(false);
     setSelectedItemIds([]); setItemSearch(''); setShowItemSelector(false);
     loadData();
@@ -410,6 +421,104 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                     )}
                   </div>
 
+                  {/* ── Sección: Disponibilidad ── */}
+                  <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock size={14} className="text-amber-400" />
+                      <span className="text-xs font-bold text-amber-400">Disponibilidad de la promoción</span>
+                    </div>
+
+                    {/* Siempre activa */}
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input type="checkbox" checked={promoAlwaysActive} onChange={e => setPromoAlwaysActive(e.target.checked)} className="accent-amber-400" />
+                      <span className="font-semibold">Siempre activa</span>
+                      <span className="text-slate-500">(sin restricción de días u horario)</span>
+                    </label>
+
+                    {!promoAlwaysActive && (
+                      <>
+                        {/* Días activos */}
+                        <div>
+                          <label className="text-xs text-slate-400 mb-1.5 block">Días activos</label>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {([1,2,3,4,5,6,0] as number[]).map(d => {
+                              const sel = promoActiveDays.includes(d);
+                              return (
+                                <button
+                                  key={d}
+                                  type="button"
+                                  onClick={() => setPromoActiveDays(prev =>
+                                    sel ? prev.filter(x => x !== d) : [...prev, d]
+                                  )}
+                                  className="px-2 py-1 rounded-lg text-xs font-semibold transition-all"
+                                  style={{
+                                    background: sel ? '#F59E0B' : 'rgba(255,255,255,0.06)',
+                                    color: sel ? '#000' : '#94A3B8',
+                                    border: `1px solid ${sel ? '#F59E0B' : 'transparent'}`,
+                                  }}>
+                                  {DAY_NAMES_SHORT_ES[d]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Horario */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">Hora inicio</label>
+                            <input
+                              type="time"
+                              value={promoStartTime}
+                              onChange={e => setPromoStartTime(e.target.value)}
+                              className={inputCls}
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">Hora fin</label>
+                            <input
+                              type="time"
+                              value={promoEndTime}
+                              onChange={e => setPromoEndTime(e.target.value)}
+                              className={inputCls}
+                              style={inputStyle}
+                            />
+                          </div>
+                        </div>
+                        {promoStartTime && promoEndTime && promoStartTime > promoEndTime && (
+                          <p className="text-xs text-amber-400">⚠️ El horario cruza medianoche (ej: 22:00 – 02:00). Esto es válido.</p>
+                        )}
+                        {(!promoStartTime || !promoEndTime) && (
+                          <p className="text-xs text-slate-500">Sin horario → activa todo el día en los días seleccionados.</p>
+                        )}
+
+                        {/* Zona horaria */}
+                        <div>
+                          <label className="text-xs text-slate-400 mb-1 block">Zona horaria</label>
+                          <select value={promoTimezone} onChange={e => setPromoTimezone(e.target.value)} className={inputCls} style={inputStyle}>
+                            <option value="America/Costa_Rica">Costa Rica (UTC-6)</option>
+                            <option value="America/New_York">Nueva York (UTC-5/-4)</option>
+                            <option value="America/Chicago">Chicago (UTC-6/-5)</option>
+                            <option value="America/Los_Angeles">Los Ángeles (UTC-8/-7)</option>
+                            <option value="America/Mexico_City">Ciudad de México (UTC-6/-5)</option>
+                            <option value="America/Bogota">Bogotá (UTC-5)</option>
+                            <option value="America/Lima">Lima (UTC-5)</option>
+                            <option value="America/Santiago">Santiago (UTC-4/-3)</option>
+                            <option value="America/Sao_Paulo">São Paulo (UTC-3)</option>
+                            <option value="Europe/Madrid">Madrid (UTC+1/+2)</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Visibilidad */}
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                      <input type="checkbox" checked={promoVisibleOnlyWhenActive} onChange={e => setPromoVisibleOnlyWhenActive(e.target.checked)} className="accent-amber-400" />
+                      <span>Solo visible durante horario activo</span>
+                    </label>
+                  </div>
+
                   <div className="flex gap-4">
                     <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
                       <input type="checkbox" checked={promoNewOnly} onChange={e => setPromoNewOnly(e.target.checked)} />
@@ -444,9 +553,26 @@ export default function PromotionsTab({ tenant }: { tenant: Tenant }) {
                           {p.promo_price ? (
                             <span className="ml-1 font-semibold" style={{ color: '#F59E0B' }}>· Precio promo: ₡{p.promo_price.toLocaleString()}</span>
                           ) : null}
-                          {(p.active_hours_start || p.start_time) && (p.active_hours_end || p.end_time) ? ` · ${p.active_hours_start || p.start_time}–${p.active_hours_end || p.end_time}` : ''}
                           {itemCount > 0 ? ` · ${itemCount} platillo${itemCount > 1 ? 's' : ''}` : ''}
                         </div>
+                        {/* Disponibilidad */}
+                        {!p.always_active && (
+                          <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                            <Clock size={9} />
+                            {formatActiveDays(p.active_days)}
+                            {(p.active_hours_start || p.start_time) && (p.active_hours_end || p.end_time)
+                              ? ` · ${p.active_hours_start || p.start_time}–${p.active_hours_end || p.end_time}`
+                              : ' · todo el día'}
+                          </div>
+                        )}
+                        {/* Estado actual */}
+                        {p.is_active && (
+                          <div className={`text-[10px] font-semibold mt-0.5 ${
+                            isPromotionCurrentlyActive(p) ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {isPromotionCurrentlyActive(p) ? '● Activa ahora' : '○ Fuera de horario'}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => togglePromo(p.id, p.is_active)}>
