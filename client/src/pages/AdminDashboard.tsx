@@ -879,7 +879,7 @@ function TakeoutToggleCard({ tenant }: { tenant: Tenant }) {
 
   useEffect(() => {
     supabase
-      .from('delivery_config')
+      .from('delivery_settings')
       .select('takeout_orders_enabled')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
@@ -893,7 +893,7 @@ function TakeoutToggleCard({ tenant }: { tenant: Tenant }) {
     setEnabled(v);
     setSaving(true);
     const { error } = await supabase
-      .from('delivery_config')
+      .from('delivery_settings')
       .upsert({ tenant_id: tenant.id, takeout_orders_enabled: v }, { onConflict: 'tenant_id' });
     setSaving(false);
     if (error) toast.error('Error: ' + error.message);
