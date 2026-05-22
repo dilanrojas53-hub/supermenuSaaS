@@ -42,7 +42,7 @@ import {
   Power, PowerOff, ToggleLeft, ToggleRight, Download, RefreshCw, Clock,
   TrendingUp, DollarSign, CheckCircle2, ChefHat, Timer, Scissors, MessageCircle,
   Trophy, AlertCircle, Users, MapPin, Navigation, Bike, UserCheck, ShieldCheck, UserPlus, Lock, Unlock, Link2, Copy, Check, Sliders, ChevronDown, ChevronUp, ChevronRight, Menu as MenuIcon,
-  Loader2
+  Loader2, ShoppingBag
 } from 'lucide-react';
 import { waPhone, buildWhatsAppUrl } from '@/lib/phone';
 import { AdminSidebar } from '@/components/AdminSidebar';
@@ -871,6 +871,57 @@ const TABLE_CATEGORY_ICONS: Record<TableCategory, string> = {
   mesa_pequeña: '🍽️',
   taburete: '🪑',
 };
+// ─── TakeoutToggleCard ─ Toggle de Para llevar en Configuración ──────────────
+function TakeoutToggleCard({ tenant }: { tenant: Tenant }) {
+  const [enabled, setEnabled] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    supabase
+      .from('delivery_config')
+      .select('takeout_orders_enabled')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setEnabled(data?.takeout_orders_enabled ?? false);
+        setLoading(false);
+      });
+  }, [tenant.id]);
+
+  const handleToggle = async (v: boolean) => {
+    setEnabled(v);
+    setSaving(true);
+    const { error } = await supabase
+      .from('delivery_config')
+      .upsert({ tenant_id: tenant.id, takeout_orders_enabled: v }, { onConflict: 'tenant_id' });
+    setSaving(false);
+    if (error) toast.error('Error: ' + error.message);
+    else toast.success(v ? 'Para llevar activado ✅' : 'Para llevar desactivado');
+  };
+
+  if (loading) return null;
+  return (
+    <div className="mt-6 pt-6 border-t border-slate-700/50">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShoppingBag size={18} className="text-emerald-400" />
+          <div>
+            <h3 className="text-sm font-black text-[var(--text-primary)]">Para llevar</h3>
+            <p className="text-xs text-[var(--text-secondary)]">Pedidos para recoger en el local. El servicio 10% se descuenta automáticamente si los precios lo incluyen.</p>
+          </div>
+        </div>
+        <ToggleSwitch
+          checked={enabled}
+          onChange={handleToggle}
+          colorOn="#10B981"
+        />
+      </div>
+      {saving && <p className="text-xs text-emerald-400 mt-1">Guardando...</p>}
+    </div>
+  );
+}
+
 function TablesConfigSection({ tenant }: { tenant: Tenant }) {
   const [tables, setTables] = useState<{ id: string; table_number: string; label: string; capacity: string; sort_order: number; category: TableCategory | null }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1936,6 +1987,8 @@ function DeliverySettingsCard({ tenant }: { tenant: Tenant }) {
         </div>
       )}
 
+      {/* ── Para llevar ── */}
+      <TakeoutToggleCard tenant={tenant} />
       {/* ── Configuración de Mesas ── */}
       <div className="mt-6 pt-6 border-t border-slate-700/50">
         <TablesConfigSection tenant={tenant} />
@@ -3367,7 +3420,7 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const subTabs: { key: OrderSubTab; label: string; icon: string | null; color: string; activeColor: string }[] = [
     { key: 'DINE_IN',  label: 'Comer Aquí', icon: null, color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300' },
     { key: 'DELIVERY', label: 'Delivery',    icon: null, color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300' },
-    { key: 'TAKEOUT',  label: 'Por Encargo', icon: null, color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
+    { key: 'TAKEOUT',  label: 'Para llevar', icon: null, color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
   ];
 
   return (

@@ -1537,8 +1537,8 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               <OrderTypeSelector
                 theme={theme}
                 lang={lang}
-                deliveryEnabled={true}
-                takeawayEnabled={true}
+                deliveryEnabled={deliveryConfig?.delivery_orders_enabled ?? true}
+                takeawayEnabled={deliveryConfig?.takeout_orders_enabled ?? true}
                 onSelect={(type) => {
                   const dt = type === 'takeaway' ? 'takeout' : type as DeliveryType;
                   setDeliveryType(dt);
