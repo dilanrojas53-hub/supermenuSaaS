@@ -18,6 +18,7 @@ import OrderStatusPage from './pages/OrderStatusPage';
 import StaffDashboard from './pages/StaffDashboard';
 import KitchenDisplay from './pages/KitchenDisplay';
 import RiderApp from './pages/RiderApp';
+import RestaurantLanding from './pages/RestaurantLanding';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function Router() {
@@ -41,6 +42,8 @@ function Router() {
       <Route path="/rider/:slug" component={RiderApp} />
       {/* Order tracking */}
       <Route path="/order-status/:orderId" component={OrderStatusPage} />
+      {/* Restaurant landing page */}
+      <Route path="/:slug/restaurante" component={RestaurantLanding} />
       {/* Public menu route — must be last dynamic route */}
       <Route path="/:slug" component={MenuPage} />
       <Route path="/404" component={NotFound} />

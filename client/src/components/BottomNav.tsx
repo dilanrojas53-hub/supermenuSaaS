@@ -1,19 +1,20 @@
 /**
  * BottomNav — Barra de navegación inferior móvil
  * Feature-aware: oculta tabs según menu_config del restaurante.
- * Tabs: Menú (siempre) / Pedido (siempre) / Promos (si enable_promotions) / Historial (si enable_history) / Perfil (si enable_profiles)
+ * Tabs: Menú (siempre) / Pedido (siempre) / Promos (si enable_promotions) / Historial (si enable_history) / Perfil (si enable_profiles) / Restaurante (si enable_landing)
  */
-import { ShoppingCart, UtensilsCrossed, Tag, Clock, User, ChefHat } from 'lucide-react';
+import { ShoppingCart, UtensilsCrossed, Tag, Clock, User, ChefHat, Globe } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import { useLocation } from 'wouter';
 
-export type BottomNavTab = 'menu' | 'order' | 'promos' | 'history' | 'profile';
+export type BottomNavTab = 'menu' | 'order' | 'promos' | 'history' | 'profile' | 'restaurante';
 
 interface MenuConfig {
   enable_profiles?: boolean;
   enable_history?: boolean;
   enable_promotions?: boolean;
+  enable_landing?: boolean;
   [key: string]: any;
 }
 
@@ -26,6 +27,8 @@ interface BottomNavProps {
   textColor?: string;
   activeOrderData?: { orderId: string; orderNumber: number; status: string } | null;
   menuConfig?: MenuConfig;
+  /** slug del restaurante para navegar a la landing */
+  tenantSlug?: string;
 }
 
 export default function BottomNav({
@@ -37,6 +40,7 @@ export default function BottomNav({
   textColor = 'var(--menu-text)',
   activeOrderData,
   menuConfig,
+  tenantSlug,
 }: BottomNavProps) {
   const { totalItems } = useCart();
   const { profile } = useCustomerProfile();
@@ -47,12 +51,13 @@ export default function BottomNav({
   };
 
   // Feature flags — si no hay menuConfig, mostrar todo (comportamiento legacy)
-  const showPromos  = !menuConfig || menuConfig.enable_promotions !== false;
-  const showHistory = !menuConfig || menuConfig.enable_history !== false;
-  const showProfile = !menuConfig || menuConfig.enable_profiles !== false;
+  const showPromos      = !menuConfig || menuConfig.enable_promotions !== false;
+  const showHistory     = !menuConfig || menuConfig.enable_history !== false;
+  const showProfile     = !menuConfig || menuConfig.enable_profiles !== false;
+  const showRestaurante = !!menuConfig?.enable_landing;
 
   const allTabs = [
-    { key: 'menu' as const,    label: 'Menú',      Icon: UtensilsCrossed, visible: true },
+    { key: 'menu' as const,        label: 'Menú',        Icon: UtensilsCrossed, visible: true },
     {
       key: 'order' as const,
       label: 'Pedido',
@@ -62,9 +67,10 @@ export default function BottomNav({
       activeEmoji: activeOrderData ? (statusEmoji[activeOrderData.status] || '🍳') : undefined,
       visible: true,
     },
-    { key: 'promos' as const,  label: 'Promos',    Icon: Tag,   visible: showPromos },
-    { key: 'history' as const, label: 'Historial', Icon: Clock, visible: showHistory },
-    { key: 'profile' as const, label: 'Perfil',    Icon: User,  dot: !!profile, visible: showProfile },
+    { key: 'promos' as const,      label: 'Promos',      Icon: Tag,   visible: showPromos },
+    { key: 'history' as const,     label: 'Historial',   Icon: Clock, visible: showHistory },
+    { key: 'profile' as const,     label: 'Perfil',      Icon: User,  dot: !!profile, visible: showProfile },
+    { key: 'restaurante' as const, label: 'Restaurante', Icon: Globe, visible: showRestaurante },
   ];
   const tabs = allTabs.filter(t => t.visible);
 
@@ -83,16 +89,17 @@ export default function BottomNav({
         const handleClick = () => {
           if (key === 'order') {
             if (totalItems > 0 && onCartOpen) {
-              // Hay items en carrito → abrir carrito
               onCartOpen();
             } else if (!totalItems && activeOrderData) {
-              // No hay carrito pero hay pedido activo → ir al tracking
               navigate(`/order-status/${activeOrderData.orderId}`);
             } else if (onCartOpen) {
-              // Carrito vacío y sin pedido activo → abrir carrito (estado vacío)
               onCartOpen();
             }
             onTabChange('order');
+          } else if (key === 'restaurante' && tenantSlug) {
+            // Navegar a la landing pública del restaurante
+            navigate(`/${tenantSlug}/restaurante`);
+            onTabChange('restaurante');
           } else {
             onTabChange(key);
           }

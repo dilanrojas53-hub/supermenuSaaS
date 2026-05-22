@@ -958,6 +958,7 @@ function MenuContent() {
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
         menuConfig={menuConfig}
+        tenantSlug={tenant.slug}
       />
     </div>
   );

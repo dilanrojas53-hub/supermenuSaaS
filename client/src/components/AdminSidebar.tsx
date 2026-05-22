@@ -9,7 +9,7 @@ import {
   ClipboardList, Clock, Users, UtensilsCrossed, Tag, Sliders,
   BarChart3, TrendingUp, QrCode, Settings, Palette, Scissors,
   ChevronDown, ChevronRight, X, Menu as MenuIcon, Eye, LogOut, ExternalLink,
-  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles, BookOpen, Receipt,
+  Truck, LayoutGrid, UserCheck, Megaphone, Sparkles, BookOpen, Receipt, Globe,
 } from 'lucide-react';
 import type { PlanTier } from '@/lib/plans';
 import { hasCapability } from '@/lib/plans';
@@ -19,7 +19,8 @@ export type TabKey =
   | 'menu' | 'categories' | 'modifiers'
   | 'analytics' | 'performance' | 'customers' | 'promotions' | 'qr' | 'closing'
   | 'settings' | 'experience' | 'theme' | 'tax'
-  | 'delivery';
+  | 'delivery'
+  | 'landing';
 
 interface NavItem {
   key: TabKey;
@@ -68,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'tax',        label: 'IVA y Servicio',      icon: <Receipt size={16} /> },
       { key: 'experience', label: 'Experiencia Cliente',  icon: <Sparkles size={16} /> },
       { key: 'theme',      label: 'Tema',                icon: <Palette size={16} /> },
+      { key: 'landing',    label: 'Página del restaurante', icon: <Globe size={16} /> },
     ],
   },
   {
