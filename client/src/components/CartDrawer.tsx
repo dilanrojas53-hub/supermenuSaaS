@@ -1609,9 +1609,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                             border: `1.5px solid ${theme.primary_color}30`,
                           }}
                         >
-          <span className="text-base">🛵</span>
+          <span className="text-base">{deliveryType === 'takeout' ? '🛍️' : '🛵'}</span>
           <p className="text-sm font-semibold" style={{ color: theme.primary_color }}>
-            {lang === 'es' ? 'Entrega lo más pronto posible (Aprox. 30–45 min)' : 'Delivery as soon as possible (Approx. 30–45 min)'}
+            {deliveryType === 'takeout'
+              ? (lang === 'es' ? 'Listo para retiro en el local (Aprox. 15–20 min)' : 'Ready for pickup at the restaurant (Approx. 15–20 min)')
+              : (lang === 'es' ? 'Entrega lo más pronto posible (Aprox. 30–45 min)' : 'Delivery as soon as possible (Approx. 30–45 min)')}
                           </p>
                         </div>
                       ) : (
@@ -2697,7 +2699,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                       {orderTotals.taxIncluded && !orderTotals.serviceApplied && (
                         <div className="flex items-center justify-center gap-1 pt-2 mt-1 border-t" style={{ borderColor: `${theme.text_color}08` }}>
                           <span className="text-[10px] font-medium opacity-50" style={{ color: theme.text_color }}>
-                            ✓ Precio final. Incluye IVA y servicio.
+                            {deliveryType === 'takeout' ? '✓ Precio final. Incluye IVA. Sin cargo de servicio.' : '✓ Precio final. Incluye IVA y servicio.'}
                           </span>
                         </div>
                       )}
