@@ -873,11 +873,11 @@ const TABLE_CATEGORY_ICONS: Record<TableCategory, string> = {
 };
 // ─── TakeoutToggleCard ─ Toggle de Para llevar en Configuración ──────────────
 function TakeoutToggleCard({ tenant }: { tenant: Tenant }) {
-  const [enabled, setEnabled] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     supabase
       .from('delivery_config')
       .select('takeout_orders_enabled')
