@@ -1,40 +1,36 @@
 /**
- * paymentGating.ts — V1.0
+ * paymentGating.ts — V1.1
  *
  * Helpers de gating de pagos por modalidad de pedido.
  *
- * DECISIÓN DE PRODUCTO (2026-03):
- *   En dine-in y takeout, el cobro ocurre fuera de SmartMenu (datáfono / POS externo).
- *   La lógica de pago se mantiene intacta en backend; solo se oculta la UI al cliente.
- *   Delivery mantiene el flujo completo de pago (SINPE, comprobante, validación).
- *
- * IMPORTANTE: NO eliminar esta lógica. Cuando se integre POS/datáfono real,
- *   se activará por canal cambiando los valores de retorno aquí.
+ * DECISIÓN DE PRODUCTO (2026-05):
+ *   - dine-in: cobro fuera de SmartMenu (datáfono / POS externo). Sin selector de pago.
+ *   - takeout: el cliente selecciona método de pago (SINPE, Efectivo, Tarjeta) al pedir.
+ *   - delivery: flujo completo de pago (SINPE, comprobante, validación).
  */
 
 export type OrderChannel = 'dine_in' | 'takeout' | 'delivery';
 
 /**
  * ¿Debe mostrarse la pantalla de selección de método de pago al cliente?
- * Solo delivery tiene flujo de pago visible por ahora.
+ * Takeout y delivery muestran el selector de pago.
  */
 export function shouldShowPaymentUI(channel: OrderChannel): boolean {
-  return channel === 'delivery';
+  return channel === 'delivery' || channel === 'takeout';
 }
 
 /**
  * ¿Está habilitado el flujo completo de pago (SINPE, comprobante, validación) para este canal?
  */
 export function isPaymentFlowEnabledForChannel(channel: OrderChannel): boolean {
-  return channel === 'delivery';
+  return channel === 'delivery' || channel === 'takeout';
 }
 
 /**
  * ¿Puede el cliente solicitar la cuenta como flujo real de cobro?
- * En dine-in/takeout, "pedir cuenta" es solo una notificación al mesero.
+ * En dine-in, "pedir cuenta" es solo una notificación al mesero.
  */
 export function canRequestBill(channel: OrderChannel): boolean {
-  // Siempre se puede pedir cuenta, pero en dine-in es solo notificación al mesero
   return true;
 }
 
@@ -42,17 +38,16 @@ export function canRequestBill(channel: OrderChannel): boolean {
  * ¿La solicitud de cuenta es solo una notificación (sin cobro real)?
  */
 export function isBillRequestNotificationOnly(channel: OrderChannel): boolean {
-  return channel !== 'delivery';
+  return channel === 'dine_in';
 }
 
 /**
- * Retorna el método de pago por defecto para pedidos dine-in/takeout.
- * Se guarda en DB para mantener trazabilidad, pero no se muestra al cliente.
+ * Retorna el método de pago por defecto para pedidos dine-in.
+ * Para takeout y delivery, el cliente selecciona.
  */
 export function getDefaultPaymentMethodForChannel(channel: OrderChannel): string {
   if (channel === 'dine_in') return 'pos_externo';
-  if (channel === 'takeout') return 'pos_externo';
-  return ''; // delivery: el cliente selecciona
+  return ''; // takeout y delivery: el cliente selecciona
 }
 
 /**
@@ -64,11 +59,11 @@ export function getCustomerCTAsByOrderType(channel: OrderChannel): {
   showBillRequest: boolean;
   billRequestLabel: { es: string; en: string };
 } {
-  const isDineIn = channel === 'dine_in' || channel === 'takeout';
+  const isDineIn = channel === 'dine_in';
   return {
     showPaymentSelection: !isDineIn,
-    showSinpeUpload: channel === 'delivery',
-    showBillRequest: true, // siempre visible
+    showSinpeUpload: channel === 'delivery' || channel === 'takeout',
+    showBillRequest: true,
     billRequestLabel: isDineIn
       ? { es: 'Pedir la cuenta', en: 'Request bill' }
       : { es: 'Pagar', en: 'Pay' },

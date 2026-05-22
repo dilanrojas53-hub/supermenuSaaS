@@ -1109,7 +1109,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
     confirmation: t('confirm.title'),
   };
 
-  // PAYMENT GATING: dine-in/takeout saltan select_payment y van directo a confirmation
+  // PAYMENT GATING: solo dine-in salta select_payment; takeout y delivery muestran selector
   const _showPaymentUI = shouldShowPaymentUI(deliveryType as OrderChannel);
   const stepOrder: Step[] = deliveryType === 'delivery'
     ? ['order_type', 'delivery_address', 'customer_info', 'upsell', 'select_payment', 'payment', 'confirmation']
@@ -1577,7 +1577,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
                   {/* ── Scheduled Date + Time (Takeout or Delivery) ── — hidden since only dine_in is active */}
-                  {(deliveryType === 'takeout' || deliveryType === 'delivery') && (
+                  {deliveryType === 'delivery' && (
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs font-semibold mb-2 block" style={{ color: `${theme.text_color}80` }}>
