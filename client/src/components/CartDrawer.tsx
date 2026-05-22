@@ -999,6 +999,11 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   const handleSubmitOrder = async () => {
     if (!paymentMethod) return;
+    // Para SINPE en takeout: ir al step payment para mostrar número SINPE y subir comprobante
+    if (paymentMethod === 'sinpe' && deliveryType === 'takeout' && step === 'select_payment') {
+      setStep('payment');
+      return;
+    }
     await handleSubmitOrderWithMethod(paymentMethod);
   };
 
@@ -2638,7 +2643,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
                         </span>
                       </div>
                     )}
-                    {deliveryType === 'delivery' && paymentMethod === 'sinpe' && (
+                    {(deliveryType === 'delivery' || deliveryType === 'takeout') && paymentMethod === 'sinpe' && (
                       <div
                         className="flex items-start gap-2 px-4 py-3 rounded-2xl text-xs mb-4 text-left"
                         style={{ backgroundColor: '#8B5CF615', border: '1px solid #8B5CF640', color: theme.text_color }}
