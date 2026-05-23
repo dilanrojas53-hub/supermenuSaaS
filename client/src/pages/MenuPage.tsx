@@ -6,9 +6,9 @@
  * carrito flotante con checkout SINPE/WhatsApp.
  */
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useParams } from 'wouter';
+import { useParams, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { MapPin, Loader2, Globe } from 'lucide-react';
+import { MapPin, Loader2, Globe, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useTenantData } from '@/hooks/useTenantData';
 import { useMenuTranslation } from '@/hooks/useMenuTranslation';
@@ -31,6 +31,7 @@ import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyRestaurantTheme } from '@/lib/themes';
 import BottomNav, { type BottomNavTab } from '@/components/BottomNav';
 import { useMenuConfig } from '@/hooks/useMenuConfig';
+import { useLandingEnabled } from '@/hooks/useLandingEnabled';
 import { useCustomerProfile, CustomerProfileProvider } from '@/contexts/CustomerProfileContext';
 import CategoryFullScreen from '@/components/CategoryFullScreen';
 import ProfileScreen from '@/components/ProfileScreen';
@@ -81,6 +82,8 @@ function MenuContent() {
   const tabsRef = useRef<HTMLDivElement>(null);
   const { lang, toggleLang, t } = useI18n();
   const { config: menuConfig } = useMenuConfig(data?.tenant.id);
+  const landingEnabled = useLandingEnabled(data?.tenant.id);
+  const [, navigate] = useLocation();
   // CustomerProfile — solo se usa si enable_profiles está activo
   // NOTE: useCustomerProfile() is available here because CustomerProfileProvider
   // is rendered below wrapping the actual content (see return statement)
@@ -527,6 +530,23 @@ function MenuContent() {
                 <MapPin size={11} />
                 <span>{tenant.address}</span>
               </div>
+            )}
+            {/* ── Chip de acceso a la landing del restaurante ── */}
+            {landingEnabled && (
+              <button
+                onClick={() => navigate(`/${slug}/restaurante`)}
+                className="flex items-center gap-1.5 mt-2.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all active:scale-95"
+                style={{
+                  backgroundColor: cleanWhiteTheme ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.15)',
+                  color: cleanWhiteTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)',
+                  backdropFilter: 'blur(8px)',
+                  border: cleanWhiteTheme ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.2)',
+                }}
+              >
+                <Globe size={11} />
+                <span>Conoce el restaurante</span>
+                <ChevronRight size={11} />
+              </button>
             )}
           </div>
         )}
