@@ -200,6 +200,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
 
   // ─── DELIVERY CONFIG (pricing + payment methods + kitchen switch) ───
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
   // Legacy alias for backward compat
   const deliveryPricing = deliveryConfig ? {
     delivery_fee: deliveryConfig.delivery_fee,
@@ -209,6 +210,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
   } : null;
 
   useEffect(() => {
+    setConfigLoading(true);
     supabase
       .from('delivery_settings')
       .select('*')
@@ -216,6 +218,7 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
       .maybeSingle()
       .then(({ data }) => {
         if (data) setDeliveryConfig(data as DeliveryConfig);
+        setConfigLoading(false);
       });
   }, [tenant.id]);
 
@@ -1542,9 +1545,10 @@ export default function CartDrawer({ isOpen, onClose, theme, tenant, allMenuItem
               <OrderTypeSelector
                 theme={theme}
                 lang={lang}
+                loading={configLoading}
                 dineInEnabled={deliveryConfig?.dine_in_orders_enabled ?? true}
+                takeoutEnabled={deliveryConfig?.takeout_orders_enabled ?? false}
                 deliveryEnabled={deliveryConfig?.delivery_orders_enabled ?? false}
-                takeawayEnabled={deliveryConfig?.takeout_orders_enabled ?? false}
                 onSelect={(type) => {
                   const dt = type as DeliveryType;
                   setDeliveryType(dt);

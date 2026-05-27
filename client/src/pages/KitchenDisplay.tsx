@@ -66,6 +66,9 @@ interface KitchenOrder {
   delivery_type?: string;
   delivery_address?: string;
   kitchen_delivery_status?: string | null;
+  scheduled_time?: string | null;
+  delivery_phone?: string | null;
+  customer_phone?: string | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -276,23 +279,49 @@ function KitchenOrderCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            {order.customer_table && (
-              <span className="text-sm font-black text-[var(--text-primary)]">🪺 Mesa {order.customer_table}</span>
-            )}
-            {order.customer_name && (
-              <span className="text-xs text-[var(--text-secondary)]">{order.customer_table ? '·' : ''} {order.customer_name}</span>
-            )}
+          <div className="flex flex-col gap-1 mt-1">
+            {/* Fila 1: badge de tipo + nombre/mesa */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(!order.delivery_type || order.delivery_type === 'dine_in') && (
+                <span className="text-sm font-black text-[var(--text-primary)]">
+                  {order.customer_table ? `🪣 Mesa ${order.customer_table}` : '🍽️ Mesa'}
+                </span>
+              )}
+              {order.delivery_type === 'takeout' && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
+                  style={{ backgroundColor: 'rgba(245,158,11,0.18)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.35)' }}>
+                  🛍️ Para llevar
+                </span>
+              )}
+              {order.delivery_type === 'delivery' && (
+                <span className="text-[10px] font-black px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/35 uppercase tracking-wider">
+                  🛵 Delivery
+                </span>
+              )}
+              {order.customer_name && (
+                <span className="text-xs text-[var(--text-secondary)]">{order.customer_name}</span>
+              )}
+            </div>
+            {/* Fila 2: detalles contextuales por tipo */}
             {order.delivery_type === 'takeout' && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
-                style={{ backgroundColor: 'rgba(245,158,11,0.18)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.35)' }}>
-                🛍️ Para llevar
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {(order.delivery_phone || order.customer_phone) && (
+                  <span className="text-[11px] text-amber-300/80">📞 {order.delivery_phone || order.customer_phone}</span>
+                )}
+                {order.scheduled_time && (
+                  <span className="text-[11px] text-amber-300/80">⏰ Retiro: {order.scheduled_time}</span>
+                )}
+              </div>
             )}
             {order.delivery_type === 'delivery' && (
-              <span className="text-[10px] font-black px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/35 uppercase tracking-wider">
-                🛵 Delivery
-              </span>
+              <div className="flex flex-col gap-0.5">
+                {order.delivery_address && (
+                  <span className="text-[11px] text-blue-300/80">📍 {order.delivery_address}</span>
+                )}
+                {(order.delivery_phone || order.customer_phone) && (
+                  <span className="text-[11px] text-blue-300/80">📞 {order.delivery_phone || order.customer_phone}</span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -395,6 +424,7 @@ function KitchenScreen({
   const [connected, setConnected] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [kitchenTab, setKitchenTab] = useState<'local' | 'delivery'>('local');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'dine_in' | 'takeout' | 'delivery' | 'urgent'>('all');
   const { playBell, stopAlarm, isAlarming } = useKitchenBell();
   const prevOrderIds = useRef<Set<string>>(new Set());
 
@@ -405,7 +435,7 @@ function KitchenScreen({
     // Query 1: todos los pedidos NO-delivery (dine_in, takeout) activos
     const { data: nonDeliveryData, error: err1 } = await supabase
       .from('orders')
-      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at,scheduled_time,delivery_phone,customer_phone')
       .eq('tenant_id', tenant.id)
       .in('status', ['pendiente', 'en_cocina'])
       .not('delivery_type', 'eq', 'delivery')
@@ -415,7 +445,7 @@ function KitchenScreen({
     // Ya no se requiere kitchen_committed_at para aparecer; el admin es quien los envía a cocina
     const { data: deliveryData, error: err2 } = await supabase
       .from('orders')
-      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at,payment_method,payment_verified')
+      .select('id,order_number,customer_name,customer_table,items,total,status,notes,created_at,accepted_at,has_new_items,delivery_type,delivery_address,kitchen_delivery_status,kitchen_committed_at,payment_method,payment_verified,scheduled_time,delivery_phone,customer_phone')
       .eq('tenant_id', tenant.id)
       .eq('delivery_type', 'delivery')
       .in('status', ['en_cocina', 'listo'])  // en_cocina: en preparación; listo: esperando rider
@@ -570,14 +600,50 @@ function KitchenScreen({
         </div>
       </header>
 
-      {/* ── Stats bar + Tabs Premium ── */}
-      <div className="flex items-center gap-5 px-5 py-2.5 shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--card) 95%, transparent0.7)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        {/* Tab selector */}
+      {/* ── Stats bar + Filtros rápidos ── */}
+      <div className="flex items-center gap-3 px-5 py-2.5 shrink-0 overflow-x-auto scrollbar-hide" style={{ backgroundColor: 'color-mix(in srgb, var(--card) 95%, transparent0.7)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        {/* Filtros rápidos por tipo */}
+        {(() => {
+          const urgentOrders = orders.filter(o => o.status === 'en_cocina' && elapsedMin(o.accepted_at || o.created_at) >= 10);
+          const dineInOrders = orders.filter(o => !o.delivery_type || o.delivery_type === 'dine_in');
+          const takeoutOrders = orders.filter(o => o.delivery_type === 'takeout');
+          const deliveryOrders = orders.filter(o => o.delivery_type === 'delivery');
+          const filters: { key: typeof typeFilter; label: string; count: number; activeClass: string }[] = [
+            { key: 'all', label: 'Todos', count: orders.filter(o => o.status !== 'listo').length, activeClass: 'bg-slate-600/40 text-white border-slate-500/50' },
+            { key: 'dine_in', label: '🍽️ Mesa', count: dineInOrders.filter(o => o.status !== 'listo').length, activeClass: 'bg-green-500/20 text-green-300 border-green-500/40' },
+            { key: 'takeout', label: '🛍️ Para llevar', count: takeoutOrders.filter(o => o.status !== 'listo').length, activeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40' },
+            { key: 'delivery', label: '🛵 Delivery', count: deliveryOrders.filter(o => o.status !== 'listo').length, activeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/40' },
+            { key: 'urgent', label: '🔥 Urgentes', count: urgentOrders.length, activeClass: 'bg-red-500/20 text-red-300 border-red-500/40' },
+          ];
+          return (
+            <div className="flex gap-1.5 flex-shrink-0">
+              {filters.map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => { setTypeFilter(f.key); if (f.key === 'delivery') setKitchenTab('delivery'); else setKitchenTab('local'); }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black transition-all border ${
+                    typeFilter === f.key ? f.activeClass : 'text-[var(--text-secondary)] border-transparent hover:border-slate-600'
+                  }`}
+                >
+                  {f.label}
+                  {f.count > 0 && (
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                      f.key === 'urgent' ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300'
+                    }`}>{f.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          );
+        })()
+        // eslint-disable-next-line no-extra-parens
+        }
+        {/* DUMMY para mantener compatibilidad con kitchenTab */}
         {(() => {
           const localOrders = orders.filter(o => o.delivery_type !== 'delivery');
           const deliveryOrders = orders.filter(o => o.delivery_type === 'delivery');
           return (
-            <div className="flex gap-1.5">
+            <div className="hidden">
               <button
                 onClick={() => setKitchenTab('local')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black transition-all ${
@@ -635,10 +701,14 @@ function KitchenScreen({
           </div>
         </div>
       ) : (() => {
-        // Filtrar pedidos según tab activo
-        const visibleOrders = kitchenTab === 'local'
-          ? orders.filter(o => o.delivery_type !== 'delivery')
-          : orders.filter(o => o.delivery_type === 'delivery');
+        // Filtrar pedidos según typeFilter activo
+        let visibleOrders = orders;
+        if (typeFilter === 'dine_in') visibleOrders = orders.filter(o => !o.delivery_type || o.delivery_type === 'dine_in');
+        else if (typeFilter === 'takeout') visibleOrders = orders.filter(o => o.delivery_type === 'takeout');
+        else if (typeFilter === 'delivery') visibleOrders = orders.filter(o => o.delivery_type === 'delivery');
+        else if (typeFilter === 'urgent') visibleOrders = orders.filter(o => o.status === 'en_cocina' && elapsedMin(o.accepted_at || o.created_at) >= 10);
+        else if (kitchenTab === 'local') visibleOrders = orders.filter(o => o.delivery_type !== 'delivery');
+        else visibleOrders = orders.filter(o => o.delivery_type === 'delivery');
         const nuevosVisible = visibleOrders.filter(o => o.status === 'pendiente');
         const enCocinaVisible = visibleOrders.filter(o => o.status === 'en_cocina');
         return (

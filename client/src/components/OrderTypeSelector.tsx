@@ -1,13 +1,14 @@
 /*
- * OrderTypeSelector — V22.0
+ * OrderTypeSelector — V23.0
  * - Naming estandarizado: emite 'takeout' (no 'takeaway')
- * - dineInEnabled prop controla si Mesa está disponible
- * - Tipos con enabled=false se OCULTAN (no "Próximamente") — solo se muestran los activos
- * - Si solo hay 1 tipo activo, el componente llama onSelect automáticamente (sin fricción)
+ * - Prop renombrada: takeoutEnabled (antes takeawayEnabled) — se mantiene takeawayEnabled como alias deprecado
+ * - Guard de carga: si loading=true, muestra spinner y NO autoselecciona
+ * - Solo autoselecciona si: loading=false + orders_enabled + exactamente 1 tipo activo
+ * - Tipos con enabled=false se OCULTAN — solo se muestran los activos
  */
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { UtensilsCrossed, Package, Bike, ArrowRight } from 'lucide-react';
+import { UtensilsCrossed, Package, Bike, ArrowRight, Loader2 } from 'lucide-react';
 import type { ThemeSettings } from '@/lib/types';
 
 export type OrderType = 'dine_in' | 'takeout' | 'delivery';
@@ -26,10 +27,14 @@ interface OrderTypeSelectorProps {
   onSelect: (type: OrderType) => void;
   /** When true, dine_in option is shown */
   dineInEnabled?: boolean;
-  /** When true, takeout option is shown */
+  /** When true, takeout option is shown (canonical name) */
+  takeoutEnabled?: boolean;
+  /** @deprecated use takeoutEnabled instead */
   takeawayEnabled?: boolean;
   /** When true, delivery option is shown */
   deliveryEnabled?: boolean;
+  /** When true, shows a loading spinner and prevents autoselection */
+  loading?: boolean;
 }
 
 export default function OrderTypeSelector({
@@ -37,9 +42,14 @@ export default function OrderTypeSelector({
   lang,
   onSelect,
   dineInEnabled = true,
-  takeawayEnabled = false,
+  takeoutEnabled,
+  takeawayEnabled,
   deliveryEnabled = false,
+  loading = false,
 }: OrderTypeSelectorProps) {
+  // Resolver takeoutEnabled: acepta ambos nombres, takeoutEnabled tiene prioridad
+  const resolvedTakeoutEnabled = takeoutEnabled ?? takeawayEnabled ?? false;
+
   const es = lang === 'es';
 
   const allOptions: (OrderTypeOption & { enabled: boolean })[] = [
@@ -57,7 +67,7 @@ export default function OrderTypeSelector({
       emoji: '🛍️',
       title: es ? 'Para llevar' : 'Takeout',
       subtitle: es ? 'Retira tu pedido en el local' : 'Pick up your order at the restaurant',
-      enabled: takeawayEnabled,
+      enabled: resolvedTakeoutEnabled,
     },
     {
       type: 'delivery',
@@ -72,13 +82,23 @@ export default function OrderTypeSelector({
   // Solo mostrar los tipos habilitados
   const options = allOptions.filter(o => o.enabled);
 
-  // Auto-selección si solo hay 1 tipo activo
+  // Auto-selección SOLO si: ya cargó la config + exactamente 1 tipo activo
   useEffect(() => {
+    if (loading) return; // Guard: no autoseleccionar mientras carga
     if (options.length === 1) {
       onSelect(options[0].type);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loading, dineInEnabled, resolvedTakeoutEnabled, deliveryEnabled]);
+
+  // Spinner mientras carga la configuración
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <Loader2 size={28} className="animate-spin opacity-40" style={{ color: theme.primary_color }} />
+      </div>
+    );
+  }
 
   // Si no hay opciones activas, mostrar mensaje
   if (options.length === 0) {

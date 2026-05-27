@@ -162,6 +162,7 @@ function QuickAddModal({
   const [tableName, setTableName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [placing, setPlacing] = useState(false);
+  const [orderType, setOrderType] = useState<'dine_in' | 'takeout' | 'delivery'>('dine_in');
 
   const filteredItems = items.filter(i => i.category_id === selectedCat && i.is_available);
   const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0).map(([id, qty]) => {
@@ -186,11 +187,15 @@ function QuickAddModal({
       .order('order_number', { ascending: false }).limit(1).single();
     const nextNum = (lastOrder?.order_number || 0) + 1;
 
+    const defaultName = orderType === 'dine_in'
+      ? `Mesa ${tableName || '?'}`
+      : orderType === 'takeout' ? 'Para llevar' : 'Delivery';
     const { error } = await supabase.from('orders').insert({
       tenant_id: tenant.id,
       order_number: nextNum,
-      customer_name: customerName.trim() || `Mesa ${tableName || '?'}`,
-      customer_table: tableName.trim() || null,
+      customer_name: customerName.trim() || defaultName,
+      customer_table: orderType === 'dine_in' ? (tableName.trim() || null) : null,
+      delivery_type: orderType,
       items: cartItems.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity })),
       subtotal: total,
       total,
@@ -220,12 +225,29 @@ function QuickAddModal({
       <div className="flex flex-1 overflow-hidden">
         {/* Left: categories + items */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Table / name inputs */}
-          <div className="flex gap-2 px-3 py-2 border-b border-[var(--border)]">
-            <input value={tableName} onChange={e => setTableName(e.target.value)} placeholder="Mesa #"
-              className="w-20 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
-            <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nombre cliente (opcional)"
-              className="flex-1 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
+          {/* Tipo de pedido + inputs contextuales */}
+          <div className="flex flex-col gap-2 px-3 py-2 border-b border-[var(--border)]">
+            {/* Selector de tipo */}
+            <div className="flex gap-1.5">
+              {([['dine_in', '🍽️ Mesa'], ['takeout', '🛍️ Para llevar'], ['delivery', '🛵 Delivery']] as const).map(([type, label]) => (
+                <button key={type} onClick={() => setOrderType(type)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    orderType === type ? 'bg-amber-500 text-black' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-700'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Inputs contextuales por tipo */}
+            <div className="flex gap-2">
+              {orderType === 'dine_in' && (
+                <input value={tableName} onChange={e => setTableName(e.target.value)} placeholder="Mesa #"
+                  className="w-20 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
+              )}
+              <input value={customerName} onChange={e => setCustomerName(e.target.value)}
+                placeholder={orderType === 'dine_in' ? 'Nombre cliente (opcional)' : orderType === 'takeout' ? 'Nombre cliente' : 'Nombre / dirección'}
+                className="flex-1 px-2 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500" />
+            </div>
           </div>
 
           {/* Category tabs */}

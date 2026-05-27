@@ -977,7 +977,7 @@ function MenuContent() {
         bgColor={theme.background_color}
         textColor={theme.text_color}
         activeOrderData={activeOrderData}
-        menuConfig={menuConfig}
+        menuConfig={{ ...menuConfig, enable_landing: landingEnabled }}
         tenantSlug={tenant.slug}
       />
     </div>
