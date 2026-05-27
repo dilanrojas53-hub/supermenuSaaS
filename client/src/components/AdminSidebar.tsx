@@ -20,7 +20,8 @@ export type TabKey =
   | 'analytics' | 'performance' | 'customers' | 'promotions' | 'qr' | 'closing'
   | 'settings' | 'experience' | 'theme' | 'tax'
   | 'delivery'
-  | 'landing';
+  | 'landing'
+  | 'order_types';
 
 interface NavItem {
   key: TabKey;
@@ -70,6 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: 'experience', label: 'Experiencia Cliente',  icon: <Sparkles size={16} /> },
       { key: 'theme',      label: 'Tema',                icon: <Palette size={16} /> },
       { key: 'landing',    label: 'Página del restaurante', icon: <Globe size={16} /> },
+      { key: 'order_types', label: 'Tipos de pedido',         icon: <ClipboardList size={16} /> },
     ],
   },
   {

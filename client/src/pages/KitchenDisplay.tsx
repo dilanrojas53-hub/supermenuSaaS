@@ -283,9 +283,15 @@ function KitchenOrderCard({
             {order.customer_name && (
               <span className="text-xs text-[var(--text-secondary)]">{order.customer_table ? '·' : ''} {order.customer_name}</span>
             )}
+            {order.delivery_type === 'takeout' && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider"
+                style={{ backgroundColor: 'rgba(245,158,11,0.18)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.35)' }}>
+                🛒 Para llevar
+              </span>
+            )}
             {order.delivery_type === 'delivery' && (
               <span className="text-[10px] font-black px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/35 uppercase tracking-wider">
-                🛵 Delivery
+                🛯️ Delivery
               </span>
             )}
           </div>

@@ -31,6 +31,7 @@ import CustomersTab from '@/pages/CustomersTab';
 import PromotionsTab from '@/pages/PromotionsTab';
 import TaxSettingsTab from '@/pages/TaxSettingsTab';
 import LandingTab from '@/pages/LandingTab';
+import OrderTypesTab from '@/pages/OrderTypesTab';
 import TeamIntelligenceTab from '@/components/TeamIntelligenceTab';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -5343,7 +5344,7 @@ function SmartClosingTab({ tenant, orders }: { tenant: Tenant; orders: Order[] }
 }
 
 // ─── Main Dashboard ───
-type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables' | 'experience' | 'customers' | 'promotions' | 'tax' | 'landing';
+type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orders' | 'analytics' | 'history' | 'qr' | 'staff' | 'performance' | 'closing' | 'delivery' | 'tables' | 'experience' | 'customers' | 'promotions' | 'tax' | 'landing' | 'order_types';
 
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
@@ -5501,6 +5502,7 @@ export default function AdminDashboard() {
           {activeTab === 'promotions' && <ModuleWelcomeGate module="promotions"><PromotionsTab tenant={tenant} /></ModuleWelcomeGate>}
           {activeTab === 'tax' && <TaxSettingsTab tenant={tenant} />}
           {activeTab === 'landing' && <LandingTab tenant={tenant} />}
+          {activeTab === 'order_types' && <OrderTypesTab tenant={tenant} />}
           {activeTab === 'tables' && (
             <ModuleWelcomeGate module="tables">
               <div>

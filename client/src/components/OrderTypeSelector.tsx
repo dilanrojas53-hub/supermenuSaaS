@@ -1,15 +1,16 @@
 /*
- * OrderTypeSelector — V21.0 (Fase 1 Delivery)
- * Selector de tipo de pedido: Comer aquí (activo) / Takeaway / Delivery
- * deliveryEnabled prop activa la opción de delivery cuando el tenant lo tiene configurado.
- * Los tipos inactivos muestran un badge "Próximamente" y un toast al hacer clic.
+ * OrderTypeSelector — V22.0
+ * - Naming estandarizado: emite 'takeout' (no 'takeaway')
+ * - dineInEnabled prop controla si Mesa está disponible
+ * - Tipos con enabled=false se OCULTAN (no "Próximamente") — solo se muestran los activos
+ * - Si solo hay 1 tipo activo, el componente llama onSelect automáticamente (sin fricción)
  */
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { UtensilsCrossed, Package, Bike, ArrowRight, Clock } from 'lucide-react';
-import { toast } from 'sonner';
+import { UtensilsCrossed, Package, Bike, ArrowRight } from 'lucide-react';
 import type { ThemeSettings } from '@/lib/types';
 
-export type OrderType = 'dine_in' | 'takeaway' | 'delivery';
+export type OrderType = 'dine_in' | 'takeout' | 'delivery';
 
 interface OrderTypeOption {
   type: OrderType;
@@ -17,44 +18,46 @@ interface OrderTypeOption {
   emoji: string;
   title: string;
   subtitle: string;
-  active: boolean;
 }
 
 interface OrderTypeSelectorProps {
   theme: ThemeSettings;
   lang: string;
   onSelect: (type: OrderType) => void;
-  /** When true, the delivery option is shown as active */
-  deliveryEnabled?: boolean;
-  /** When true, the takeaway option is shown as active */
+  /** When true, dine_in option is shown */
+  dineInEnabled?: boolean;
+  /** When true, takeout option is shown */
   takeawayEnabled?: boolean;
+  /** When true, delivery option is shown */
+  deliveryEnabled?: boolean;
 }
 
 export default function OrderTypeSelector({
   theme,
   lang,
   onSelect,
-  deliveryEnabled = false,
+  dineInEnabled = true,
   takeawayEnabled = false,
+  deliveryEnabled = false,
 }: OrderTypeSelectorProps) {
   const es = lang === 'es';
 
-  const options: OrderTypeOption[] = [
+  const allOptions: (OrderTypeOption & { enabled: boolean })[] = [
     {
       type: 'dine_in',
       icon: <UtensilsCrossed size={32} />,
       emoji: '🍽️',
       title: es ? 'Comer en el local' : 'Dine In',
       subtitle: es ? 'Te llevamos el pedido a tu mesa' : 'We bring your order to your table',
-      active: true,
+      enabled: dineInEnabled,
     },
     {
-      type: 'takeaway',
+      type: 'takeout',
       icon: <Package size={32} />,
       emoji: '🛍️',
-      title: es ? 'Para llevar' : 'Takeaway',
+      title: es ? 'Para llevar' : 'Takeout',
       subtitle: es ? 'Retira tu pedido en el local' : 'Pick up your order at the restaurant',
-      active: takeawayEnabled,
+      enabled: takeawayEnabled,
     },
     {
       type: 'delivery',
@@ -62,24 +65,36 @@ export default function OrderTypeSelector({
       emoji: '🛵',
       title: es ? 'A domicilio' : 'Delivery',
       subtitle: es ? 'Recíbelo en tu dirección' : 'Get it delivered to your address',
-      active: deliveryEnabled,
+      enabled: deliveryEnabled,
     },
   ];
 
-  const handleClick = (option: OrderTypeOption) => {
-    if (!option.active) {
-      toast.info(
-        es
-          ? '🚀 Servicio aún no disponible, ¡muy pronto!'
-          : '🚀 Service not available yet, coming soon!',
-        { duration: 3000 }
-      );
-      return;
-    }
-    onSelect(option.type);
-  };
+  // Solo mostrar los tipos habilitados
+  const options = allOptions.filter(o => o.enabled);
 
-  const anyComingSoon = options.some(o => !o.active);
+  // Auto-selección si solo hay 1 tipo activo
+  useEffect(() => {
+    if (options.length === 1) {
+      onSelect(options[0].type);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Si no hay opciones activas, mostrar mensaje
+  if (options.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8 text-center">
+        <p className="text-sm opacity-50" style={{ color: theme.text_color }}>
+          {es ? 'No hay tipos de pedido disponibles en este momento.' : 'No order types available at this time.'}
+        </p>
+      </div>
+    );
+  }
+
+  // Si solo hay 1, no renderizar nada (el useEffect ya lo seleccionó)
+  if (options.length === 1) {
+    return null;
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -96,7 +111,7 @@ export default function OrderTypeSelector({
         </p>
       </div>
 
-      {/* Cards */}
+      {/* Cards — solo los activos */}
       <div className="space-y-3">
         {options.map((option, i) => (
           <motion.button
@@ -104,45 +119,23 @@ export default function OrderTypeSelector({
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.07, duration: 0.3 }}
-            onClick={() => handleClick(option)}
+            onClick={() => onSelect(option.type)}
             className="w-full text-left relative overflow-hidden"
             style={{
               borderRadius: '1.25rem',
-              border: option.active
-                ? `2px solid ${theme.primary_color}50`
-                : `2px solid ${theme.text_color}10`,
-              backgroundColor: option.active
-                ? `${theme.primary_color}10`
-                : `${theme.text_color}04`,
-              opacity: option.active ? 1 : 0.65,
-              cursor: option.active ? 'pointer' : 'not-allowed',
+              border: `2px solid ${theme.primary_color}50`,
+              backgroundColor: `${theme.primary_color}10`,
+              cursor: 'pointer',
               padding: '1.125rem 1.25rem',
             }}
           >
-            {/* Coming Soon badge */}
-            {!option.active && (
-              <div
-                className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
-                style={{
-                  backgroundColor: '#F59E0B20',
-                  border: '1px solid #F59E0B50',
-                  color: '#F59E0B',
-                }}
-              >
-                <Clock size={10} />
-                <span>{es ? 'Próximamente' : 'Coming Soon'}</span>
-              </div>
-            )}
-
             <div className="flex items-center gap-4">
               {/* Icon circle */}
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
                 style={{
-                  backgroundColor: option.active
-                    ? `${theme.primary_color}20`
-                    : `${theme.text_color}08`,
-                  color: option.active ? theme.primary_color : `${theme.text_color}40`,
+                  backgroundColor: `${theme.primary_color}20`,
+                  color: theme.primary_color,
                 }}
               >
                 {option.icon}
@@ -152,7 +145,7 @@ export default function OrderTypeSelector({
               <div className="flex-1 min-w-0 pr-8">
                 <p
                   className="font-bold text-base leading-tight"
-                  style={{ color: option.active ? theme.text_color : `${theme.text_color}60` }}
+                  style={{ color: theme.text_color }}
                 >
                   {option.emoji} <span>{option.title}</span>
                 </p>
@@ -164,26 +157,17 @@ export default function OrderTypeSelector({
                 </p>
               </div>
 
-              {/* Arrow — only on active */}
-              {option.active && (
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: theme.primary_color, color: '#fff' }}
-                >
-                  <ArrowRight size={16} />
-                </div>
-              )}
+              {/* Arrow */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: theme.primary_color, color: '#fff' }}
+              >
+                <ArrowRight size={16} />
+              </div>
             </div>
           </motion.button>
         ))}
       </div>
-
-      {/* Footer note — only shown if some options are coming soon */}
-      {anyComingSoon && (
-        <p className="text-center text-xs mt-6 opacity-30" style={{ color: theme.text_color }}>
-          <span>{es ? 'Más opciones disponibles próximamente' : 'More options coming soon'}</span>
-        </p>
-      )}
     </div>
   );
 }
