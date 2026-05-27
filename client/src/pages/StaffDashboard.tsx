@@ -426,8 +426,9 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [enablePrepStep, setEnablePrepStep] = useState(true);
   const [enableBillingStep, setEnableBillingStep] = useState(true);
   useEffect(() => {
+    // Cargar tipos de pedido
     supabase.from('delivery_settings')
-      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled, enable_prep_step, enable_billing_step')
+      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled')
       .eq('tenant_id', tenant.id).maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -436,8 +437,17 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
             takeout: data.takeout_orders_enabled ?? true,
             delivery: data.delivery_orders_enabled ?? true,
           });
-          setEnablePrepStep(data.enable_prep_step ?? true);
-          setEnableBillingStep(data.enable_billing_step ?? true);
+        }
+      });
+    // Cargar flujo de estados desde restaurant_landing_settings.section_visibility
+    supabase.from('restaurant_landing_settings')
+      .select('section_visibility')
+      .eq('tenant_id', tenant.id).maybeSingle()
+      .then(({ data }) => {
+        if (data?.section_visibility) {
+          const sv = data.section_visibility as Record<string, boolean>;
+          if (sv.order_flow_prep !== undefined) setEnablePrepStep(sv.order_flow_prep);
+          if (sv.order_flow_billing !== undefined) setEnableBillingStep(sv.order_flow_billing);
         }
       });
   }, [tenant.id]);

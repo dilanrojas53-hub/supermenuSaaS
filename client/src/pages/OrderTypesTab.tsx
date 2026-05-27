@@ -1,8 +1,9 @@
 /**
  * OrderTypesTab — Configuración de tipos de pedido y flujo de estados por restaurante
- * Usa la tabla delivery_settings (campos: orders_enabled, dine_in_orders_enabled,
- * takeout_orders_enabled, delivery_orders_enabled, closed_message,
- * enable_prep_step, enable_billing_step)
+ * - Tipos de pedido y mensaje cerrado: tabla delivery_settings
+ * - Flujo de estados (enable_prep_step, enable_billing_step): guardados en
+ *   restaurant_landing_settings.section_visibility como keys adicionales
+ *   (no requiere migración de BD)
  */
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -126,22 +127,28 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      // Cargar tipos de pedido desde delivery_settings
       const { data } = await supabase
         .from('delivery_settings')
-        .select('orders_enabled, dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled, closed_message, enable_prep_step, enable_billing_step')
+        .select('orders_enabled, dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled, closed_message')
         .eq('tenant_id', tenant.id)
         .maybeSingle();
-      if (data) {
-        setConfig({
-          orders_enabled: data.orders_enabled ?? DEFAULT_CONFIG.orders_enabled,
-          dine_in_orders_enabled: data.dine_in_orders_enabled ?? DEFAULT_CONFIG.dine_in_orders_enabled,
-          takeout_orders_enabled: data.takeout_orders_enabled ?? DEFAULT_CONFIG.takeout_orders_enabled,
-          delivery_orders_enabled: data.delivery_orders_enabled ?? DEFAULT_CONFIG.delivery_orders_enabled,
-          closed_message: data.closed_message ?? DEFAULT_CONFIG.closed_message,
-          enable_prep_step: data.enable_prep_step ?? DEFAULT_CONFIG.enable_prep_step,
-          enable_billing_step: data.enable_billing_step ?? DEFAULT_CONFIG.enable_billing_step,
-        });
-      }
+      // Cargar flujo de estados desde restaurant_landing_settings.section_visibility
+      const { data: landing } = await supabase
+        .from('restaurant_landing_settings')
+        .select('section_visibility')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle();
+      const sv = (landing?.section_visibility as Record<string, boolean> | null) ?? {};
+      setConfig({
+        orders_enabled: data?.orders_enabled ?? DEFAULT_CONFIG.orders_enabled,
+        dine_in_orders_enabled: data?.dine_in_orders_enabled ?? DEFAULT_CONFIG.dine_in_orders_enabled,
+        takeout_orders_enabled: data?.takeout_orders_enabled ?? DEFAULT_CONFIG.takeout_orders_enabled,
+        delivery_orders_enabled: data?.delivery_orders_enabled ?? DEFAULT_CONFIG.delivery_orders_enabled,
+        closed_message: data?.closed_message ?? DEFAULT_CONFIG.closed_message,
+        enable_prep_step: sv.order_flow_prep !== undefined ? sv.order_flow_prep : DEFAULT_CONFIG.enable_prep_step,
+        enable_billing_step: sv.order_flow_billing !== undefined ? sv.order_flow_billing : DEFAULT_CONFIG.enable_billing_step,
+      });
       setLoading(false);
     };
     load();
@@ -166,35 +173,46 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
     }
 
     setSaving(true);
-    const payload = {
+    // 1. Guardar tipos de pedido en delivery_settings
+    const deliveryPayload = {
       orders_enabled: config.orders_enabled,
       dine_in_orders_enabled: config.dine_in_orders_enabled,
       takeout_orders_enabled: config.takeout_orders_enabled,
       delivery_orders_enabled: config.delivery_orders_enabled,
       closed_message: config.closed_message,
-      enable_prep_step: config.enable_prep_step,
-      enable_billing_step: config.enable_billing_step,
       updated_at: new Date().toISOString(),
     };
-
     const { data: existing } = await supabase
       .from('delivery_settings')
       .select('id')
       .eq('tenant_id', tenant.id)
       .maybeSingle();
-
     let error;
     if (existing) {
       ({ error } = await supabase
         .from('delivery_settings')
-        .update(payload)
+        .update(deliveryPayload)
         .eq('tenant_id', tenant.id));
     } else {
       ({ error } = await supabase
         .from('delivery_settings')
-        .insert({ ...payload, tenant_id: tenant.id }));
+        .insert({ ...deliveryPayload, tenant_id: tenant.id }));
     }
-
+    // 2. Guardar flujo de estados en restaurant_landing_settings.section_visibility
+    if (!error) {
+      const { data: landingRow } = await supabase
+        .from('restaurant_landing_settings')
+        .select('id, section_visibility')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle();
+      const currentSv = (landingRow?.section_visibility as Record<string, boolean> | null) ?? {};
+      const newSv = { ...currentSv, order_flow_prep: config.enable_prep_step, order_flow_billing: config.enable_billing_step };
+      if (landingRow) {
+        await supabase.from('restaurant_landing_settings').update({ section_visibility: newSv }).eq('tenant_id', tenant.id);
+      } else {
+        await supabase.from('restaurant_landing_settings').insert({ tenant_id: tenant.id, section_visibility: newSv, enabled: false });
+      }
+    }
     setSaving(false);
     if (error) {
       toast.error('Error al guardar: ' + error.message);
