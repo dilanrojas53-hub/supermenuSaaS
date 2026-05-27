@@ -422,16 +422,23 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [enabledTypes, setEnabledTypes] = useState<{ dine_in: boolean; takeout: boolean; delivery: boolean }>({
     dine_in: true, takeout: true, delivery: true,
   });
+  // ── Flujo de estados activos ──
+  const [enablePrepStep, setEnablePrepStep] = useState(true);
+  const [enableBillingStep, setEnableBillingStep] = useState(true);
   useEffect(() => {
     supabase.from('delivery_settings')
-      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled')
+      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled, enable_prep_step, enable_billing_step')
       .eq('tenant_id', tenant.id).maybeSingle()
       .then(({ data }) => {
-        if (data) setEnabledTypes({
-          dine_in: data.dine_in_orders_enabled ?? true,
-          takeout: data.takeout_orders_enabled ?? true,
-          delivery: data.delivery_orders_enabled ?? true,
-        });
+        if (data) {
+          setEnabledTypes({
+            dine_in: data.dine_in_orders_enabled ?? true,
+            takeout: data.takeout_orders_enabled ?? true,
+            delivery: data.delivery_orders_enabled ?? true,
+          });
+          setEnablePrepStep(data.enable_prep_step ?? true);
+          setEnableBillingStep(data.enable_billing_step ?? true);
+        }
       });
   }, [tenant.id]);
 
@@ -647,11 +654,10 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   };
 
   const handleAdvanceStatus = async (order: Order) => {
-    const statusFlow: Record<string, string> = {
-      pendiente: 'en_cocina',
-      en_cocina: 'listo',
-      listo: 'entregado',
-    };
+    // Flujo dinámico según configuración del tenant
+    const statusFlow: Record<string, string> = enablePrepStep
+      ? { pendiente: 'en_cocina', en_cocina: 'listo', listo: 'entregado' }
+      : { pendiente: 'listo', listo: 'entregado' };
     const next = statusFlow[order.status];
     if (!next) return;
     const now = new Date().toISOString();
@@ -663,6 +669,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     if (next === 'en_cocina') {
       updateData.accepted_at = now;
       // V26.0: Claim ownership when accepting
+      updateData.claimed_by_staff_id = staff.id;
+      updateData.claimed_by_name = staff.name;
+      updateData.claimed_at = now;
+    }
+    // Cuando se salta en_cocina (sin paso de prep), también registrar accepted_at
+    if (next === 'listo' && order.status === 'pendiente' && !enablePrepStep) {
+      updateData.accepted_at = now;
       updateData.claimed_by_staff_id = staff.id;
       updateData.claimed_by_name = staff.name;
       updateData.claimed_at = now;
@@ -701,14 +714,17 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     toast.success('Pedido cancelado');
   };
 
-  const columns = [
+  const allColumns = [
     { key: 'pendiente', label: 'Nuevos', color: 'text-blue-400', bg: 'border-blue-500/30' },
-    { key: 'en_cocina', label: 'En Cocina', color: 'text-orange-400', bg: 'border-orange-500/30' },
+    { key: 'en_cocina', label: 'En prep.', color: 'text-orange-400', bg: 'border-orange-500/30' },
     { key: 'listo', label: 'Listos', color: 'text-green-400', bg: 'border-green-500/30' },
   ];
+  const columns = enablePrepStep
+    ? allColumns
+    : allColumns.filter(c => c.key !== 'en_cocina');
 
   const getActionLabel = (status: string) => {
-    if (status === 'pendiente') return 'A Cocina';
+    if (status === 'pendiente') return enablePrepStep ? 'A Cocina' : 'Listo';
     if (status === 'en_cocina') return 'Listo';
     if (status === 'listo') return 'Entregado';
     return '';
@@ -846,11 +862,11 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       {/* ── TABS ── */}
       <div className="flex px-3 pt-3 pb-1 gap-1.5">
         {([
-          { key: 'active', label: 'Activos', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length },
-          { key: 'cobrar', label: 'Por Cobrar', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length },
-          { key: 'cobrados', label: 'Cobrados', count: orders.filter(o => o.payment_status === 'paid').length },
-          { key: 'mesas', label: 'Mesas', count: 0 },
-        ] as const).map(tab => {
+          { key: 'active', label: 'Activos', count: orders.filter(o => ['pendiente','en_cocina','listo'].includes(o.status)).length, show: true },
+          { key: 'cobrar', label: 'Por Cobrar', count: orders.filter(o => o.status === 'entregado' && o.payment_status !== 'paid').length, show: enableBillingStep },
+          { key: 'cobrados', label: 'Cobrados', count: orders.filter(o => o.payment_status === 'paid').length, show: enableBillingStep },
+          { key: 'mesas', label: 'Mesas', count: 0, show: true },
+        ] as const).filter(tab => tab.show).map(tab => {
           const isActive = paymentTab === (tab.key as string);
           return (
             <button key={tab.key} onClick={() => setPaymentTab(tab.key as any)}

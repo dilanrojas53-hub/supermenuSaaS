@@ -39,6 +39,7 @@ import PhoneLoginSheet from '@/components/PhoneLoginSheet';
 import PromosScreen from '@/components/PromosScreen';
 import HistoryScreen from '@/components/HistoryScreen';
 import { useFavorites } from '@/hooks/useFavorites';
+import MenuSearch from '@/components/MenuSearch';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -667,41 +668,54 @@ function MenuContent() {
       {/* Category Tabs — Sticky V11.0: usa el color del tema del restaurante */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-40 overflow-x-auto scrollbar-hide"
+        className="sticky top-0 z-40 flex items-center"
         style={{
           backgroundColor: cleanWhiteTheme ? '#FFFFFF' : 'var(--menu-bg)',
           borderBottom: cleanWhiteTheme ? '1px solid #E5E5E5' : '1px solid var(--menu-border)',
           boxShadow: cleanWhiteTheme ? 'none' : '0 2px 8px rgba(0,0,0,0.1)',
         }}
       >
-        <div className="flex gap-2 px-4 py-3 min-w-max">
-          {visibleCategories.map(cat => {
-            const isActive = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryClick(cat.id)}
-                className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
-                style={cleanWhiteTheme ? {
-                  backgroundColor: isActive ? '#0A0A0A' : '#F5F5F5',
-                  color: isActive ? '#FFFFFF' : '#0A0A0A',
-                  fontWeight: isActive ? 700 : 500,
-                  boxShadow: 'none',
-                  border: 'none',
-                  letterSpacing: '0',
-                } : {
-                  backgroundColor: isActive ? 'var(--menu-badge)' : 'var(--menu-surface)',
-                  color: isActive ? '#ffffff' : 'var(--menu-text)',
-                  fontWeight: isActive ? 800 : 500,
-                  boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.2)' : 'none',
-                  border: isActive ? 'none' : '1px solid var(--menu-border)',
-                  letterSpacing: isActive ? '-0.01em' : '0',
-                }}
-              >
-                {cat.name}
-              </button>
-            );
-          })}
+        {/* Pills de categorías — scrollable */}
+        <div className="flex-1 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 px-4 py-3 min-w-max">
+            {visibleCategories.map(cat => {
+              const isActive = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryClick(cat.id)}
+                  className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-200"
+                  style={cleanWhiteTheme ? {
+                    backgroundColor: isActive ? '#0A0A0A' : '#F5F5F5',
+                    color: isActive ? '#FFFFFF' : '#0A0A0A',
+                    fontWeight: isActive ? 700 : 500,
+                    boxShadow: 'none',
+                    border: 'none',
+                    letterSpacing: '0',
+                  } : {
+                    backgroundColor: isActive ? 'var(--menu-badge)' : 'var(--menu-surface)',
+                    color: isActive ? '#ffffff' : 'var(--menu-text)',
+                    fontWeight: isActive ? 800 : 500,
+                    boxShadow: isActive ? '0 4px 14px rgba(0,0,0,0.2)' : 'none',
+                    border: isActive ? 'none' : '1px solid var(--menu-border)',
+                    letterSpacing: isActive ? '-0.01em' : '0',
+                  }}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {/* Lupa de búsqueda — fija a la derecha */}
+        <div className="flex-shrink-0 pr-3 pl-1">
+          <MenuSearch
+            items={translatedMenuItems}
+            categories={data.categories}
+            onSelectItem={handleOpenDetail}
+            theme={theme}
+            cleanWhiteTheme={cleanWhiteTheme}
+          />
         </div>
       </div>
 
