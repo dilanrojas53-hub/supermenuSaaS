@@ -5,7 +5,7 @@
  * social proof toasts, upsell condicionado con delay,
  * carrito flotante con checkout SINPE/WhatsApp.
  */
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { MapPin, Loader2, Globe, ChevronRight } from 'lucide-react';
@@ -22,11 +22,8 @@ import type { PlanTier } from '@/lib/plans';
 import MenuItemCard from '@/components/MenuItemCard';
 import FeaturedDish from '@/components/FeaturedDish';
 import FloatingCart from '@/components/FloatingCart';
-import CartDrawer from '@/components/CartDrawer';
-import SocialProofToast from '@/components/SocialProofToast';
 import PoweredByFooter from '@/components/PoweredByFooter';
 import ActiveOrderFAB from '@/components/ActiveOrderFAB';
-import ProductDetailModal from '@/components/ProductDetailModal';
 import { useAnimationConfig } from '@/contexts/AnimationContext';
 import { applyRestaurantTheme } from '@/lib/themes';
 import BottomNav, { type BottomNavTab } from '@/components/BottomNav';
@@ -34,11 +31,16 @@ import { useMenuConfig } from '@/hooks/useMenuConfig';
 import { useLandingEnabled } from '@/hooks/useLandingEnabled';
 import { useCustomerProfile, CustomerProfileProvider } from '@/contexts/CustomerProfileContext';
 import CategoryFullScreen from '@/components/CategoryFullScreen';
-import ProfileScreen from '@/components/ProfileScreen';
-import PhoneLoginSheet from '@/components/PhoneLoginSheet';
-import PromosScreen from '@/components/PromosScreen';
-import HistoryScreen from '@/components/HistoryScreen';
 import { useFavorites } from '@/hooks/useFavorites';
+
+// Componentes pesados — lazy loading (solo se cargan cuando el usuario los necesita)
+const CartDrawer       = lazy(() => import('@/components/CartDrawer'));
+const ProductDetailModal = lazy(() => import('@/components/ProductDetailModal'));
+const SocialProofToast = lazy(() => import('@/components/SocialProofToast'));
+const ProfileScreen    = lazy(() => import('@/components/ProfileScreen'));
+const PhoneLoginSheet  = lazy(() => import('@/components/PhoneLoginSheet'));
+const PromosScreen     = lazy(() => import('@/components/PromosScreen'));
+const HistoryScreen    = lazy(() => import('@/components/HistoryScreen'));
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -352,7 +354,11 @@ function MenuContent() {
       }}
     >
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
-      {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
+      {features.socialProof && (
+        <Suspense fallback={null}>
+          <SocialProofToast tenantId={tenant.id} theme={theme} />
+        </Suspense>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
            HERO SECTION v23.0 — Sistema inteligente de imagen hero
@@ -876,25 +882,33 @@ function MenuContent() {
       {/* Floating Cart — carrito tipo nube, aparece al agregar productos */}
       <FloatingCart theme={theme} onOpen={() => setCartOpen(true)} />
 
-      {/* Cart Drawer */}
-      <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => { setCartOpen(false); setPendingPromo(null); }}
-        theme={theme}
-        tenant={tenant}
-        allMenuItems={data.menuItems}
-        allCategories={data.categories}
-        pendingPromo={pendingPromo}
-      />
+      {/* Cart Drawer — lazy loaded */}
+      {cartOpen && (
+        <Suspense fallback={null}>
+          <CartDrawer
+            isOpen={cartOpen}
+            onClose={() => { setCartOpen(false); setPendingPromo(null); }}
+            theme={theme}
+            tenant={tenant}
+            allMenuItems={data.menuItems}
+            allCategories={data.categories}
+            pendingPromo={pendingPromo}
+          />
+        </Suspense>
+      )}
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        item={detailItem}
-        isOpen={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        theme={theme}
-        tenant={tenant}
-      />
+      {/* Product Detail Modal — lazy loaded */}
+      {detailOpen && (
+        <Suspense fallback={null}>
+          <ProductDetailModal
+            item={detailItem}
+            isOpen={detailOpen}
+            onClose={() => setDetailOpen(false)}
+            theme={theme}
+            tenant={tenant}
+          />
+        </Suspense>
+      )}
 
       {/* Active Order FAB — mini banner solo cuando el usuario está en tab menu */}
       {bottomNavTab === 'menu' && <ActiveOrderFAB />}
@@ -905,47 +919,55 @@ function MenuContent() {
         textColor={theme.text_color}
       />
 
-      {/* ── PANTALLA MI PERFIL ── */}
-      <ProfileScreen
-        isOpen={bottomNavTab === 'profile'}
-        onClose={() => setBottomNavTab('menu')}
-        theme={theme}
-        tenant={tenant}
-        onOpenLogin={() => setShowLoginSheet(true)}
-      />
+      {/* ── PANTALLA MI PERFIL — lazy loaded ── */}
+      <Suspense fallback={null}>
+        <ProfileScreen
+          isOpen={bottomNavTab === 'profile'}
+          onClose={() => setBottomNavTab('menu')}
+          theme={theme}
+          tenant={tenant}
+          onOpenLogin={() => setShowLoginSheet(true)}
+        />
+      </Suspense>
 
-      {/* ── PANTALLA PROMOS ── */}
-      <PromosScreen
-        isOpen={bottomNavTab === 'promos'}
-        onClose={() => setBottomNavTab('menu')}
-        theme={theme}
-        tenant={tenant}
-        allItems={data.menuItems}
-        onPromoSelect={(promo) => {
-          setPendingPromo(promo);
-          setBottomNavTab('menu');
-          setCartOpen(true);
-        }}
-      />
+      {/* ── PANTALLA PROMOS — lazy loaded ── */}
+      <Suspense fallback={null}>
+        <PromosScreen
+          isOpen={bottomNavTab === 'promos'}
+          onClose={() => setBottomNavTab('menu')}
+          theme={theme}
+          tenant={tenant}
+          allItems={data.menuItems}
+          onPromoSelect={(promo) => {
+            setPendingPromo(promo);
+            setBottomNavTab('menu');
+            setCartOpen(true);
+          }}
+        />
+      </Suspense>
 
-      {/* ── PANTALLA HISTORIAL ── */}
-      <HistoryScreen
-        isOpen={bottomNavTab === 'history'}
-        onClose={() => setBottomNavTab('menu')}
-        theme={theme}
-        tenant={tenant}
-        onOpenLogin={() => setShowLoginSheet(true)}
-      />
+      {/* ── PANTALLA HISTORIAL — lazy loaded ── */}
+      <Suspense fallback={null}>
+        <HistoryScreen
+          isOpen={bottomNavTab === 'history'}
+          onClose={() => setBottomNavTab('menu')}
+          theme={theme}
+          tenant={tenant}
+          onOpenLogin={() => setShowLoginSheet(true)}
+        />
+      </Suspense>
 
-      {/* ── SHEET DE LOGIN OTP ── */}
-      <PhoneLoginSheet
-        isOpen={showLoginSheet}
-        onClose={() => setShowLoginSheet(false)}
-        tenantId={tenant.id}
-        accentColor={theme.primary_color || '#F59E0B'}
-        bgColor={theme.background_color || '#0a0a0a'}
-        textColor={theme.text_color || '#f0f0f0'}
-      />
+      {/* ── SHEET DE LOGIN OTP — lazy loaded ── */}
+      <Suspense fallback={null}>
+        <PhoneLoginSheet
+          isOpen={showLoginSheet}
+          onClose={() => setShowLoginSheet(false)}
+          tenantId={tenant.id}
+          accentColor={theme.primary_color || '#F59E0B'}
+          bgColor={theme.background_color || '#0a0a0a'}
+          textColor={theme.text_color || '#f0f0f0'}
+        />
+      </Suspense>
 
       {/* ── PANTALLA COMPLETA DE CATEGORÍA ── */}
       {fullScreenCatId && (() => {

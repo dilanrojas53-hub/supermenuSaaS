@@ -8,7 +8,7 @@
  * - Analítica básica (total vendido, platillo estrella, visitas)
  * - Botón "Descargar mi QR"
  */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -18,21 +18,22 @@ import type { Tenant, ThemeSettings, Category, MenuItem, Order, ModifierGroup, M
 import ImageUpload from '@/components/ImageUpload';
 import HeroImageUpload from '@/components/HeroImageUpload';
 import type { HeroImageMetadata } from '@/lib/heroImageProcessor';
-import ModifiersTab from '@/components/ModifiersTab';
-import DeliveryDispatchPanel from '@/components/DeliveryDispatchPanel';
-import DeliveryHistoryPanel from '@/components/DeliveryHistoryPanel';
-import DeliveryZonesPanel from '@/components/DeliveryZonesPanel';
-import DeliveryOpsPanel from '@/components/DeliveryOpsPanel';
-import { DeliveryAnalyticsCard } from '@/components/DeliveryAnalyticsCard';
-import { DeliveryOS } from '@/components/DeliveryOS';
-import DeliveryFeeAdjuster from '@/components/DeliveryFeeAdjuster';
-import TablesMapPanel from '@/components/TablesMapPanel';
-import CustomersTab from '@/pages/CustomersTab';
-import PromotionsTab from '@/pages/PromotionsTab';
-import TaxSettingsTab from '@/pages/TaxSettingsTab';
-import LandingTab from '@/pages/LandingTab';
-import OrderTypesTab from '@/pages/OrderTypesTab';
-import TeamIntelligenceTab from '@/components/TeamIntelligenceTab';
+// Tabs y paneles pesados — lazy loaded (solo se cargan cuando el admin navega a ese tab)
+const ModifiersTab         = lazy(() => import('@/components/ModifiersTab'));
+const DeliveryOS           = lazy(() => import('@/components/DeliveryOS').then(m => ({ default: m.DeliveryOS })));
+const DeliveryDispatchPanel = lazy(() => import('@/components/DeliveryDispatchPanel'));
+const DeliveryHistoryPanel = lazy(() => import('@/components/DeliveryHistoryPanel'));
+const DeliveryZonesPanel   = lazy(() => import('@/components/DeliveryZonesPanel'));
+const DeliveryOpsPanel     = lazy(() => import('@/components/DeliveryOpsPanel'));
+const DeliveryAnalyticsCard = lazy(() => import('@/components/DeliveryAnalyticsCard').then(m => ({ default: m.DeliveryAnalyticsCard })));
+const DeliveryFeeAdjuster  = lazy(() => import('@/components/DeliveryFeeAdjuster'));
+const TablesMapPanel       = lazy(() => import('@/components/TablesMapPanel'));
+const CustomersTab         = lazy(() => import('@/pages/CustomersTab'));
+const PromotionsTab        = lazy(() => import('@/pages/PromotionsTab'));
+const TaxSettingsTab       = lazy(() => import('@/pages/TaxSettingsTab'));
+const LandingTab           = lazy(() => import('@/pages/LandingTab'));
+const OrderTypesTab        = lazy(() => import('@/pages/OrderTypesTab'));
+const TeamIntelligenceTab  = lazy(() => import('@/components/TeamIntelligenceTab'));
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -5372,17 +5373,19 @@ export default function AdminDashboard() {
     const { data: t } = await supabase.from('tenants').select('*').eq('slug', slug).single();
     if (!t) { setLoading(false); return; }
     setTenant(t);
-    const [themeRes, catRes, itemsRes, ordersRes] = await Promise.all([
+    // Carga inicial: solo datos críticos para renderizar el admin (sin orders — se cargan bajo demanda)
+    const [themeRes, catRes, itemsRes] = await Promise.all([
       supabase.from('theme_settings').select('*').eq('tenant_id', t.id).single(),
       supabase.from('categories').select('*').eq('tenant_id', t.id).order('sort_order'),
       supabase.from('menu_items').select('*').eq('tenant_id', t.id).order('sort_order'),
-      supabase.from('orders').select('*').eq('tenant_id', t.id).order('created_at', { ascending: false }).limit(100),
     ]);
     setTheme(themeRes.data);
     setCategories(catRes.data || []);
     setItems(itemsRes.data || []);
-    setOrders((ordersRes.data as Order[]) || []);
     setLoading(false);
+    // Orders se cargan en background después de que el admin ya está visible
+    supabase.from('orders').select('*').eq('tenant_id', t.id).order('created_at', { ascending: false }).limit(100)
+      .then(({ data }) => setOrders((data as Order[]) || []));
   }, [slug]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -5477,42 +5480,48 @@ export default function AdminDashboard() {
 
         {/* Page content */}
         <main className="flex-1 px-4 py-6 lg:px-8 overflow-y-auto">
-          {activeTab === 'orders' && <ModuleWelcomeGate module="orders"><OrdersTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'menu' && <ModuleWelcomeGate module="menu"><MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} /></ModuleWelcomeGate>}
-          {activeTab === 'categories' && (
-            <ModuleWelcomeGate module="categories">
-              <div>
-                <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
-                <MenuSectionsManager tenant={tenant} categories={categories} items={items} />
-              </div>
-            </ModuleWelcomeGate>
-          )}
-          {activeTab === 'modifiers' && <ModuleWelcomeGate module="modifiers"><ModifiersTab tenant={tenant} items={items} /></ModuleWelcomeGate>}
-          {activeTab === 'settings' && <ModuleWelcomeGate module="settings"><SettingsTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
-          {activeTab === 'experience' && <ModuleWelcomeGate module="experience"><ExperienceTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
-          {activeTab === 'theme' && <ModuleWelcomeGate module="theme"><ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} /></ModuleWelcomeGate>}
-          {activeTab === 'analytics' && <ModuleWelcomeGate module="analytics"><AnalyticsTab tenant={tenant} items={items} orders={orders} /></ModuleWelcomeGate>}
-          {activeTab === 'history' && <ModuleWelcomeGate module="history"><HistoryTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'qr' && <ModuleWelcomeGate module="qr"><QRTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'staff' && <ModuleWelcomeGate module="staff"><StaffTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
-          {activeTab === 'performance' && <ModuleWelcomeGate module="performance"><TeamIntelligenceTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
-          {activeTab === 'delivery' && <ModuleWelcomeGate module="delivery"><DeliveryOS tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'customers' && <ModuleWelcomeGate module="customers"><CustomersTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'promotions' && <ModuleWelcomeGate module="promotions"><PromotionsTab tenant={tenant} /></ModuleWelcomeGate>}
-          {activeTab === 'tax' && <TaxSettingsTab tenant={tenant} />}
-          {activeTab === 'landing' && <LandingTab tenant={tenant} />}
-          {activeTab === 'order_types' && <OrderTypesTab tenant={tenant} />}
-          {activeTab === 'tables' && (
-            <ModuleWelcomeGate module="tables">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
-                  <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
-                </h2>
-                <TablesMapPanel tenant={tenant} />
-              </div>
-            </ModuleWelcomeGate>
-          )}
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+            </div>
+          }>
+            {activeTab === 'orders' && <ModuleWelcomeGate module="orders"><OrdersTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'menu' && <ModuleWelcomeGate module="menu"><MenuTab tenant={tenant} categories={categories} items={items} onRefresh={fetchData} /></ModuleWelcomeGate>}
+            {activeTab === 'categories' && (
+              <ModuleWelcomeGate module="categories">
+                <div>
+                  <CategoriesTab tenant={tenant} categories={categories} onRefresh={fetchData} />
+                  <MenuSectionsManager tenant={tenant} categories={categories} items={items} />
+                </div>
+              </ModuleWelcomeGate>
+            )}
+            {activeTab === 'modifiers' && <ModuleWelcomeGate module="modifiers"><ModifiersTab tenant={tenant} items={items} /></ModuleWelcomeGate>}
+            {activeTab === 'settings' && <ModuleWelcomeGate module="settings"><SettingsTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+            {activeTab === 'experience' && <ModuleWelcomeGate module="experience"><ExperienceTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+            {activeTab === 'theme' && <ModuleWelcomeGate module="theme"><ThemeTab tenant={tenant} theme={theme} onRefresh={fetchData} /></ModuleWelcomeGate>}
+            {activeTab === 'analytics' && <ModuleWelcomeGate module="analytics"><AnalyticsTab tenant={tenant} items={items} orders={orders} /></ModuleWelcomeGate>}
+            {activeTab === 'history' && <ModuleWelcomeGate module="history"><HistoryTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'qr' && <ModuleWelcomeGate module="qr"><QRTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'staff' && <ModuleWelcomeGate module="staff"><StaffTab tenant={tenant} onRefresh={fetchData} /></ModuleWelcomeGate>}
+            {activeTab === 'performance' && <ModuleWelcomeGate module="performance"><TeamIntelligenceTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'closing' && <SmartClosingTab tenant={tenant} orders={orders} />}
+            {activeTab === 'delivery' && <ModuleWelcomeGate module="delivery"><DeliveryOS tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'customers' && <ModuleWelcomeGate module="customers"><CustomersTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'promotions' && <ModuleWelcomeGate module="promotions"><PromotionsTab tenant={tenant} /></ModuleWelcomeGate>}
+            {activeTab === 'tax' && <TaxSettingsTab tenant={tenant} />}
+            {activeTab === 'landing' && <LandingTab tenant={tenant} />}
+            {activeTab === 'order_types' && <OrderTypesTab tenant={tenant} />}
+            {activeTab === 'tables' && (
+              <ModuleWelcomeGate module="tables">
+                <div>
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6 flex items-center gap-2">
+                    <UtensilsCrossed size={20} className="text-amber-400" /> Mapa de Mesas
+                  </h2>
+                  <TablesMapPanel tenant={tenant} />
+                </div>
+              </ModuleWelcomeGate>
+            )}
+          </Suspense>
         </main>
       </div>
     </div>

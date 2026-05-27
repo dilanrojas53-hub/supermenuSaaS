@@ -222,6 +222,36 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Vendor: React core
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+            return 'vendor-react';
+          }
+          // Vendor: Supabase client
+          if (id.includes('node_modules/@supabase')) {
+            return 'vendor-supabase';
+          }
+          // Vendor: Recharts (gráficas — solo admin analytics)
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-')) {
+            return 'vendor-charts';
+          }
+          // Vendor: Framer Motion
+          if (id.includes('node_modules/framer-motion')) {
+            return 'vendor-motion';
+          }
+          // Vendor: Radix UI + shadcn components
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'vendor-radix';
+          }
+          // Vendor: resto de node_modules
+          if (id.includes('node_modules')) {
+            return 'vendor-misc';
+          }
+        },
+      },
+    },
   },
   server: {
     port: 3000,
