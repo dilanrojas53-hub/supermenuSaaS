@@ -227,28 +227,35 @@ function MenuContent() {
   }
 
   if (error || !data) {
-    // BUG FIX: No usar t('menu.closed') aquí — ese mensaje es para restaurante cerrado intencionalmente.
-    // Este bloque es un error de carga (red, slug inválido, etc.)
     const isNotFound = error === 'Restaurante no encontrado';
+    const isNetworkError = !!(error?.includes('conexión') || error?.includes('Revisa tu') || error?.includes('internet'));
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--menu-bg)' }}>
-        <div className="text-center">
-          <p className="text-5xl mb-4">{isNotFound ? '🔍' : '⚠️'}</p>
+        <div className="text-center max-w-xs">
+          <p className="text-5xl mb-4">{isNotFound ? '🔍' : isNetworkError ? '📶' : '⚠️'}</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--menu-text)', fontFamily: "'Lora', serif" }}>
             {isNotFound
               ? (lang === 'es' ? 'Restaurante no encontrado' : 'Restaurant not found')
+              : isNetworkError
+                ? (lang === 'es' ? 'Sin conexión' : 'No connection')
               : (lang === 'es' ? 'Error al cargar el menú' : 'Error loading menu')}
           </h1>
           <p style={{ color: 'var(--menu-text)', opacity: 0.7 }}>
-            {lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.'}
+            {isNotFound
+              ? (lang === 'es' ? 'Verifica el enlace e intenta de nuevo.' : 'Check the link and try again.')
+              : isNetworkError
+                ? (lang === 'es' ? 'No se pudo cargar el restaurante. Revisa tu conexión o intenta de nuevo.' : 'Could not load the restaurant. Check your connection and try again.')
+                : (error || (lang === 'es' ? 'Ocurrió un error inesperado.' : 'An unexpected error occurred.'))}
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold"
-            style={{ background: 'var(--menu-accent)', color: '#000' }}
-          >
-            {lang === 'es' ? 'Reintentar' : 'Retry'}
-          </button>
+          {!isNotFound && (
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold"
+              style={{ background: 'var(--menu-accent)', color: '#000' }}
+            >
+              {lang === 'es' ? 'Reintentar' : 'Retry'}
+            </button>
+          )}
         </div>
       </div>
     );

@@ -8,30 +8,50 @@ export function useTenantData(slug: string | undefined) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!slug) {
+    // Guard: si el slug todavía no está disponible (primer render de wouter), mantener loading
+    if (slug === undefined) {
+      console.log('[useTenantData] slug undefined — esperando...');
+      return; // NO cambiar loading a false, esperar al siguiente render con slug
+    }
+    if (slug === '') {
+      console.warn('[useTenantData] slug vacío');
       setLoading(false);
-      setError('No slug provided');
+      setError('Restaurante no encontrado');
       return;
     }
 
     async function fetchData() {
       setLoading(true);
       setError(null);
+      console.log('[useTenantData] Cargando tenant para slug:', slug);
 
       try {
-        // Fetch tenant by slug
+        // Usar maybeSingle() en lugar de single() para evitar error PGRST116
+        // cuando el tenant no existe (devuelve null sin error)
         const { data: tenantData, error: tenantError } = await supabase
           .from('tenants')
           .select('*')
-          .eq('slug', slug)
+          .eq('slug', slug!)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
-        if (tenantError || !tenantData) {
+        if (tenantError) {
+          // Error real de Supabase o de red
+          console.error('[useTenantData] Error Supabase al buscar tenant:', tenantError);
+          const isNetworkError = !navigator.onLine || tenantError.message?.includes('fetch') || tenantError.message?.includes('network');
+          setError(isNetworkError
+            ? 'No se pudo cargar el restaurante. Revisa tu conexión o intenta de nuevo.'
+            : 'No se pudo cargar el restaurante. Revisa tu conexión o intenta de nuevo.');
+          setLoading(false);
+          return;
+        }
+        if (!tenantData) {
+          console.warn('[useTenantData] Tenant no encontrado para slug:', slug);
           setError('Restaurante no encontrado');
           setLoading(false);
           return;
         }
+        console.log('[useTenantData] Tenant cargado:', tenantData.name);
 
         const tenant = tenantData as Tenant;
 
@@ -117,9 +137,12 @@ export function useTenantData(slug: string | undefined) {
           categories: allCategories,
           menuItems: (menuItemsData || []) as MenuItem[],
         });
-      } catch (err) {
-        setError('Error al cargar el menú');
-        console.error(err);
+      } catch (err: any) {
+        console.error('[useTenantData] Error inesperado:', err);
+        const isNetworkError = !navigator.onLine || err?.message?.includes('fetch') || err?.message?.includes('network') || err?.message?.includes('Failed to fetch');
+        setError(isNetworkError
+          ? 'No se pudo cargar el restaurante. Revisa tu conexión o intenta de nuevo.'
+          : 'Error al cargar el menú. Intenta de nuevo.');
       } finally {
         setLoading(false);
       }

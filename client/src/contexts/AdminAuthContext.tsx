@@ -83,8 +83,16 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (tenantError) {
-          console.error('Error buscando tenant:', tenantError);
-          return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
+          console.error('[AdminAuth] Error buscando tenant:', tenantError);
+          const isNetworkErr = !navigator.onLine
+            || tenantError.message?.includes('fetch')
+            || tenantError.message?.includes('network')
+            || tenantError.message?.includes('Failed to fetch');
+          if (isNetworkErr) {
+            return { success: false, error: 'Sin conexión a internet. Verifica tu red e intenta de nuevo.' };
+          }
+          // Error de RLS u otro error de Supabase — no es error de red
+          return { success: false, error: 'No se pudo verificar el restaurante. Intenta de nuevo.' };
         }
 
         if (!tenant) {
@@ -115,7 +123,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (authError || !authData?.user) {
-        return { success: false, error: 'Contraseña incorrecta. Intenta de nuevo.' };
+        console.error('[AdminAuth] Error de autenticación:', authError);
+        const isNetworkErr = !navigator.onLine
+          || authError?.message?.includes('fetch')
+          || authError?.message?.includes('network')
+          || authError?.message?.includes('Failed to fetch');
+        if (isNetworkErr) {
+          return { success: false, error: 'Sin conexión a internet. Verifica tu red e intenta de nuevo.' };
+        }
+        // Invalid login credentials u otro error de auth
+        const isWrongCredentials = authError?.message?.includes('Invalid login') || authError?.message?.includes('invalid') || authError?.status === 400;
+        if (isWrongCredentials) {
+          return { success: false, error: 'Email o contraseña incorrectos. Verifica tus credenciales.' };
+        }
+        return { success: false, error: authError?.message || 'No se pudo iniciar sesión. Intenta de nuevo.' };
       }
 
       // PASO 3: Verificación extra para super admin

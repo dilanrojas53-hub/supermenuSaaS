@@ -295,33 +295,14 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         style={{ aspectRatio: '1/1', borderRadius: '1.25rem 1.25rem 0 0' }}
       >
         {hasImage ? (
-          <>
-            <img
-              src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality, IMAGE_SIZES.card.height)}
-              alt={item.name}
-              className="w-full h-full"
-              style={{ objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
-              loading="lazy"
-              decoding="async"
-            />
-            {/* Gradiente oscuro */}
-            <div className="absolute inset-0" style={{
-              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.05) 45%, transparent 100%)',
-            }} />
-            {/* Precio flotando */}
-            <div className="absolute bottom-2.5 left-3 z-10">
-              <span
-                className="text-[17px] font-black"
-                style={{
-                  color: '#fff',
-                  textShadow: '0 1px 8px rgba(0,0,0,0.9)',
-                  letterSpacing: '-0.03em',
-                }}
-              >
-                {formatPrice(item.price)}
-              </span>
-            </div>
-          </>
+          <img
+            src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality, IMAGE_SIZES.card.height)}
+            alt={item.name}
+            className="w-full h-full"
+            style={{ objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
             {getPlaceholderIcon(item.name)}
@@ -368,12 +349,10 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             {item.description}
           </p>
         )}
-        {/* Precio cuando no hay imagen */}
-        {!hasImage && (
-          <p className="text-[16px] font-black mt-1.5" style={{ color: 'var(--menu-accent)', letterSpacing: '-0.03em' }}>
-            {formatPrice(item.price)}
-          </p>
-        )}
+        {/* Precio siempre en la zona de contenido, debajo de la imagen */}
+        <p className="text-[16px] font-black mt-1.5" style={{ color: 'var(--menu-accent)', letterSpacing: '-0.03em' }}>
+          {formatPrice(item.price)}
+        </p>
       </div>
 
       {/* Botón CTA — ancho completo, prominente */}
