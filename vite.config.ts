@@ -222,36 +222,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // React core — siempre necesario, caché permanente
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {
-            return 'vendor-react';
-          }
-          // Supabase client
-          if (id.includes('node_modules/@supabase/')) {
-            return 'vendor-supabase';
-          }
-          // Recharts + D3 (solo admin analytics)
-          if (id.includes('node_modules/recharts/') || id.includes('node_modules/d3-')) {
-            return 'vendor-charts';
-          }
-          // Framer Motion
-          if (id.includes('node_modules/framer-motion/')) {
-            return 'vendor-motion';
-          }
-          // Radix UI
-          if (id.includes('node_modules/@radix-ui/')) {
-            return 'vendor-radix';
-          }
-          // Resto de node_modules
-          if (id.includes('node_modules/')) {
-            return 'vendor-misc';
-          }
-        },
-      },
-    },
   },
   server: {
     port: 3000,
