@@ -986,16 +986,22 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
                               </span>
                             )}
                             {/* Canal */}
+                            {((order as any).delivery_type === 'dine_in' || !(order as any).delivery_type) && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                                style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#86EFAC', border: '1px solid rgba(34,197,94,0.25)' }}>
+                                🍽️ Mesa
+                              </span>
+                            )}
                             {(order as any).delivery_type === 'takeout' && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
                                 style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.3)' }}>
-                                🛒 Para llevar
+                                🛍️ Para llevar
                               </span>
                             )}
                             {(order as any).delivery_type === 'delivery' && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
                                 style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}>
-                                🛯️ Delivery
+                                🛵 Delivery
                               </span>
                             )}
                           </div>
