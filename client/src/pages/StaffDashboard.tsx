@@ -148,7 +148,7 @@ function PinModal({ onConfirm, onCancel, adminPin }: { onConfirm: () => void; on
 
 // ─── Quick Add Modal ───
 function QuickAddModal({
-  tenant, staff, categories, items, onClose, onOrderCreated
+  tenant, staff, categories, items, onClose, onOrderCreated, enabledTypes
 }: {
   tenant: Tenant;
   staff: StaffMember;
@@ -156,13 +156,18 @@ function QuickAddModal({
   items: MenuItem[];
   onClose: () => void;
   onOrderCreated: () => void;
+  enabledTypes?: { dine_in: boolean; takeout: boolean; delivery: boolean };
 }) {
+  const enabled = enabledTypes ?? { dine_in: true, takeout: true, delivery: true };
+  // Determinar el primer tipo activo para el default
+  const firstActiveType: 'dine_in' | 'takeout' | 'delivery' =
+    enabled.dine_in ? 'dine_in' : enabled.takeout ? 'takeout' : 'delivery';
   const [selectedCat, setSelectedCat] = useState<string>(categories[0]?.id || '');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [tableName, setTableName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [placing, setPlacing] = useState(false);
-  const [orderType, setOrderType] = useState<'dine_in' | 'takeout' | 'delivery'>('dine_in');
+  const [orderType, setOrderType] = useState<'dine_in' | 'takeout' | 'delivery'>(firstActiveType);
 
   const filteredItems = items.filter(i => i.category_id === selectedCat && i.is_available);
   const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0).map(([id, qty]) => {
@@ -227,9 +232,9 @@ function QuickAddModal({
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tipo de pedido + inputs contextuales */}
           <div className="flex flex-col gap-2 px-3 py-2 border-b border-[var(--border)]">
-            {/* Selector de tipo */}
+            {/* Selector de tipo (solo tipos activos) */}
             <div className="flex gap-1.5">
-              {([['dine_in', '🍽️ Mesa'], ['takeout', '🛍️ Para llevar'], ['delivery', '🛵 Delivery']] as const).map(([type, label]) => (
+              {([['dine_in', '🍽️ Mesa'], ['takeout', '🛍️ Para llevar'], ['delivery', '🛵 Delivery']] as const).filter(([type]) => enabled[type as keyof typeof enabled]).map(([type, label]) => (
                 <button key={type} onClick={() => setOrderType(type)}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     orderType === type ? 'bg-amber-500 text-black' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-slate-700'
@@ -413,6 +418,22 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
   const [staffPayMethod, setStaffPayMethod] = useState<string>('efectivo');
   const { playBell } = useKitchenBell();
   const prevCountRef = useRef(0);
+  // ── Tipos de pedido activos ──
+  const [enabledTypes, setEnabledTypes] = useState<{ dine_in: boolean; takeout: boolean; delivery: boolean }>({
+    dine_in: true, takeout: true, delivery: true,
+  });
+  useEffect(() => {
+    supabase.from('delivery_settings')
+      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled')
+      .eq('tenant_id', tenant.id).maybeSingle()
+      .then(({ data }) => {
+        if (data) setEnabledTypes({
+          dine_in: data.dine_in_orders_enabled ?? true,
+          takeout: data.takeout_orders_enabled ?? true,
+          delivery: data.delivery_orders_enabled ?? true,
+        });
+      });
+  }, [tenant.id]);
 
   // ─── V21.0: Smart Bill Alert ───
   const [billAlert, setBillAlert] = useState<{
@@ -1167,7 +1188,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       {/* ── MODALES ── */}
       {showQuickAdd && (
         <QuickAddModal tenant={tenant} staff={staff} categories={categories} items={items}
-          onClose={() => setShowQuickAdd(false)} onOrderCreated={fetchOrders} />
+          onClose={() => setShowQuickAdd(false)} onOrderCreated={fetchOrders} enabledTypes={enabledTypes} />
       )}
       {pinModal && (
         <PinModal adminPin={tenant.admin_pin || ''} onConfirm={confirmCancel} onCancel={() => setPinModal(null)} />

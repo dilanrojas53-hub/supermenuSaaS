@@ -2622,7 +2622,35 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [receiptViewerUrl, setReceiptViewerUrl] = useState<string | null>(null);
+  // ── Tipos de pedido activos (desde delivery_settings) ──
   const [activeSubTab, setActiveSubTab] = useState<OrderSubTab>('DINE_IN');
+  const [enabledTypes, setEnabledTypes] = useState<{ dine_in: boolean; takeout: boolean; delivery: boolean }>({
+    dine_in: true, takeout: true, delivery: true,
+  });
+  useEffect(() => {
+    supabase.from('delivery_settings')
+      .select('dine_in_orders_enabled, takeout_orders_enabled, delivery_orders_enabled')
+      .eq('tenant_id', tenant.id).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const types = {
+          dine_in: data.dine_in_orders_enabled ?? true,
+          takeout: data.takeout_orders_enabled ?? true,
+          delivery: data.delivery_orders_enabled ?? true,
+        };
+        setEnabledTypes(types);
+        // Si el sub-tab activo está desactivado, cambiar al primero activo
+        setActiveSubTab(prev => {
+          const map: Record<OrderSubTab, keyof typeof types> = { DINE_IN: 'dine_in', TAKEOUT: 'takeout', DELIVERY: 'delivery' };
+          if (!types[map[prev]]) {
+            if (types.dine_in) return 'DINE_IN';
+            if (types.takeout) return 'TAKEOUT';
+            if (types.delivery) return 'DELIVERY';
+          }
+          return prev;
+        });
+      });
+  }, [tenant.id]);
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('pending');
   const [activeStatusTab, setActiveStatusTab] = useState<'nuevos' | 'en_cocina' | 'listos' | 'cobro'>('nuevos');
   // ── Modal de confirmación de cobro con selector de método de pago ──
@@ -3418,12 +3446,13 @@ function OrdersTab({ tenant }: { tenant: Tenant }) {
     </div>
   );
 
-  // ── Sub-tab config ──
-  const subTabs: { key: OrderSubTab; label: string; icon: string | null; color: string; activeColor: string }[] = [
-    { key: 'DINE_IN',  label: 'Comer Aquí', icon: null, color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300' },
-    { key: 'DELIVERY', label: 'Delivery',    icon: null, color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300' },
-    { key: 'TAKEOUT',  label: 'Para llevar', icon: null, color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' },
+  // ── Sub-tab config (filtrado según tipos activos) ──
+  const allSubTabs: { key: OrderSubTab; label: string; icon: string | null; color: string; activeColor: string; enabled: boolean }[] = [
+    { key: 'DINE_IN',  label: 'Comer Aquí', icon: null, color: '#F59E0B', activeColor: 'bg-amber-500/20 border-amber-500/60 text-amber-300', enabled: enabledTypes.dine_in },
+    { key: 'DELIVERY', label: 'Delivery',    icon: null, color: '#3B82F6', activeColor: 'bg-blue-500/20 border-blue-500/60 text-blue-300',   enabled: enabledTypes.delivery },
+    { key: 'TAKEOUT',  label: 'Para llevar', icon: null, color: '#10B981', activeColor: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300', enabled: enabledTypes.takeout },
   ];
+  const subTabs = allSubTabs.filter(t => t.enabled);
 
   return (
     <div>
