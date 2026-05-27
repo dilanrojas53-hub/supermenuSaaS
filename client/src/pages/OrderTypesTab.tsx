@@ -19,6 +19,7 @@ interface OrderConfig {
   takeout_orders_enabled: boolean;
   delivery_orders_enabled: boolean;
   closed_message: string;
+  enable_new_step: boolean;
   enable_prep_step: boolean;
   enable_billing_step: boolean;
 }
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: OrderConfig = {
   takeout_orders_enabled: true,
   delivery_orders_enabled: false,
   closed_message: 'Por el momento no estamos recibiendo pedidos desde el menú.',
+  enable_new_step: true,
   enable_prep_step: true,
   enable_billing_step: true,
 };
@@ -82,9 +84,9 @@ function TypeCard({
 }
 
 /** Visualización del flujo de estados activos */
-function FlowPreview({ enablePrep, enableBilling }: { enablePrep: boolean; enableBilling: boolean }) {
+function FlowPreview({ enableNew, enablePrep, enableBilling }: { enableNew: boolean; enablePrep: boolean; enableBilling: boolean }) {
   const steps = [
-    { key: 'new', label: 'Nuevos', color: '#3B82F6', always: true },
+    { key: 'new', label: 'Nuevos', color: '#3B82F6', always: false, active: enableNew },
     { key: 'prep', label: 'En prep.', color: '#F97316', always: false, active: enablePrep },
     { key: 'ready', label: 'Listos', color: '#22C55E', always: true },
     { key: 'billing', label: 'Cobro', color: '#F59E0B', always: false, active: enableBilling },
@@ -146,6 +148,7 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
         takeout_orders_enabled: data?.takeout_orders_enabled ?? DEFAULT_CONFIG.takeout_orders_enabled,
         delivery_orders_enabled: data?.delivery_orders_enabled ?? DEFAULT_CONFIG.delivery_orders_enabled,
         closed_message: data?.closed_message ?? DEFAULT_CONFIG.closed_message,
+        enable_new_step: sv.order_flow_new !== undefined ? sv.order_flow_new : DEFAULT_CONFIG.enable_new_step,
         enable_prep_step: sv.order_flow_prep !== undefined ? sv.order_flow_prep : DEFAULT_CONFIG.enable_prep_step,
         enable_billing_step: sv.order_flow_billing !== undefined ? sv.order_flow_billing : DEFAULT_CONFIG.enable_billing_step,
       });
@@ -206,7 +209,7 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
         .eq('tenant_id', tenant.id)
         .maybeSingle();
       const currentSv = (landingRow?.section_visibility as Record<string, boolean> | null) ?? {};
-      const newSv = { ...currentSv, order_flow_prep: config.enable_prep_step, order_flow_billing: config.enable_billing_step };
+      const newSv = { ...currentSv, order_flow_new: config.enable_new_step, order_flow_prep: config.enable_prep_step, order_flow_billing: config.enable_billing_step };
       if (landingRow) {
         await supabase.from('restaurant_landing_settings').update({ section_visibility: newSv }).eq('tenant_id', tenant.id);
       } else {
@@ -333,7 +336,7 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
           <div>
             <p className="text-sm font-bold text-[var(--text-primary)]">Flujo de estados del pedido</p>
             <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              Elige cuántos pasos tiene el proceso interno. <strong>Nuevos</strong> y <strong>Listos</strong> son siempre obligatorios.
+              Elige cuántos pasos tiene el proceso interno. Solo <strong>Listos</strong> es siempre obligatorio.
             </p>
           </div>
         </div>
@@ -341,7 +344,28 @@ export default function OrderTypesTab({ tenant }: OrderTypesTabProps) {
         {/* Preview del flujo */}
         <div className="px-3 py-3 rounded-xl" style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--border)' }}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#64748b' }}>Vista previa del flujo</p>
-          <FlowPreview enablePrep={config.enable_prep_step} enableBilling={config.enable_billing_step} />
+          <FlowPreview enableNew={config.enable_new_step} enablePrep={config.enable_prep_step} enableBilling={config.enable_billing_step} />
+        </div>
+
+        {/* Toggle Nuevos */}
+        <div
+          className="flex items-center justify-between gap-4 px-4 py-4 rounded-xl transition-all"
+          style={{
+            backgroundColor: config.enable_new_step ? 'rgba(59,130,246,0.06)' : 'var(--bg-base)',
+            border: config.enable_new_step ? '1px solid rgba(59,130,246,0.25)' : '1px solid var(--border)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔔</span>
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Paso "Nuevos"</p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Los pedidos llegan primero a una bandeja de nuevos esperando ser aceptados.
+                {!config.enable_new_step && <span className="text-blue-400 font-medium"> Al desactivar, los pedidos entran directo al siguiente paso activo.</span>}
+              </p>
+            </div>
+          </div>
+          <ToggleSwitch checked={config.enable_new_step} onChange={v => set('enable_new_step', v)} />
         </div>
 
         {/* Toggle En preparación */}

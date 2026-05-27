@@ -423,6 +423,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     dine_in: true, takeout: true, delivery: true,
   });
   // ── Flujo de estados activos ──
+  const [enableNewStep, setEnableNewStep] = useState(true);
   const [enablePrepStep, setEnablePrepStep] = useState(true);
   const [enableBillingStep, setEnableBillingStep] = useState(true);
   useEffect(() => {
@@ -446,6 +447,7 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
       .then(({ data }) => {
         if (data?.section_visibility) {
           const sv = data.section_visibility as Record<string, boolean>;
+          if (sv.order_flow_new !== undefined) setEnableNewStep(sv.order_flow_new);
           if (sv.order_flow_prep !== undefined) setEnablePrepStep(sv.order_flow_prep);
           if (sv.order_flow_billing !== undefined) setEnableBillingStep(sv.order_flow_billing);
         }
@@ -529,7 +531,31 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     prevCountRef.current = newOrders.length;
     setOrders(newOrders);
     setLoading(false);
-  }, [tenant.id]);
+    // Auto-avance: si el paso 'Nuevos' está desactivado, mover pendientes al siguiente paso
+    if (!enableNewStep) {
+      const pendingOrders = newOrders.filter(o => o.status === 'pendiente');
+      if (pendingOrders.length > 0) {
+        const nextStatus = enablePrepStep ? 'en_cocina' : 'listo';
+        const now = new Date().toISOString();
+        await Promise.all(pendingOrders.map(o =>
+          supabase.from('orders').update({
+            status: nextStatus,
+            accepted_at: now,
+            claimed_by_staff_id: null,
+            claimed_by_name: 'Auto',
+            claimed_at: now,
+            ...(nextStatus === 'listo' ? { ready_at: now } : {}),
+          }).eq('id', o.id)
+        ));
+        // Re-fetch para reflejar el cambio
+        const { data: updated } = await supabase
+          .from('orders').select('*').eq('tenant_id', tenant.id)
+          .in('status', ACTIVE_STATUSES).in('delivery_type', ['dine_in', 'takeout'])
+          .order('created_at', { ascending: false }).limit(80);
+        setOrders((updated as Order[]) || []);
+      }
+    }
+  }, [tenant.id, enableNewStep, enablePrepStep]);
 
   const fetchMenuData = useCallback(async () => {
     const [catRes, itemsRes] = await Promise.all([
@@ -665,9 +691,13 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
 
   const handleAdvanceStatus = async (order: Order) => {
     // Flujo dinámico según configuración del tenant
-    const statusFlow: Record<string, string> = enablePrepStep
-      ? { pendiente: 'en_cocina', en_cocina: 'listo', listo: 'entregado' }
-      : { pendiente: 'listo', listo: 'entregado' };
+    // enableNewStep=false: pedidos entran directo a en_cocina o listo según enablePrepStep
+    let statusFlow: Record<string, string>;
+    if (enablePrepStep) {
+      statusFlow = { pendiente: 'en_cocina', en_cocina: 'listo', listo: 'entregado' };
+    } else {
+      statusFlow = { pendiente: 'listo', listo: 'entregado' };
+    }
     const next = statusFlow[order.status];
     if (!next) return;
     const now = new Date().toISOString();
@@ -729,9 +759,11 @@ function StaffKanban({ tenant, staff, onLogout }: { tenant: Tenant; staff: Staff
     { key: 'en_cocina', label: 'En prep.', color: 'text-orange-400', bg: 'border-orange-500/30' },
     { key: 'listo', label: 'Listos', color: 'text-green-400', bg: 'border-green-500/30' },
   ];
-  const columns = enablePrepStep
-    ? allColumns
-    : allColumns.filter(c => c.key !== 'en_cocina');
+  const columns = allColumns.filter(c => {
+    if (c.key === 'pendiente' && !enableNewStep) return false;
+    if (c.key === 'en_cocina' && !enablePrepStep) return false;
+    return true;
+  });
 
   const getActionLabel = (status: string) => {
     if (status === 'pendiente') return enablePrepStep ? 'A Cocina' : 'Listo';
