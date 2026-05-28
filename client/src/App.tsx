@@ -9,6 +9,7 @@ import { UIThemeProvider } from "./contexts/UIThemeContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { AnimationProvider, useAnimationConfig } from "./contexts/AnimationContext";
 import AnimatedBackground from "./components/AnimatedBackground";
+import OrderFlowRuntimePatch from "./components/OrderFlowRuntimePatch";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -47,9 +48,15 @@ function Router() {
         <Route path="/super-admin" component={SuperAdminDashboard} />
         {/* Admin routes */}
         <Route path="/admin/:slug/login" component={() => <AdminLogin mode="admin" />} />
-        <Route path="/admin/:slug" component={AdminDashboard} />
+        <Route path="/admin/:slug">
+          <OrderFlowRuntimePatch scope="admin" />
+          <AdminDashboard />
+        </Route>
         {/* Staff dashboard */}
-        <Route path="/staff/:slug" component={StaffDashboard} />
+        <Route path="/staff/:slug">
+          <OrderFlowRuntimePatch scope="staff" />
+          <StaffDashboard />
+        </Route>
         {/* Kitchen Display System */}
         <Route path="/kitchen/:slug" component={KitchenDisplay} />
         {/* Rider App — Fase 2 Delivery */}
