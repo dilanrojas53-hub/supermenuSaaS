@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface FlowConfig {
@@ -35,66 +35,86 @@ function getSlugFromPath(scope: 'admin' | 'staff') {
   return idx >= 0 ? parts[idx + 1] : undefined;
 }
 
-function closestControl(el: HTMLElement): HTMLElement {
-  const interactive = el.closest('button,[role="button"]') as HTMLElement | null;
-  if (interactive) return interactive;
+function findOrdersRoot(): HTMLElement | null {
+  const heading = Array.from(document.querySelectorAll<HTMLElement>('h1,h2,h3'))
+    .find(el => normalizeText(el.textContent).includes('pedidos en vivo'));
+  if (!heading) return null;
 
-  let node: HTMLElement | null = el;
-  for (let i = 0; i < 6 && node?.parentElement; i += 1) {
-    const className = String(node.className || '');
-    const rect = node.getBoundingClientRect();
-    if ((className.includes('rounded') || className.includes('border')) && rect.height >= 28 && rect.width >= 48) {
+  let node: HTMLElement | null = heading.parentElement;
+  for (let i = 0; i < 8 && node; i += 1) {
+    const text = normalizeText(node.textContent);
+    if (
+      text.includes('sin pedidos en este estado') ||
+      (text.includes('en prep.') && text.includes('listos')) ||
+      text.includes('para llevar')
+    ) {
       return node;
     }
     node = node.parentElement;
   }
-  return el;
+  return heading.parentElement?.parentElement || null;
 }
 
-function hideControl(el: HTMLElement) {
-  const target = closestControl(el);
-  if (!target.dataset.flowPatchHidden) {
-    target.dataset.flowPatchPreviousDisplay = target.style.display || '';
-  }
-  target.dataset.flowPatchHidden = 'true';
-  target.style.display = 'none';
+function getButtonLabel(button: HTMLElement) {
+  return normalizeText(button.textContent).replace(/\s+/g, '');
 }
 
-function restoreHiddenControls(root: ParentNode = document) {
+function hideRootButton(root: HTMLElement, label: string) {
+  const wanted = normalizeText(label).replace(/\s+/g, '');
+  const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
+  buttons.forEach(button => {
+    const text = getButtonLabel(button);
+    const isStatusButton = text === wanted || text.startsWith(wanted);
+    if (!isStatusButton) return;
+    button.dataset.flowPatchHidden = 'true';
+    button.style.display = 'none';
+  });
+}
+
+function restoreRootButtons(root: HTMLElement) {
   root.querySelectorAll<HTMLElement>('[data-flow-patch-hidden="true"]').forEach(el => {
-    el.style.display = el.dataset.flowPatchPreviousDisplay || '';
+    el.style.display = '';
     delete el.dataset.flowPatchHidden;
-    delete el.dataset.flowPatchPreviousDisplay;
+  });
+
+  root.querySelectorAll<HTMLElement>('[data-flow-patchGrid="true"]').forEach(el => {
+    el.style.gridTemplateColumns = '';
+    delete el.dataset.flowPatchGrid;
   });
 }
 
-function hideSmallControlsByLabel(label: string) {
-  const wanted = normalizeText(label);
-  const nodes = Array.from(document.querySelectorAll<HTMLElement>('button, div, span, h2, p'));
+function fitVisibleStatusGrid(root: HTMLElement) {
+  const statusLabels = ['nuevos', 'enprep.', 'listos', 'cobro'];
+  const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+    .filter(button => {
+      const text = getButtonLabel(button);
+      return statusLabels.some(label => text.startsWith(label));
+    });
 
-  nodes.forEach(node => {
-    const text = normalizeText(node.textContent);
-    if (!text) return;
+  if (buttons.length === 0) return;
+  const parent = buttons[0].parentElement as HTMLElement | null;
+  if (!parent) return;
 
-    const exact = text === wanted;
-    const compactCard = text.startsWith(wanted) && text.length <= wanted.length + 18;
-    const countCard = text.includes(wanted) && /^.*\b0\b.*$/.test(text) && text.length <= wanted.length + 30;
-
-    if (exact || compactCard || countCard) {
-      hideControl(node);
-    }
-  });
+  const visibleCount = buttons.filter(button => button.style.display !== 'none').length || 1;
+  parent.dataset.flowPatchGrid = 'true';
+  parent.style.gridTemplateColumns = `repeat(${visibleCount}, minmax(0, 1fr))`;
 }
 
-function clickFallbackTab(config: FlowConfig) {
-  const currentHidden = document.querySelector<HTMLElement>('[data-flow-patch-hidden="true"][aria-selected="true"], [data-flow-patch-hidden="true"].active');
-  if (!currentHidden) return;
+function clickSafeFallback(root: HTMLElement, config: FlowConfig) {
+  const hiddenActive = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-flow-patch-hidden="true"]'))
+    .some(button => button.getAttribute('aria-selected') === 'true' || String(button.className).includes('border-current'));
 
-  const candidates = ['Activos', 'En prep.', 'Listos', 'Para llevar'];
-  for (const label of candidates) {
-    if (label === 'En prep.' && !config.prepStep) continue;
-    const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
-      .find(b => normalizeText(b.textContent) === normalizeText(label) && b.offsetParent !== null);
+  if (!hiddenActive) return;
+
+  const fallbackLabels = [
+    config.prepStep ? 'enprep.' : null,
+    'listos',
+    config.billingStep ? 'cobro' : null,
+  ].filter(Boolean) as string[];
+
+  const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
+  for (const label of fallbackLabels) {
+    const button = buttons.find(b => getButtonLabel(b).startsWith(label) && b.style.display !== 'none');
     if (button) {
       button.click();
       return;
@@ -133,14 +153,13 @@ async function autoAdvanceOrders(config: FlowConfig) {
 }
 
 /**
- * Small compatibility layer while the large admin/staff dashboards still contain
- * hardcoded legacy status cards. It respects the order flow switches saved in
- * restaurant_landing_settings.section_visibility and hides inactive steps from
- * the internal operation screens without changing the main dashboard files.
+ * Compatibility layer for legacy hardcoded order-flow cards.
+ * Important: this version is intentionally scoped to the order panel only and
+ * uses a light interval instead of a MutationObserver, because the old observer
+ * caused mobile drawer freezes when the admin hamburger menu opened.
  */
 export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'staff' }) {
   const [config, setConfig] = useState<FlowConfig>(DEFAULT_FLOW);
-  const observerRef = useRef<MutationObserver | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -191,39 +210,31 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
 
   useEffect(() => {
     function applyVisibility() {
-      restoreHiddenControls();
+      const root = findOrdersRoot();
+      if (!root) return;
 
-      const bodyText = normalizeText(document.body.textContent);
-      const isOrdersScreen = scope === 'staff' || bodyText.includes('pedidos en vivo');
-      if (!isOrdersScreen) return;
+      restoreRootButtons(root);
 
-      if (!config.newStep) hideSmallControlsByLabel('Nuevos');
-      if (!config.prepStep) hideSmallControlsByLabel('En prep.');
+      if (!config.newStep) hideRootButton(root, 'Nuevos');
+      if (!config.prepStep) hideRootButton(root, 'En prep.');
       if (!config.billingStep) {
-        hideSmallControlsByLabel('Cobro');
-        hideSmallControlsByLabel('Por Cobrar');
-        hideSmallControlsByLabel('Cobrados');
+        hideRootButton(root, 'Cobro');
+        hideRootButton(root, 'Por cobrar');
+        hideRootButton(root, 'Cobrados');
       }
-      if (!config.dineIn) {
-        hideSmallControlsByLabel('Mesas');
-        hideSmallControlsByLabel('Mesa');
-      }
-      if (!config.delivery) hideSmallControlsByLabel('Delivery');
 
-      clickFallbackTab(config);
+      fitVisibleStatusGrid(root);
+      clickSafeFallback(root, config);
     }
 
     applyVisibility();
-    observerRef.current?.disconnect();
-    observerRef.current = new MutationObserver(() => applyVisibility());
-    observerRef.current.observe(document.body, { childList: true, subtree: true, characterData: true });
-
+    const interval = window.setInterval(applyVisibility, 700);
     return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
-      restoreHiddenControls();
+      window.clearInterval(interval);
+      const root = findOrdersRoot();
+      if (root) restoreRootButtons(root);
     };
-  }, [config, scope]);
+  }, [config]);
 
   useEffect(() => {
     autoAdvanceOrders(config);
