@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface FlowConfig {
@@ -35,6 +35,33 @@ function getSlugFromPath(scope: 'admin' | 'staff') {
   return idx >= 0 ? parts[idx + 1] : undefined;
 }
 
+function cacheKey(scope: 'admin' | 'staff', slug?: string) {
+  return slug ? `smartmenu:order-flow:${scope}:${slug}` : null;
+}
+
+function getInitialFlow(scope: 'admin' | 'staff'): FlowConfig {
+  const slug = getSlugFromPath(scope);
+  const key = cacheKey(scope, slug);
+
+  if (key) {
+    try {
+      const cached = window.localStorage.getItem(key);
+      if (cached) return { ...DEFAULT_FLOW, ...(JSON.parse(cached) as Partial<FlowConfig>) };
+    } catch {
+      // Ignore cache parsing issues and fall back safely.
+    }
+  }
+
+  // La Tacopedia currently operates without the "Nuevos" step. Defaulting this
+  // tenant to that known flow prevents the old hardcoded card from flashing for
+  // a split second before Supabase returns the saved configuration.
+  if (slug === 'la-tacopedia') {
+    return { ...DEFAULT_FLOW, newStep: false };
+  }
+
+  return DEFAULT_FLOW;
+}
+
 function findOrdersRoot(): HTMLElement | null {
   const heading = Array.from(document.querySelectorAll<HTMLElement>('h1,h2,h3'))
     .find(el => normalizeText(el.textContent).includes('pedidos en vivo'));
@@ -46,7 +73,8 @@ function findOrdersRoot(): HTMLElement | null {
     if (
       text.includes('sin pedidos en este estado') ||
       (text.includes('en prep.') && text.includes('listos')) ||
-      text.includes('para llevar')
+      text.includes('para llevar') ||
+      text.includes('comer aquí')
     ) {
       return node;
     }
@@ -122,6 +150,24 @@ function clickSafeFallback(root: HTMLElement, config: FlowConfig) {
   }
 }
 
+function applyVisibilityNow(config: FlowConfig) {
+  const root = findOrdersRoot();
+  if (!root) return;
+
+  restoreRootButtons(root);
+
+  if (!config.newStep) hideRootButton(root, 'Nuevos');
+  if (!config.prepStep) hideRootButton(root, 'En prep.');
+  if (!config.billingStep) {
+    hideRootButton(root, 'Cobro');
+    hideRootButton(root, 'Por cobrar');
+    hideRootButton(root, 'Cobrados');
+  }
+
+  fitVisibleStatusGrid(root);
+  clickSafeFallback(root, config);
+}
+
 async function autoAdvanceOrders(config: FlowConfig) {
   if (!config.tenantId) return;
 
@@ -154,12 +200,11 @@ async function autoAdvanceOrders(config: FlowConfig) {
 
 /**
  * Compatibility layer for legacy hardcoded order-flow cards.
- * Important: this version is intentionally scoped to the order panel only and
- * uses a light interval instead of a MutationObserver, because the old observer
- * caused mobile drawer freezes when the admin hamburger menu opened.
+ * Uses cached tenant flow + useLayoutEffect so hidden steps are removed before
+ * the browser paints the Orders screen, avoiding the visual flash on mobile.
  */
 export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'staff' }) {
-  const [config, setConfig] = useState<FlowConfig>(DEFAULT_FLOW);
+  const [config, setConfig] = useState<FlowConfig>(() => getInitialFlow(scope));
 
   useEffect(() => {
     let mounted = true;
@@ -189,7 +234,7 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
       ]);
 
       const sectionVisibility = (landing?.section_visibility || {}) as Record<string, boolean>;
-      setConfig({
+      const nextConfig: FlowConfig = {
         tenantId: tenant.id,
         dineIn: delivery?.dine_in_orders_enabled ?? true,
         takeout: delivery?.takeout_orders_enabled ?? true,
@@ -197,7 +242,17 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
         newStep: sectionVisibility.order_flow_new ?? true,
         prepStep: sectionVisibility.order_flow_prep ?? true,
         billingStep: sectionVisibility.order_flow_billing ?? true,
-      });
+      };
+
+      setConfig(nextConfig);
+      const key = cacheKey(scope, slug);
+      if (key) {
+        try {
+          window.localStorage.setItem(key, JSON.stringify(nextConfig));
+        } catch {
+          // Local storage may be unavailable in private/embedded browser modes.
+        }
+      }
     }
 
     loadConfig();
@@ -208,28 +263,18 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
     };
   }, [scope]);
 
-  useEffect(() => {
-    function applyVisibility() {
-      const root = findOrdersRoot();
-      if (!root) return;
+  useLayoutEffect(() => {
+    applyVisibilityNow(config);
 
-      restoreRootButtons(root);
+    // One short deferred pass catches the DOM immediately after tab transitions
+    // without keeping a heavy observer on the whole admin.
+    const raf = window.requestAnimationFrame(() => applyVisibilityNow(config));
+    const timeout = window.setTimeout(() => applyVisibilityNow(config), 120);
+    const interval = window.setInterval(() => applyVisibilityNow(config), 1200);
 
-      if (!config.newStep) hideRootButton(root, 'Nuevos');
-      if (!config.prepStep) hideRootButton(root, 'En prep.');
-      if (!config.billingStep) {
-        hideRootButton(root, 'Cobro');
-        hideRootButton(root, 'Por cobrar');
-        hideRootButton(root, 'Cobrados');
-      }
-
-      fitVisibleStatusGrid(root);
-      clickSafeFallback(root, config);
-    }
-
-    applyVisibility();
-    const interval = window.setInterval(applyVisibility, 700);
     return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
       window.clearInterval(interval);
       const root = findOrdersRoot();
       if (root) restoreRootButtons(root);
