@@ -22,10 +22,7 @@ const DEFAULT_FLOW: FlowConfig = {
 };
 
 function normalizeText(value: string | null | undefined) {
-  return (value || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 function getSlugFromPath(scope: 'admin' | 'staff') {
@@ -52,11 +49,16 @@ function getInitialFlow(scope: 'admin' | 'staff'): FlowConfig {
     }
   }
 
-  // La Tacopedia currently operates without the "Nuevos" step. Defaulting this
-  // tenant to that known flow prevents the old hardcoded card from flashing for
-  // a split second before Supabase returns the saved configuration.
   if (slug === 'la-tacopedia') {
-    return { ...DEFAULT_FLOW, newStep: false };
+    return {
+      ...DEFAULT_FLOW,
+      dineIn: false,
+      takeout: true,
+      delivery: false,
+      newStep: false,
+      prepStep: true,
+      billingStep: true,
+    };
   }
 
   return DEFAULT_FLOW;
@@ -68,13 +70,15 @@ function findOrdersRoot(): HTMLElement | null {
   if (!heading) return null;
 
   let node: HTMLElement | null = heading.parentElement;
-  for (let i = 0; i < 8 && node; i += 1) {
+  for (let i = 0; i < 10 && node; i += 1) {
     const text = normalizeText(node.textContent);
     if (
       text.includes('sin pedidos en este estado') ||
-      (text.includes('en prep.') && text.includes('listos')) ||
+      text.includes('en prep.') ||
+      text.includes('listos') ||
       text.includes('para llevar') ||
-      text.includes('comer aquí')
+      text.includes('comer aquí') ||
+      text.includes('delivery')
     ) {
       return node;
     }
@@ -87,15 +91,21 @@ function getButtonLabel(button: HTMLElement) {
   return normalizeText(button.textContent).replace(/\s+/g, '');
 }
 
-function hideRootButton(root: HTMLElement, label: string) {
+function setRootButtonHidden(root: HTMLElement, label: string, hidden: boolean) {
   const wanted = normalizeText(label).replace(/\s+/g, '');
   const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
   buttons.forEach(button => {
     const text = getButtonLabel(button);
-    const isStatusButton = text === wanted || text.startsWith(wanted);
-    if (!isStatusButton) return;
-    button.dataset.flowPatchHidden = 'true';
-    button.style.display = 'none';
+    const isTarget = text === wanted || text.startsWith(wanted);
+    if (!isTarget) return;
+
+    if (hidden) {
+      button.dataset.flowPatchHidden = 'true';
+      button.style.display = 'none';
+    } else if (button.dataset.flowPatchHidden === 'true') {
+      button.style.display = '';
+      delete button.dataset.flowPatchHidden;
+    }
   });
 }
 
@@ -111,21 +121,27 @@ function restoreRootButtons(root: HTMLElement) {
   });
 }
 
-function fitVisibleStatusGrid(root: HTMLElement) {
-  const statusLabels = ['nuevos', 'enprep.', 'listos', 'cobro'];
-  const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
-    .filter(button => {
-      const text = getButtonLabel(button);
-      return statusLabels.some(label => text.startsWith(label));
-    });
+function fitVisibleButtonGrids(root: HTMLElement) {
+  const groupedLabels = [
+    ['comeraquí', 'delivery', 'parallevar'],
+    ['nuevos', 'enprep.', 'listos', 'cobro'],
+  ];
 
-  if (buttons.length === 0) return;
-  const parent = buttons[0].parentElement as HTMLElement | null;
-  if (!parent) return;
+  groupedLabels.forEach(labels => {
+    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+      .filter(button => {
+        const text = getButtonLabel(button);
+        return labels.some(label => text.startsWith(label));
+      });
 
-  const visibleCount = buttons.filter(button => button.style.display !== 'none').length || 1;
-  parent.dataset.flowPatchGrid = 'true';
-  parent.style.gridTemplateColumns = `repeat(${visibleCount}, minmax(0, 1fr))`;
+    if (buttons.length === 0) return;
+    const parent = buttons[0].parentElement as HTMLElement | null;
+    if (!parent) return;
+
+    const visibleCount = buttons.filter(button => button.style.display !== 'none').length || 1;
+    parent.dataset.flowPatchGrid = 'true';
+    parent.style.gridTemplateColumns = `repeat(${visibleCount}, minmax(0, 1fr))`;
+  });
 }
 
 function clickSafeFallback(root: HTMLElement, config: FlowConfig) {
@@ -135,6 +151,9 @@ function clickSafeFallback(root: HTMLElement, config: FlowConfig) {
   if (!hiddenActive) return;
 
   const fallbackLabels = [
+    config.takeout ? 'parallevar' : null,
+    config.dineIn ? 'comeraquí' : null,
+    config.delivery ? 'delivery' : null,
     config.prepStep ? 'enprep.' : null,
     'listos',
     config.billingStep ? 'cobro' : null,
@@ -154,17 +173,17 @@ function applyVisibilityNow(config: FlowConfig) {
   const root = findOrdersRoot();
   if (!root) return;
 
-  restoreRootButtons(root);
+  setRootButtonHidden(root, 'Comer Aquí', !config.dineIn);
+  setRootButtonHidden(root, 'Mesa', !config.dineIn);
+  setRootButtonHidden(root, 'Delivery', !config.delivery);
+  setRootButtonHidden(root, 'Para llevar', !config.takeout);
+  setRootButtonHidden(root, 'Nuevos', !config.newStep);
+  setRootButtonHidden(root, 'En prep.', !config.prepStep);
+  setRootButtonHidden(root, 'Cobro', !config.billingStep);
+  setRootButtonHidden(root, 'Por cobrar', !config.billingStep);
+  setRootButtonHidden(root, 'Cobrados', !config.billingStep);
 
-  if (!config.newStep) hideRootButton(root, 'Nuevos');
-  if (!config.prepStep) hideRootButton(root, 'En prep.');
-  if (!config.billingStep) {
-    hideRootButton(root, 'Cobro');
-    hideRootButton(root, 'Por cobrar');
-    hideRootButton(root, 'Cobrados');
-  }
-
-  fitVisibleStatusGrid(root);
+  fitVisibleButtonGrids(root);
   clickSafeFallback(root, config);
 }
 
@@ -198,11 +217,6 @@ async function autoAdvanceOrders(config: FlowConfig) {
   }
 }
 
-/**
- * Compatibility layer for legacy hardcoded order-flow cards.
- * Uses cached tenant flow + useLayoutEffect so hidden steps are removed before
- * the browser paints the Orders screen, avoiding the visual flash on mobile.
- */
 export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'staff' }) {
   const [config, setConfig] = useState<FlowConfig>(() => getInitialFlow(scope));
 
@@ -266,16 +280,19 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
   useLayoutEffect(() => {
     applyVisibilityNow(config);
 
-    // One short deferred pass catches the DOM immediately after tab transitions
-    // without keeping a heavy observer on the whole admin.
     const raf = window.requestAnimationFrame(() => applyVisibilityNow(config));
-    const timeout = window.setTimeout(() => applyVisibilityNow(config), 120);
-    const interval = window.setInterval(() => applyVisibilityNow(config), 1200);
+    const timeout = window.setTimeout(() => applyVisibilityNow(config), 80);
+    const interval = window.setInterval(() => applyVisibilityNow(config), 900);
+    const observer = new MutationObserver(() => applyVisibilityNow(config));
+    observer.observe(document.body, { childList: true, subtree: true });
+    const stopObserver = window.setTimeout(() => observer.disconnect(), 4000);
 
     return () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(timeout);
+      window.clearTimeout(stopObserver);
       window.clearInterval(interval);
+      observer.disconnect();
       const root = findOrdersRoot();
       if (root) restoreRootButtons(root);
     };
