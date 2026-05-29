@@ -1,22 +1,22 @@
 /**
- * PromosScreen v4.0 — Sección pública de Ofertas estilo Didi/Rappi
- * - Tarjetas visuales por tipo de promo con precio especial prominente
- * - Lógica correcta para: 2x1/bogo, combo, descuento%, fijo, horario, nivel, flash, free_item
- * - Selector de items para 2x1 y combos
- * - Validación de monto mínimo y horario en tiempo real
+ * PromosScreen v4.1
+ * Pantalla pública de promociones.
+ * Cambios clave:
+ * 1. Renderiza image_url de promotions como imagen principal de la promo.
+ * 2. Usa item.image_url o promo.image_url como respaldo en productos incluidos.
+ * 3. Hace más seguro el flujo de aplicar promos tipo combo, 2x1 y descuentos.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Tag, Clock, Percent, Gift, Zap, Star, ShoppingBag,
-  ChevronRight, Loader2, Check, Lock, Plus, Minus
+  X, Clock, ShoppingBag, ChevronRight, Loader2,
+  Check, Lock, Plus, Minus
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
 import { useCart } from '@/contexts/CartContext';
 import type { ThemeSettings, Tenant, MenuItem } from '@/lib/types';
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
 interface Promotion {
   id: string;
   name: string;
@@ -31,8 +31,11 @@ interface Promotion {
   active_hours_end: string | null;
   start_time: string | null;
   end_time: string | null;
+  active_days: number[] | null;
   level_required: string | null;
   item_ids: string[] | null;
+  image_url: string | null;
+  badge_text: string | null;
   is_new_customer: boolean;
   is_reactivation: boolean;
   is_active: boolean;
@@ -49,10 +52,12 @@ interface PromosScreenProps {
   onPromoSelect?: (promo: { id: string; name: string; type: string; value: number; promo_price?: number | null }) => void;
 }
 
-// ─── Constantes ──────────────────────────────────────────────────────────────
 const LEVEL_ORDER = ['bronze', 'silver', 'gold', 'vip'];
 const LEVEL_LABELS: Record<string, string> = {
-  bronze: '🥉 Bronce', silver: '🥈 Plata', gold: '🥇 Oro', vip: '💎 VIP',
+  bronze: '🥉 Bronce',
+  silver: '🥈 Plata',
+  gold: '🥇 Oro',
+  vip: '💎 VIP',
 };
 
 const TYPE_CONFIG: Record<string, { label: string; icon: string; badge: string }> = {
@@ -67,7 +72,12 @@ const TYPE_CONFIG: Record<string, { label: string; icon: string; badge: string }
   flash:      { label: 'Flash',           icon: '⚡', badge: 'FLASH' },
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function normalizeAssetUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+}
+
 function timeLeft(until: string | null): string | null {
   if (!until) return null;
   const diff = new Date(until).getTime() - Date.now();
@@ -84,16 +94,25 @@ function isPromoActiveNow(promo: Promotion): boolean {
   const now = new Date();
   if (promo.active_from && new Date(promo.active_from) > now) return false;
   if (promo.active_until && new Date(promo.active_until) < now) return false;
+
+  if (Array.isArray(promo.active_days) && promo.active_days.length > 0) {
+    if (!promo.active_days.includes(now.getDay())) return false;
+  }
+
   const timeStart = promo.active_hours_start || promo.start_time;
-  const timeEnd   = promo.active_hours_end   || promo.end_time;
+  const timeEnd = promo.active_hours_end || promo.end_time;
   if (timeStart && timeEnd) {
     const hhmm = now.toTimeString().slice(0, 5);
-    if (hhmm < timeStart || hhmm > timeEnd) return false;
+    const crossesMidnight = timeStart > timeEnd;
+    if (crossesMidnight) {
+      if (hhmm < timeStart && hhmm > timeEnd) return false;
+    } else if (hhmm < timeStart || hhmm > timeEnd) {
+      return false;
+    }
   }
   return true;
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 export default function PromosScreen({
   isOpen, onClose, theme, tenant, allItems = [], onPromoSelect
 }: PromosScreenProps) {
@@ -107,17 +126,17 @@ export default function PromosScreen({
   const [itemQty, setItemQty] = useState<Record<string, number>>({});
 
   const accentColor = theme.primary_color || '#F59E0B';
-  const bgColor     = theme.background_color || '#0a0a0a';
-  const textColor   = theme.text_color || '#f0f0f0';
+  const bgColor = theme.background_color || '#0a0a0a';
+  const textColor = theme.text_color || '#f0f0f0';
   const customerLevel = tenantStats?.level || 'bronze';
 
-  // ── Fetch promos ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen || !tenant.id) return;
     setLoading(true);
     setExpandedPromo(null);
     setAddedPromoIds(new Set());
     setItemQty({});
+
     const now = new Date().toISOString();
     supabase
       .from('promotions')
@@ -125,15 +144,20 @@ export default function PromosScreen({
       .eq('tenant_id', tenant.id)
       .eq('is_active', true)
       .or(`active_until.is.null,active_until.gte.${now}`)
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setPromos((data || []) as Promotion[]);
-        setLoading(false);
-      });
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error loading promotions:', error);
+          setPromos([]);
+        } else {
+          setPromos((data || []) as Promotion[]);
+        }
+      })
+      .finally(() => setLoading(false));
   }, [isOpen, tenant.id]);
 
-  // ── Filtrar por nivel ───────────────────────────────────────────────────────
-  const cusIdx = LEVEL_ORDER.indexOf(customerLevel);
+  const cusIdx = Math.max(0, LEVEL_ORDER.indexOf(customerLevel));
   const availablePromos = promos.filter(p => {
     if (!p.level_required) return true;
     return cusIdx >= LEVEL_ORDER.indexOf(p.level_required);
@@ -143,48 +167,48 @@ export default function PromosScreen({
     return cusIdx < LEVEL_ORDER.indexOf(p.level_required);
   });
 
-  // ── Items de la promo ───────────────────────────────────────────────────────
   const getPromoItems = useCallback((promo: Promotion): MenuItem[] => {
     if (!promo.item_ids || promo.item_ids.length === 0) return [];
     return allItems.filter(i => promo.item_ids!.includes(i.id));
   }, [allItems]);
 
-  // ── Aplicar promo al carrito ────────────────────────────────────────────────
   const handleApplyPromo = useCallback((promo: Promotion) => {
     const promoItems = getPromoItems(promo);
+    const isBogo = promo.type === '2x1' || promo.type === 'bogo';
+    const isCombo = promo.type === 'combo';
 
-    if ((promo.type === '2x1' || promo.type === 'bogo') && promoItems.length > 0) {
-      // Agregar 2 unidades del item seleccionado por cada unidad pedida
+    if (isBogo && promoItems.length > 0) {
+      const totalSelected = promoItems.reduce((sum, item) => sum + (itemQty[item.id] || 0), 0);
       promoItems.forEach(item => {
-        const qty = itemQty[item.id] || 0;
-        if (qty > 0) {
-          for (let i = 0; i < qty * 2; i++) addItem(item);
-        }
+        const qty = itemQty[item.id] || (totalSelected === 0 && promoItems.length === 1 ? 1 : 0);
+        for (let i = 0; i < qty * 2; i++) addItem(item);
       });
-    } else if (promo.type === 'combo' && promoItems.length > 0) {
-      // Agregar todos los items del combo
+    } else if (promoItems.length > 0) {
       promoItems.forEach(item => {
-        const qty = itemQty[item.id] || 1;
+        const qty = isCombo ? (itemQty[item.id] || 1) : 1;
         for (let i = 0; i < qty; i++) addItem(item);
       });
     }
 
-    // Notificar al carrito para aplicar el descuento
     if (onPromoSelect) {
       onPromoSelect({
         id: promo.id,
         name: promo.name,
         type: promo.type,
-        value: promo.value,
+        value: Number(promo.value || 0),
         promo_price: promo.promo_price,
       });
     }
-    setAddedPromoIds(prev => { const next = new Set(Array.from(prev)); next.add(promo.id); return next; });
+
+    setAddedPromoIds(prev => {
+      const next = new Set(Array.from(prev));
+      next.add(promo.id);
+      return next;
+    });
     setExpandedPromo(null);
     setTimeout(() => onClose(), 600);
   }, [getPromoItems, itemQty, addItem, onPromoSelect, onClose]);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <AnimatePresence>
       {isOpen && (
@@ -197,7 +221,6 @@ export default function PromosScreen({
           className="fixed inset-0 z-[200] flex flex-col overflow-hidden"
           style={{ background: bgColor, color: textColor }}
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-4 pt-12 pb-3 border-b"
             style={{ borderColor: `${textColor}12` }}>
             <div>
@@ -211,7 +234,6 @@ export default function PromosScreen({
             </button>
           </div>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-8">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -228,7 +250,6 @@ export default function PromosScreen({
               </div>
             ) : (
               <>
-                {/* Promos disponibles */}
                 {availablePromos.map(promo => {
                   const cfg = TYPE_CONFIG[promo.type] || TYPE_CONFIG.fixed;
                   const promoItems = getPromoItems(promo);
@@ -238,6 +259,8 @@ export default function PromosScreen({
                   const isUrgent = remaining && !remaining.includes('d');
                   const active = isPromoActiveNow(promo);
                   const needsMinOrder = promo.min_order_amount && promo.min_order_amount > 0 && totalPrice < promo.min_order_amount;
+                  const promoImage = normalizeAssetUrl(promo.image_url);
+                  const badgeText = promo.badge_text || cfg.badge;
 
                   return (
                     <motion.div
@@ -251,23 +274,45 @@ export default function PromosScreen({
                         background: `${textColor}04`,
                       }}
                     >
-                      {/* Card header */}
+                      {promoImage && (
+                        <button
+                          type="button"
+                          className="block w-full text-left"
+                          onClick={() => setExpandedPromo(isExpanded ? null : promo.id)}
+                        >
+                          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#080808' }}>
+                            <img
+                              src={promoImage}
+                              alt={promo.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 p-3"
+                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), transparent)' }}>
+                              <span className="inline-flex text-[10px] font-black px-2 py-0.5 rounded-full"
+                                style={{ background: accentColor, color: bgColor }}>
+                                {badgeText}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
                       <button
                         className="w-full text-left"
                         onClick={() => setExpandedPromo(isExpanded ? null : promo.id)}
                       >
                         <div className="relative p-4">
-                          {/* Stripe lateral */}
                           <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
                             style={{ background: accentColor }} />
 
                           <div className="pl-3 flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              {/* Badges */}
                               <div className="flex items-center gap-2 flex-wrap mb-1.5">
                                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
                                   style={{ background: accentColor, color: bgColor }}>
-                                  {cfg.badge}
+                                  {badgeText}
                                 </span>
                                 {!active && (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
@@ -285,10 +330,9 @@ export default function PromosScreen({
                               <div className="font-bold text-base leading-tight">{promo.name}</div>
 
                               {promo.description && !isExpanded && (
-                                <div className="text-xs opacity-60 mt-0.5 line-clamp-1">{promo.description}</div>
+                                <div className="text-xs opacity-60 mt-0.5 line-clamp-2">{promo.description}</div>
                               )}
 
-                              {/* Meta info */}
                               <div className="flex items-center gap-3 flex-wrap mt-2">
                                 {promo.min_order_amount && promo.min_order_amount > 0 && (
                                   <span className="flex items-center gap-1 text-[11px] opacity-50">
@@ -310,7 +354,6 @@ export default function PromosScreen({
                               </div>
                             </div>
 
-                            {/* Precio / valor destacado */}
                             <div className="flex-shrink-0 text-right">
                               {promo.promo_price ? (
                                 <div>
@@ -347,7 +390,6 @@ export default function PromosScreen({
                         </div>
                       </button>
 
-                      {/* Panel expandido */}
                       <AnimatePresence>
                         {isExpanded && (
                           <motion.div
@@ -360,12 +402,10 @@ export default function PromosScreen({
                             <div className="px-4 pb-4 pt-1 space-y-3"
                               style={{ borderTop: `1px solid ${textColor}08` }}>
 
-                              {/* Descripción completa */}
                               {promo.description && (
                                 <p className="text-sm opacity-70 pt-2">{promo.description}</p>
                               )}
 
-                              {/* Precio especial destacado */}
                               {promo.promo_price && (
                                 <div className="rounded-xl p-3 flex items-center justify-between"
                                   style={{ background: `${accentColor}15`, border: `1px solid ${accentColor}30` }}>
@@ -379,65 +419,64 @@ export default function PromosScreen({
                                 </div>
                               )}
 
-                              {/* Selector de items para 2x1 y combo */}
                               {promoItems.length > 0 && (
                                 <div>
                                   <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-2">
                                     {promo.type === '2x1' || promo.type === 'bogo'
                                       ? 'Selecciona el producto del 2×1'
                                       : promo.type === 'combo'
-                                      ? 'Productos incluidos en el combo'
+                                      ? 'Producto que se agregará al carrito'
                                       : 'Productos de la oferta'}
                                   </div>
                                   <div className="space-y-2">
-                                    {promoItems.map(item => (
-                                      <div key={item.id}
-                                        className="flex items-center gap-3 rounded-xl p-2.5"
-                                        style={{ background: `${textColor}06`, border: `1px solid ${textColor}08` }}>
-                                        {item.image_url && (
-                                          <img src={item.image_url} alt={item.name}
-                                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-semibold truncate">{item.name}</div>
-                                          <div className="text-xs opacity-50">
-                                            ₡{item.price.toLocaleString()} c/u
+                                    {promoItems.map(item => {
+                                      const itemImage = normalizeAssetUrl(item.image_url) || promoImage;
+                                      return (
+                                        <div key={item.id}
+                                          className="flex items-center gap-3 rounded-xl p-2.5"
+                                          style={{ background: `${textColor}06`, border: `1px solid ${textColor}08` }}>
+                                          {itemImage && (
+                                            <img src={itemImage} alt={item.name}
+                                              className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-semibold truncate">{item.name}</div>
+                                            <div className="text-xs opacity-50">
+                                              ₡{item.price.toLocaleString()} c/u
+                                            </div>
                                           </div>
+                                          {(promo.type === '2x1' || promo.type === 'bogo') && (
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <button
+                                                onClick={e => { e.stopPropagation(); setItemQty(q => ({ ...q, [item.id]: Math.max(0, (q[item.id] || 0) - 1) })); }}
+                                                className="w-7 h-7 rounded-full flex items-center justify-center"
+                                                style={{ background: `${textColor}10` }}>
+                                                <Minus size={12} />
+                                              </button>
+                                              <span className="text-sm font-bold w-4 text-center">
+                                                {itemQty[item.id] || 0}
+                                              </span>
+                                              <button
+                                                onClick={e => { e.stopPropagation(); setItemQty(q => ({ ...q, [item.id]: (q[item.id] || 0) + 1 })); }}
+                                                className="w-7 h-7 rounded-full flex items-center justify-center"
+                                                style={{ background: accentColor }}>
+                                                <Plus size={12} style={{ color: bgColor }} />
+                                              </button>
+                                            </div>
+                                          )}
+                                          {promo.type === 'combo' && (
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                                              style={{ background: `${accentColor}20` }}>
+                                              <Check size={12} style={{ color: accentColor }} />
+                                            </div>
+                                          )}
                                         </div>
-                                        {/* Controles de cantidad para 2x1 */}
-                                        {(promo.type === '2x1' || promo.type === 'bogo') && (
-                                          <div className="flex items-center gap-2 flex-shrink-0">
-                                            <button
-                                              onClick={e => { e.stopPropagation(); setItemQty(q => ({ ...q, [item.id]: Math.max(0, (q[item.id] || 0) - 1) })); }}
-                                              className="w-7 h-7 rounded-full flex items-center justify-center"
-                                              style={{ background: `${textColor}10` }}>
-                                              <Minus size={12} />
-                                            </button>
-                                            <span className="text-sm font-bold w-4 text-center">
-                                              {itemQty[item.id] || 0}
-                                            </span>
-                                            <button
-                                              onClick={e => { e.stopPropagation(); setItemQty(q => ({ ...q, [item.id]: (q[item.id] || 0) + 1 })); }}
-                                              className="w-7 h-7 rounded-full flex items-center justify-center"
-                                              style={{ background: accentColor }}>
-                                              <Plus size={12} style={{ color: bgColor }} />
-                                            </button>
-                                          </div>
-                                        )}
-                                        {/* Para combos: check fijo */}
-                                        {promo.type === 'combo' && (
-                                          <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                                            style={{ background: `${accentColor}20` }}>
-                                            <Check size={12} style={{ color: accentColor }} />
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
 
-                              {/* Condiciones */}
                               <div className="space-y-1.5">
                                 {promo.min_order_amount && promo.min_order_amount > 0 && (
                                   <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
@@ -459,7 +498,6 @@ export default function PromosScreen({
                                 )}
                               </div>
 
-                              {/* Botón aplicar */}
                               <button
                                 onClick={() => handleApplyPromo(promo)}
                                 disabled={!!needsMinOrder || !active}
@@ -472,7 +510,7 @@ export default function PromosScreen({
                                   needsMinOrder ? `Necesitas ₡${(promo.min_order_amount! - totalPrice).toLocaleString()} más` :
                                   !active ? 'Fuera de horario' :
                                   (promo.type === '2x1' || promo.type === 'bogo') ? 'Agregar 2×1 al carrito' :
-                                  promo.type === 'combo' ? 'Agregar combo al carrito' :
+                                  promo.type === 'combo' ? 'Agregar promo al carrito' :
                                   'Aplicar oferta al carrito'}
                               </button>
                             </div>
@@ -483,7 +521,6 @@ export default function PromosScreen({
                   );
                 })}
 
-                {/* Promos bloqueadas por nivel */}
                 {lockedPromos.length > 0 && (
                   <div className="mt-2">
                     <div className="text-xs font-bold uppercase tracking-wider opacity-40 mb-2 px-1">
@@ -491,10 +528,14 @@ export default function PromosScreen({
                     </div>
                     {lockedPromos.map(promo => {
                       const cfg = TYPE_CONFIG[promo.type] || TYPE_CONFIG.fixed;
+                      const promoImage = normalizeAssetUrl(promo.image_url);
                       return (
                         <div key={promo.id}
-                          className="rounded-2xl p-4 mb-2 opacity-40"
+                          className="rounded-2xl p-4 mb-2 opacity-50 overflow-hidden"
                           style={{ background: `${textColor}06`, border: `1px solid ${textColor}10` }}>
+                          {promoImage && (
+                            <img src={promoImage} alt={promo.name} className="w-full h-24 object-cover rounded-xl mb-3" />
+                          )}
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="text-xl">{cfg.icon}</span>
@@ -523,7 +564,6 @@ export default function PromosScreen({
                   </div>
                 )}
 
-                {/* CTA login */}
                 {!profile && (
                   <div className="rounded-2xl p-4 text-center mt-2"
                     style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}25` }}>
