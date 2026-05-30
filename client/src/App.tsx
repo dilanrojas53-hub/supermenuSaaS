@@ -10,6 +10,7 @@ import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { AnimationProvider, useAnimationConfig } from "./contexts/AnimationContext";
 import AnimatedBackground from "./components/AnimatedBackground";
 import OrderFlowRuntimePatch from "./components/OrderFlowRuntimePatch";
+import PromotionMediaFloating from "./components/PromotionMediaFloating";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -50,6 +51,7 @@ function Router() {
         <Route path="/admin/:slug/login" component={() => <AdminLogin mode="admin" />} />
         <Route path="/admin/:slug">
           <OrderFlowRuntimePatch scope="admin" />
+          <PromotionMediaFloating />
           <AdminDashboard />
         </Route>
         {/* Staff dashboard */}
