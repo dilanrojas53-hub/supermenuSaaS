@@ -217,12 +217,31 @@ async function autoAdvanceOrders(config: FlowConfig) {
   }
 }
 
+const TACOPEDIA_PREPAINT_CSS = `
+  /* La Tacopedia only uses takeout and has the Nuevos step disabled.
+     These selectors remove the legacy hardcoded first-paint tabs before React effects run. */
+  div.grid.grid-cols-4.gap-1.mb-2 > button:first-child {
+    display: none !important;
+  }
+  div.grid.grid-cols-4.gap-1.mb-2 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  div[class*="p-0.5"][class*="rounded-lg"][class*="border"]:has(+ div.grid.grid-cols-4.gap-1.mb-2) > button:not(:last-child) {
+    display: none !important;
+  }
+  div[class*="p-0.5"][class*="rounded-lg"][class*="border"]:has(+ div.grid.grid-cols-4.gap-1.mb-2) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+`;
+
 export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'staff' }) {
   const [config, setConfig] = useState<FlowConfig>(() => getInitialFlow(scope));
+  const slug = getSlugFromPath(scope);
+  const isTacopedia = slug === 'la-tacopedia';
 
   useEffect(() => {
     let mounted = true;
-    const slug = getSlugFromPath(scope);
     if (!slug) return;
 
     async function loadConfig() {
@@ -275,7 +294,7 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
       mounted = false;
       window.clearInterval(interval);
     };
-  }, [scope]);
+  }, [scope, slug]);
 
   useLayoutEffect(() => {
     applyVisibilityNow(config);
@@ -304,5 +323,5 @@ export default function OrderFlowRuntimePatch({ scope }: { scope: 'admin' | 'sta
     return () => window.clearInterval(interval);
   }, [config]);
 
-  return null;
+  return isTacopedia ? <style data-order-flow-prepaint>{TACOPEDIA_PREPAINT_CSS}</style> : null;
 }
