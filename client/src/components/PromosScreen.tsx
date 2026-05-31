@@ -1,16 +1,13 @@
 /**
- * PromosScreen v4.1
+ * PromosScreen
  * Pantalla pública de promociones.
- * Cambios clave:
- * 1. Renderiza image_url de promotions como imagen principal de la promo.
- * 2. Usa item.image_url o promo.image_url como respaldo en productos incluidos.
- * 3. Hace más seguro el flujo de aplicar promos tipo combo, 2x1 y descuentos.
+ * v5: tarjetas limpias con foto de comida, sin elementos superpuestos.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Clock, ShoppingBag, ChevronRight, Loader2,
-  Check, Lock, Plus, Minus
+  Check, Lock, Plus, Minus, Image as ImageIcon
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
@@ -39,6 +36,7 @@ interface Promotion {
   is_new_customer: boolean;
   is_reactivation: boolean;
   is_active: boolean;
+  visible_only_when_active?: boolean | null;
   usage_limit: number | null;
   used_count: number;
 }
@@ -70,6 +68,8 @@ const TYPE_CONFIG: Record<string, { label: string; icon: string; badge: string }
   level:      { label: 'Exclusiva',       icon: '⭐', badge: 'VIP' },
   free_item:  { label: 'Gratis',          icon: '🎉', badge: 'GRATIS' },
   flash:      { label: 'Flash',           icon: '⚡', badge: 'FLASH' },
+  new_customer: { label: 'Cliente nuevo', icon: '👋', badge: 'NUEVO' },
+  reactivation: { label: 'Reactivación',  icon: '🔄', badge: 'REGRESA' },
 };
 
 function normalizeAssetUrl(url: string | null | undefined): string | null {
@@ -113,6 +113,18 @@ function isPromoActiveNow(promo: Promotion): boolean {
   return true;
 }
 
+function formatCurrency(value: number | null | undefined) {
+  if (value === null || value === undefined) return '';
+  return `₡${Number(value).toLocaleString('es-CR')}`;
+}
+
+function promoPriceLabel(promo: Promotion, cfg: { icon: string }) {
+  if (promo.promo_price) return formatCurrency(promo.promo_price);
+  if (promo.type === 'percentage') return `${promo.value}%`;
+  if (promo.type === 'fixed') return `-${formatCurrency(promo.value)}`;
+  return cfg.icon;
+}
+
 export default function PromosScreen({
   isOpen, onClose, theme, tenant, allItems = [], onPromoSelect
 }: PromosScreenProps) {
@@ -127,6 +139,7 @@ export default function PromosScreen({
 
   const accentColor = theme.primary_color || '#F59E0B';
   const bgColor = theme.background_color || '#0a0a0a';
+  const surfaceColor = theme.surface_color || '#171717';
   const textColor = theme.text_color || '#f0f0f0';
   const customerLevel = tenantStats?.level || 'bronze';
 
@@ -159,6 +172,7 @@ export default function PromosScreen({
 
   const cusIdx = Math.max(0, LEVEL_ORDER.indexOf(customerLevel));
   const availablePromos = promos.filter(p => {
+    if (p.visible_only_when_active && !isPromoActiveNow(p)) return false;
     if (!p.level_required) return true;
     return cusIdx >= LEVEL_ORDER.indexOf(p.level_required);
   });
@@ -228,7 +242,7 @@ export default function PromosScreen({
               <p className="text-xs opacity-50">Promos activas para ti</p>
             </div>
             <button onClick={onClose}
-              className="w-9 h-9 rounded-full flex items-center justify-center"
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
               style={{ background: `${textColor}10` }}>
               <X size={18} />
             </button>
@@ -259,8 +273,9 @@ export default function PromosScreen({
                   const isUrgent = remaining && !remaining.includes('d');
                   const active = isPromoActiveNow(promo);
                   const needsMinOrder = promo.min_order_amount && promo.min_order_amount > 0 && totalPrice < promo.min_order_amount;
-                  const promoImage = normalizeAssetUrl(promo.image_url);
+                  const promoImage = normalizeAssetUrl(promo.image_url) || normalizeAssetUrl((promoItems[0] as any)?.image_url);
                   const badgeText = promo.badge_text || cfg.badge;
+                  const priceLabel = promoPriceLabel(promo, cfg);
 
                   return (
                     <motion.div
@@ -268,54 +283,60 @@ export default function PromosScreen({
                       layout
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="rounded-2xl overflow-hidden"
+                      className="rounded-3xl overflow-hidden shadow-sm"
                       style={{
                         border: `1.5px solid ${isAdded ? '#22c55e' : isExpanded ? accentColor : `${textColor}12`}`,
-                        background: `${textColor}04`,
+                        background: surfaceColor,
                       }}
                     >
-                      {promoImage && (
-                        <button
-                          type="button"
-                          className="block w-full text-left"
-                          onClick={() => setExpandedPromo(isExpanded ? null : promo.id)}
-                        >
-                          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#080808' }}>
-                            <img
-                              src={promoImage}
-                              alt={promo.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                            <div className="absolute inset-x-0 bottom-0 p-3"
-                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78), transparent)' }}>
-                              <span className="inline-flex text-[10px] font-black px-2 py-0.5 rounded-full"
+                      <button
+                        type="button"
+                        className="w-full text-left active:scale-[0.995] transition-transform"
+                        onClick={() => setExpandedPromo(isExpanded ? null : promo.id)}
+                      >
+                        <div className="grid grid-cols-[112px_1fr] sm:grid-cols-[150px_1fr]">
+                          <div className="relative min-h-[132px] overflow-hidden" style={{ background: `${textColor}08` }}>
+                            {promoImage ? (
+                              <img
+                                src={promoImage}
+                                alt={promo.name}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                                <ImageIcon size={30} />
+                              </div>
+                            )}
+                            <div className="absolute left-2 top-2">
+                              <span className="inline-flex text-[10px] font-black px-2 py-1 rounded-full shadow-lg"
                                 style={{ background: accentColor, color: bgColor }}>
                                 {badgeText}
                               </span>
                             </div>
                           </div>
-                        </button>
-                      )}
 
-                      <button
-                        className="w-full text-left"
-                        onClick={() => setExpandedPromo(isExpanded ? null : promo.id)}
-                      >
-                        <div className="relative p-4">
-                          <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
-                            style={{ background: accentColor }} />
+                          <div className="min-w-0 p-3.5 flex flex-col justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-black text-[15px] leading-tight line-clamp-2">{promo.name}</div>
+                                  {promo.description && !isExpanded && (
+                                    <div className="text-xs opacity-60 mt-1 line-clamp-2">{promo.description}</div>
+                                  )}
+                                </div>
+                                <div className="flex-shrink-0 text-right min-w-[70px]">
+                                  <div className="text-lg font-black leading-tight" style={{ color: accentColor }}>
+                                    {priceLabel}
+                                  </div>
+                                  {promo.promo_price ? <div className="text-[10px] opacity-50">promo</div> : null}
+                                </div>
+                              </div>
 
-                          <div className="pl-3 flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                                  style={{ background: accentColor, color: bgColor }}>
-                                  {badgeText}
-                                </span>
+                              <div className="flex items-center gap-2 flex-wrap mt-2">
                                 {!active && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold">
                                     Fuera de horario
                                   </span>
                                 )}
@@ -325,66 +346,36 @@ export default function PromosScreen({
                                     {LEVEL_LABELS[promo.level_required] || promo.level_required}
                                   </span>
                                 )}
-                              </div>
-
-                              <div className="font-bold text-base leading-tight">{promo.name}</div>
-
-                              {promo.description && !isExpanded && (
-                                <div className="text-xs opacity-60 mt-0.5 line-clamp-2">{promo.description}</div>
-                              )}
-
-                              <div className="flex items-center gap-3 flex-wrap mt-2">
                                 {promo.min_order_amount && promo.min_order_amount > 0 && (
-                                  <span className="flex items-center gap-1 text-[11px] opacity-50">
-                                    <ShoppingBag size={10} />
-                                    Mín. ₡{promo.min_order_amount.toLocaleString()}
+                                  <span className="flex items-center gap-1 text-[11px] opacity-55">
+                                    <ShoppingBag size={10} /> Mín. {formatCurrency(promo.min_order_amount)}
                                   </span>
                                 )}
                                 {remaining && (
-                                  <span className={`flex items-center gap-1 text-[11px] ${isUrgent ? 'text-red-400 font-bold' : 'opacity-50'}`}>
-                                    <Clock size={10} />
-                                    {remaining}
+                                  <span className={`flex items-center gap-1 text-[11px] ${isUrgent ? 'text-red-400 font-bold' : 'opacity-55'}`}>
+                                    <Clock size={10} /> {remaining}
                                   </span>
                                 )}
                                 {promoItems.length > 0 && (
-                                  <span className="text-[11px] opacity-50">
+                                  <span className="text-[11px] opacity-55">
                                     {promoItems.length} producto{promoItems.length > 1 ? 's' : ''}
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex-shrink-0 text-right">
-                              {promo.promo_price ? (
-                                <div>
-                                  <div className="text-xl font-black" style={{ color: accentColor }}>
-                                    ₡{promo.promo_price.toLocaleString()}
-                                  </div>
-                                  <div className="text-[10px] opacity-50">precio promo</div>
-                                </div>
-                              ) : promo.type === 'percentage' ? (
-                                <div className="text-2xl font-black" style={{ color: accentColor }}>
-                                  {promo.value}%
-                                </div>
-                              ) : promo.type === 'fixed' ? (
-                                <div className="text-xl font-black" style={{ color: accentColor }}>
-                                  -₡{promo.value.toLocaleString()}
-                                </div>
-                              ) : (
-                                <div className="text-2xl">{cfg.icon}</div>
-                              )}
-
+                            <div className="flex items-center justify-between">
                               {isAdded ? (
-                                <div className="flex items-center gap-1 text-[11px] font-bold text-green-400 mt-1">
+                                <div className="flex items-center gap-1 text-[11px] font-bold text-green-400">
                                   <Check size={11} /> Aplicada
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-1 text-[11px] font-semibold mt-1"
-                                  style={{ color: accentColor }}>
-                                  {isExpanded ? 'Cerrar' : 'Ver'}
-                                  <ChevronRight size={11} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                                </div>
+                                <div className="text-[11px] opacity-50">Toca para ver detalles</div>
                               )}
+                              <div className="flex items-center gap-1 text-[11px] font-black" style={{ color: accentColor }}>
+                                {isExpanded ? 'Cerrar' : 'Ver'}
+                                <ChevronRight size={12} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -399,20 +390,20 @@ export default function PromosScreen({
                             transition={{ duration: 0.22 }}
                             className="overflow-hidden"
                           >
-                            <div className="px-4 pb-4 pt-1 space-y-3"
+                            <div className="px-4 pb-4 pt-3 space-y-3"
                               style={{ borderTop: `1px solid ${textColor}08` }}>
 
                               {promo.description && (
-                                <p className="text-sm opacity-70 pt-2">{promo.description}</p>
+                                <p className="text-sm opacity-72 leading-relaxed">{promo.description}</p>
                               )}
 
                               {promo.promo_price && (
-                                <div className="rounded-xl p-3 flex items-center justify-between"
+                                <div className="rounded-2xl p-3 flex items-center justify-between"
                                   style={{ background: `${accentColor}15`, border: `1px solid ${accentColor}30` }}>
                                   <div>
-                                    <div className="text-xs opacity-60 font-medium">Precio de la promoción</div>
+                                    <div className="text-xs opacity-60 font-medium">Precio final de la promoción</div>
                                     <div className="text-2xl font-black" style={{ color: accentColor }}>
-                                      ₡{promo.promo_price.toLocaleString()}
+                                      {formatCurrency(promo.promo_price)}
                                     </div>
                                   </div>
                                   <span className="text-3xl">{cfg.icon}</span>
@@ -430,19 +421,19 @@ export default function PromosScreen({
                                   </div>
                                   <div className="space-y-2">
                                     {promoItems.map(item => {
-                                      const itemImage = normalizeAssetUrl(item.image_url) || promoImage;
+                                      const itemImage = normalizeAssetUrl((item as any).image_url) || promoImage;
                                       return (
                                         <div key={item.id}
-                                          className="flex items-center gap-3 rounded-xl p-2.5"
+                                          className="flex items-center gap-3 rounded-2xl p-2.5"
                                           style={{ background: `${textColor}06`, border: `1px solid ${textColor}08` }}>
                                           {itemImage && (
                                             <img src={itemImage} alt={item.name}
-                                              className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                              className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                                           )}
                                           <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-semibold truncate">{item.name}</div>
+                                            <div className="text-sm font-bold truncate">{item.name}</div>
                                             <div className="text-xs opacity-50">
-                                              ₡{item.price.toLocaleString()} c/u
+                                              {formatCurrency(item.price)} c/u
                                             </div>
                                           </div>
                                           {(promo.type === '2x1' || promo.type === 'bogo') && (
@@ -479,17 +470,17 @@ export default function PromosScreen({
 
                               <div className="space-y-1.5">
                                 {promo.min_order_amount && promo.min_order_amount > 0 && (
-                                  <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
+                                  <div className={`flex items-center gap-2 text-xs rounded-xl px-3 py-2 ${
                                     needsMinOrder ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
                                   }`}>
                                     {needsMinOrder ? <Lock size={12} /> : <Check size={12} />}
                                     {needsMinOrder
-                                      ? `Necesitas ₡${(promo.min_order_amount - totalPrice).toLocaleString()} más para aplicar`
-                                      : `Monto mínimo ₡${promo.min_order_amount.toLocaleString()} ✓`}
+                                      ? `Necesitas ${formatCurrency(promo.min_order_amount - totalPrice)} más para aplicar`
+                                      : `Monto mínimo ${formatCurrency(promo.min_order_amount)} ✓`}
                                   </div>
                                 )}
                                 {(promo.active_hours_start || promo.start_time) && (
-                                  <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
+                                  <div className={`flex items-center gap-2 text-xs rounded-xl px-3 py-2 ${
                                     active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
                                   }`}>
                                     <Clock size={12} />
@@ -501,13 +492,13 @@ export default function PromosScreen({
                               <button
                                 onClick={() => handleApplyPromo(promo)}
                                 disabled={!!needsMinOrder || !active}
-                                className="w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="w-full py-3 rounded-2xl font-black text-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 style={{
                                   background: (needsMinOrder || !active) ? `${textColor}10` : accentColor,
                                   color: (needsMinOrder || !active) ? textColor : bgColor,
                                 }}>
                                 {isAdded ? '✓ Aplicada al carrito' :
-                                  needsMinOrder ? `Necesitas ₡${(promo.min_order_amount! - totalPrice).toLocaleString()} más` :
+                                  needsMinOrder ? `Necesitas ${formatCurrency(promo.min_order_amount! - totalPrice)} más` :
                                   !active ? 'Fuera de horario' :
                                   (promo.type === '2x1' || promo.type === 'bogo') ? 'Agregar 2×1 al carrito' :
                                   promo.type === 'combo' ? 'Agregar promo al carrito' :
@@ -531,32 +522,31 @@ export default function PromosScreen({
                       const promoImage = normalizeAssetUrl(promo.image_url);
                       return (
                         <div key={promo.id}
-                          className="rounded-2xl p-4 mb-2 opacity-50 overflow-hidden"
+                          className="rounded-2xl p-3 mb-2 opacity-50 overflow-hidden flex items-center gap-3"
                           style={{ background: `${textColor}06`, border: `1px solid ${textColor}10` }}>
-                          {promoImage && (
-                            <img src={promoImage} alt={promo.name} className="w-full h-24 object-cover rounded-xl mb-3" />
-                          )}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: `${textColor}08` }}>
+                            {promoImage ? (
+                              <img src={promoImage} alt={promo.name} className="w-full h-full object-cover" />
+                            ) : (
                               <span className="text-xl">{cfg.icon}</span>
-                              <div>
-                                <div className="font-bold text-sm">{promo.name}</div>
-                                <div className="text-xs opacity-60">
-                                  {promo.promo_price
-                                    ? `₡${promo.promo_price.toLocaleString()}`
-                                    : promo.type === 'percentage'
-                                    ? `${promo.value}% OFF`
-                                    : promo.type === 'fixed'
-                                    ? `-₡${promo.value.toLocaleString()}`
-                                    : promo.description || promo.name}
-                                </div>
-                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm line-clamp-1">{promo.name}</div>
+                            <div className="text-xs opacity-60 line-clamp-1">
+                              {promo.promo_price
+                                ? formatCurrency(promo.promo_price)
+                                : promo.type === 'percentage'
+                                ? `${promo.value}% OFF`
+                                : promo.type === 'fixed'
+                                ? `-${formatCurrency(promo.value)}`
+                                : promo.description || promo.name}
                             </div>
-                            <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-full"
-                              style={{ background: `${textColor}10` }}>
-                              <Lock size={10} />
-                              {LEVEL_LABELS[promo.level_required!] || promo.level_required}
-                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-full flex-shrink-0"
+                            style={{ background: `${textColor}10` }}>
+                            <Lock size={10} />
+                            {LEVEL_LABELS[promo.level_required!] || promo.level_required}
                           </div>
                         </div>
                       );
