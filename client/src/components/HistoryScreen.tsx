@@ -1,19 +1,24 @@
 /**
  * HistoryScreen — Pantalla de historial de pedidos para el cliente.
  * Muestra los pedidos del cliente en este restaurante.
- * Si no está logueado, invita a iniciar sesión.
+ * V24.0: Reorden inteligente — permite repetir pedidos usando precios/disponibilidad actuales del menú.
  */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, CheckCircle2, ChevronDown, ChevronUp, Loader2, ShoppingBag, AlertCircle, ChefHat, Bike } from 'lucide-react';
+import { X, Clock, CheckCircle2, ChevronDown, ChevronUp, Loader2, ShoppingBag, AlertCircle, ChefHat, Bike, RotateCcw, ShoppingCart } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/contexts/CustomerProfileContext';
-import type { ThemeSettings, Tenant } from '@/lib/types';
+import { useCart } from '@/contexts/CartContext';
+import type { ThemeSettings, Tenant, MenuItem, SelectedModifier } from '@/lib/types';
 
 interface OrderItem {
+  id?: string;
   name: string;
   quantity: number;
   price?: number;
+  selectedModifiers?: SelectedModifier[];
+  modifiersTotal?: number;
 }
 
 interface Order {
@@ -34,6 +39,10 @@ interface HistoryScreenProps {
   theme: ThemeSettings;
   tenant: Tenant;
   onOpenLogin: () => void;
+  /** Menú actual del restaurante: se usa para reordenar con disponibilidad/precio vigente */
+  allItems?: MenuItem[];
+  /** Callback para abrir el carrito después de repetir un pedido */
+  onReorderComplete?: () => void;
 }
 
 // Estados reales del sistema (en español, igual que OrderStatusPage)
@@ -60,7 +69,19 @@ const DELIVERY_LABELS: Record<string, string> = {
   delivery: '🛵 Delivery',
 };
 
-function OrderCard({ order, accentColor, textColor }: { order: Order; accentColor: string; textColor: string }) {
+function OrderCard({
+  order,
+  accentColor,
+  textColor,
+  onReorder,
+  reorderDisabled,
+}: {
+  order: Order;
+  accentColor: string;
+  textColor: string;
+  onReorder: (order: Order) => void;
+  reorderDisabled?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pendiente;
   const date = new Date(order.created_at);
@@ -101,6 +122,19 @@ function OrderCard({ order, accentColor, textColor }: { order: Order; accentColo
         </div>
       </button>
 
+      {/* Acción rápida: pedir de nuevo */}
+      <div className="px-4 pb-4 -mt-1">
+        <button
+          onClick={() => onReorder(order)}
+          disabled={reorderDisabled}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black active:scale-[0.98] transition-all disabled:opacity-40 disabled:active:scale-100"
+          style={{ background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}25` }}
+        >
+          <RotateCcw size={14} />
+          Pedir de nuevo
+        </button>
+      </div>
+
       {/* Items expandidos */}
       <AnimatePresence>
         {expanded && (
@@ -140,10 +174,12 @@ function OrderCard({ order, accentColor, textColor }: { order: Order; accentColo
   );
 }
 
-export default function HistoryScreen({ isOpen, onClose, theme, tenant, onOpenLogin }: HistoryScreenProps) {
+export default function HistoryScreen({ isOpen, onClose, theme, tenant, onOpenLogin, allItems = [], onReorderComplete }: HistoryScreenProps) {
   const { profile, isLoading: authLoading } = useCustomerProfile();
+  const { addItemAdvanced } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const accentColor = theme.primary_color || '#F59E0B';
   const bgColor = theme.background_color || '#0a0a0a';
@@ -164,6 +200,70 @@ export default function HistoryScreen({ isOpen, onClose, theme, tenant, onOpenLo
         setLoading(false);
       });
   }, [isOpen, profile?.id, tenant.id]);
+
+  const handleReorder = async (order: Order) => {
+    if (!order.items?.length) {
+      toast.error('Este pedido no tiene productos para repetir');
+      return;
+    }
+    setReorderingId(order.id);
+
+    try {
+      const ids = Array.from(new Set(order.items.map(i => i.id).filter(Boolean))) as string[];
+      let currentItems = allItems;
+
+      // Si el menú actual no trae todos los IDs, se consulta Supabase para rehidratar el pedido.
+      const missingIds = ids.filter(id => !currentItems.some(mi => mi.id === id));
+      if (missingIds.length > 0) {
+        const { data } = await supabase
+          .from('menu_items')
+          .select('*')
+          .eq('tenant_id', tenant.id)
+          .in('id', missingIds);
+        currentItems = [...currentItems, ...((data || []) as MenuItem[])];
+      }
+
+      let added = 0;
+      let skipped = 0;
+
+      order.items.forEach(orderItem => {
+        const menuItem = orderItem.id
+          ? currentItems.find(mi => mi.id === orderItem.id)
+          : currentItems.find(mi => mi.name.toLowerCase().trim() === orderItem.name.toLowerCase().trim());
+
+        if (!menuItem || menuItem.is_available === false) {
+          skipped += 1;
+          return;
+        }
+
+        addItemAdvanced(menuItem, {
+          quantity: Math.max(1, Number(orderItem.quantity) || 1),
+          selectedModifiers: orderItem.selectedModifiers || [],
+          modifiersTotal: orderItem.modifiersTotal || 0,
+          preventCheckoutUpsell: false,
+        });
+        added += 1;
+      });
+
+      if (added === 0) {
+        toast.error('No se pudieron agregar productos disponibles de ese pedido');
+        return;
+      }
+
+      toast.success(
+        skipped > 0
+          ? `Se agregaron ${added} productos. ${skipped} no están disponibles.`
+          : `Pedido #${order.order_number} agregado al carrito`,
+        { duration: 2500 }
+      );
+      onReorderComplete?.();
+    } catch (error: any) {
+      console.error('[HistoryScreen] reorder error:', error);
+      toast.error('No se pudo repetir el pedido. Intenta de nuevo.');
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -225,6 +325,31 @@ export default function HistoryScreen({ isOpen, onClose, theme, tenant, onOpenLo
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Shortcut del último pedido */}
+                <button
+                  onClick={() => handleReorder(orders[0])}
+                  disabled={reorderingId === orders[0]?.id}
+                  className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition-all disabled:opacity-60"
+                  style={{ background: `${accentColor}16`, border: `1px solid ${accentColor}28` }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 font-black text-sm" style={{ color: accentColor }}>
+                        <ShoppingCart size={16} />
+                        Repetir mi último pedido
+                      </div>
+                      <div className="text-xs opacity-55 mt-1">
+                        Agrega de nuevo los productos disponibles del pedido #{orders[0].order_number}
+                      </div>
+                    </div>
+                    {reorderingId === orders[0]?.id ? (
+                      <Loader2 size={18} className="animate-spin" style={{ color: accentColor }} />
+                    ) : (
+                      <RotateCcw size={18} style={{ color: accentColor }} />
+                    )}
+                  </div>
+                </button>
+
                 <div className="text-xs opacity-40 mb-1">{orders.length} pedido{orders.length !== 1 ? 's' : ''}</div>
                 {orders.map(order => (
                   <OrderCard
@@ -232,6 +357,8 @@ export default function HistoryScreen({ isOpen, onClose, theme, tenant, onOpenLo
                     order={order}
                     accentColor={accentColor}
                     textColor={textColor}
+                    onReorder={handleReorder}
+                    reorderDisabled={reorderingId === order.id}
                   />
                 ))}
               </div>
