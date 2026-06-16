@@ -2,7 +2,9 @@ import { mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 
 const root = new URL('./', import.meta.url);
-const parts = (await readdir(root)).filter((name) => name.startsWith('payload.part')).sort();
+const parts = (await readdir(root))
+  .filter((name) => name.startsWith('payload.part') && name !== 'payload.part000')
+  .sort();
 if (!parts.length) throw new Error('Missing payload parts');
 const encoded = (await Promise.all(parts.map((name) => readFile(new URL(name, root), 'utf8')))).join('').trim();
 const files = JSON.parse(gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8'));
