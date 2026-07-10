@@ -26,6 +26,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requireTenantAdmin } from "./_lib/authorization";
 
 const supabaseUrl = "https://zddytyncmnivfbvehrth.supabase.co";
 // compute-upsell-pairs escribe en upsell_pairs → necesita service_role
@@ -209,6 +210,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!tenant_id) {
     return res.status(400).json({ error: "tenant_id is required" });
   }
+
+  if (!(await requireTenantAdmin(req, res, tenant_id))) return;
 
   // Usar service_role para poder escribir en upsell_pairs (RLS)
   const writeKey = supabaseServiceKey || supabaseAnonKey;
