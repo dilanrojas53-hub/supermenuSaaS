@@ -15,6 +15,7 @@ import SocialProofBadge from './SocialProofBadge';
 import ModifierSelector from './ModifierSelector';
 import { supabase } from '@/lib/supabase';
 import { getOptimizedImageUrl, IMAGE_SIZES } from '@/lib/imageUtils';
+import SmartImage from './SmartImage';
 
 const DRINK_ICON_KEYWORDS = ['bebida', 'drink', 'jugo', 'agua', 'refresco', 'smoothie', 'café', 'coffee', 'té', 'tea'];
 const WINE_ICON_KEYWORDS = ['vino', 'wine', 'licor', 'cóctel', 'cocktail', 'cerveza', 'beer', 'destilado'];
@@ -141,7 +142,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
           {/* Imagen cuadrada o circular según tema */}
           <div className="relative flex-shrink-0" style={{ width: '6.5rem', height: '6.5rem', padding: cleanWhite ? '8px' : '0' }}>
             {hasImage ? (
-              <img
+              <SmartImage
                 src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                 alt={item.name}
                 className="w-full h-full object-cover"
@@ -295,7 +296,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
         style={{ aspectRatio: '1/1', borderRadius: '1.25rem 1.25rem 0 0' }}
       >
         {hasImage ? (
-          <img
+          <SmartImage
             src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.card.width, IMAGE_SIZES.card.quality, IMAGE_SIZES.card.height)}
             alt={item.name}
             className="w-full h-full"
