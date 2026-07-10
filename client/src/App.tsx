@@ -65,9 +65,9 @@ function Router() {
         <Route path="/order-status/:orderId" component={OrderStatusPage} />
         {/* Restaurant landing page */}
         <Route path="/:slug/restaurante" component={RestaurantLanding} />
+        <Route path="/404" component={NotFound} />
         {/* Public menu route — must be last dynamic route */}
         <Route path="/:slug" component={MenuPage} />
-        <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
