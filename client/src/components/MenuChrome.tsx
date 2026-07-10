@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Clock3, ShoppingCart, Tag, UserRound, Utensils } from 'lucide-react';
 import SmartImage from './SmartImage';
 import type { BottomNavTab } from './BottomNav';
+import '@/styles/menu-mobile-reference.css';
 
 interface MenuChromeProps {
   restaurantName: string;
