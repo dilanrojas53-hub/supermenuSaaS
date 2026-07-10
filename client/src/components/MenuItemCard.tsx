@@ -4,7 +4,7 @@
  * precio en badge pill, botón CTA con gradiente y texto grande,
  * card con borde de acento visible, sombra de color.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Check, GlassWater, Wine, UtensilsCrossed, Heart } from 'lucide-react';
 import type { MenuItem, ThemeSettings, SelectedModifier } from '@/lib/types';
@@ -54,6 +54,11 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
   const [justAdded, setJustAdded] = useState(false);
   const [showModifiers, setShowModifiers] = useState(false);
   const [hasModifiers, setHasModifiers] = useState<boolean | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [item.image_url]);
 
   const checkAndAdd = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -92,7 +97,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
     if (onOpenDetail) onOpenDetail(item);
   }, [onOpenDetail, item]);
 
-  const hasImage = Boolean(item.image_url);
+  const hasImage = Boolean(item.image_url) && !imageFailed;
   const accentColor = 'var(--menu-accent)';
   const cleanWhite = isCleanWhiteTheme(theme);
 
@@ -149,6 +154,7 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
                 style={{ borderRadius: cleanWhite ? '50%' : '0.75rem' }}
                 loading="lazy"
                 decoding="async"
+                onError={() => setImageFailed(true)}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center" style={{ background: cleanWhite ? '#F5F5F5' : 'rgba(255,255,255,0.04)', borderRadius: cleanWhite ? '50%' : '0.75rem' }}>
@@ -293,7 +299,12 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
       <div
         className="relative w-full overflow-hidden flex-shrink-0"
         onClick={handleOpenDetail}
-        style={{ aspectRatio: '1/1', borderRadius: '1.25rem 1.25rem 0 0' }}
+        style={{
+          aspectRatio: hasImage ? '1/1' : undefined,
+          height: hasImage ? undefined : '7rem',
+          borderRadius: '1.25rem 1.25rem 0 0',
+          transition: 'height 180ms ease',
+        }}
       >
         {hasImage ? (
           <SmartImage
@@ -303,10 +314,20 @@ export default function MenuItemCard({ item, theme, viewMode, allItems, showBadg
             style={{ objectFit: 'cover', objectPosition: 'center center', display: 'block' }}
             loading="lazy"
             decoding="async"
+            onError={() => setImageFailed(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div
+            className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, color-mix(in srgb, var(--menu-accent) 9%, var(--menu-surface)), var(--menu-surface))',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
             {getPlaceholderIcon(item.name)}
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--menu-text)', opacity: 0.32 }}>
+              Foto no disponible
+            </span>
           </div>
         )}
 
