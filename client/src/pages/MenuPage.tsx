@@ -40,6 +40,8 @@ import PromosScreen from '@/components/PromosScreen';
 import HistoryScreen from '@/components/HistoryScreen';
 import { useFavorites } from '@/hooks/useFavorites';
 import MenuSearch from '@/components/MenuSearch';
+import MenuChrome from '@/components/MenuChrome';
+import '@/styles/menu-evolution.css';
 
 function MenuContent() {
   const params = useParams<{ slug: string }>();
@@ -357,7 +359,7 @@ function MenuContent() {
 
   return (
     <div
-      className="min-h-screen pb-24 relative z-[1]"
+      className="menu-evolution min-h-screen pb-24 relative z-[1]"
       style={{
         background: cleanWhiteTheme
           ? '#FFFFFF'
@@ -370,6 +372,38 @@ function MenuContent() {
       {/* Social Proof Toast (Neuro-Ventas) — only for pro/premium */}
       {features.socialProof && <SocialProofToast tenantId={tenant.id} theme={theme} />}
 
+      <MenuChrome
+        restaurantName={tenant.name}
+        restaurantDescription={tenant.description}
+        logoUrl={tenant.logo_url}
+        activeTab={bottomNavTab}
+        onTabChange={setBottomNavTab}
+        onCartOpen={() => {
+          setBottomNavTab('order');
+          setCartOpen(true);
+        }}
+        searchControl={
+          <MenuSearch
+            items={translatedMenuItems}
+            categories={data.categories}
+            onSelectItem={handleOpenDetail}
+            theme={theme}
+            cleanWhiteTheme={cleanWhiteTheme}
+          />
+        }
+        languageControl={
+          <button
+            type="button"
+            onClick={toggleLang}
+            className="menu-chrome__utility"
+            aria-label={lang === 'es' ? 'Cambiar a inglés' : 'Switch to Spanish'}
+          >
+            <Globe size={19} />
+            <span>{lang.toUpperCase()}</span>
+          </button>
+        }
+      />
+
       {/* ═══════════════════════════════════════════════════════════════
            HERO SECTION v23.0 — Sistema inteligente de imagen hero
            Arquitectura:
@@ -381,7 +415,7 @@ function MenuContent() {
            Sin espacios negros, sin columnas partidas, sin fragmentación.
       ═══════════════════════════════════════════════════════════════ */}
       <div
-        className="relative w-full overflow-hidden"
+        className="menu-evolution__legacy-hero relative w-full overflow-hidden"
         style={{
           height: heroHeightStyle,
           background: cleanWhiteTheme ? '#f0f0f0' : '#111',
@@ -683,7 +717,7 @@ function MenuContent() {
       {/* Category Tabs — Sticky V11.0: usa el color del tema del restaurante */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-40 flex items-center"
+        className="menu-evolution__categories sticky top-0 z-40 flex items-center"
         style={{
           backgroundColor: cleanWhiteTheme ? '#FFFFFF' : 'var(--menu-bg)',
           borderBottom: cleanWhiteTheme ? '1px solid #E5E5E5' : '1px solid var(--menu-border)',
@@ -692,7 +726,7 @@ function MenuContent() {
       >
         {/* Pills de categorías — scrollable */}
         <div className="flex-1 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 px-4 py-3 min-w-max">
+          <div className="menu-evolution__category-track flex gap-2 px-4 py-3 min-w-max">
             {visibleCategories.map(cat => {
               const isActive = activeCategory === cat.id;
               return (
@@ -736,7 +770,7 @@ function MenuContent() {
 
       {/* Featured Dish (Platillo de la Semana) */}
       {features.featuredDish && featuredItem && (
-        <div className="mt-4">
+        <div className="menu-evolution__featured mt-4">
           <FeaturedDish
             item={translatedMenuItems.find(i => i.id === featuredItem.id) || featuredItem}
             theme={theme}
@@ -745,7 +779,7 @@ function MenuContent() {
       )}
 
       {/* ── BLOQUES DE CATEGORÍA: preview horizontal + CTA "Ver todo" ── */}
-      <div className="px-4 sm:px-6 md:px-8 mt-2 pb-4">
+      <div className="menu-evolution__content px-4 sm:px-6 md:px-8 mt-2 pb-4">
         {visibleCategories.map(cat => {
           const allCatItems = itemsByCategory[cat.id] || [];
           const catItems = activeSectionItemIds !== null
@@ -767,7 +801,7 @@ function MenuContent() {
               className="mb-8"
             >
               {/* Category header */}
-              <div className="flex items-end justify-between mb-3 mt-2">
+              <div className="menu-evolution__category-header flex items-end justify-between mb-3 mt-2">
                 <div>
                   <h2
                     className="text-2xl font-black leading-tight"
@@ -806,7 +840,7 @@ function MenuContent() {
 
               {/* Organic divider - solo en temas oscuros */}
               {!cleanWhiteTheme && (
-                <svg viewBox="0 0 200 8" className="w-16 mb-3 opacity-25" style={{ color: 'var(--menu-accent)' }}>
+                <svg viewBox="0 0 200 8" className="menu-evolution__category-divider w-16 mb-3 opacity-25" style={{ color: 'var(--menu-accent)' }}>
                   <path d="M0 4 Q25 0, 50 4 T100 4 T150 4 T200 4" fill="none" stroke="currentColor" strokeWidth="2" />
                 </svg>
               )}
@@ -843,13 +877,13 @@ function MenuContent() {
                     </div>
                   )}
                 </div>
-                <div className="sm:hidden flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+                <div className="menu-evolution__mobile-list sm:hidden">
                   {previewItems.map(item => (
-                    <div key={item.id} className="flex-shrink-0" style={{ width: '160px' }}>
+                    <div key={item.id}>
                       <MenuItemCard
                         item={item}
                         theme={theme}
-                        viewMode="grid"
+                        viewMode="list"
                         allItems={data.menuItems}
                         showBadges={features.neuroBadges}
                         onOpenDetail={handleOpenDetail}
@@ -858,19 +892,6 @@ function MenuContent() {
                       />
                     </div>
                   ))}
-                  {/* Tarjeta "Ver más" al final del scroll */}
-                  {hasMore && menuConfig.show_view_all_cta && (
-                    <div
-                      className="flex-shrink-0 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed cursor-pointer active:scale-95 transition-all"
-                      style={{ width: '100px', minHeight: '140px', borderColor: 'var(--menu-accent)', opacity: 0.6 }}
-                      onClick={() => setFullScreenCatId(cat.id)}
-                    >
-                      <span className="text-2xl mb-1">→</span>
-                      <span className="text-[10px] font-bold text-center px-2" style={{ color: 'var(--menu-text)' }}>
-                        {catItems.length - previewCount} más
-                      </span>
-                    </div>
-                  )}
                 </div>
                 </>
               ) : (
@@ -996,6 +1017,7 @@ function MenuContent() {
       })()}
 
       {/* ── BOTTOM NAV ── */}
+      <div className="menu-evolution__bottom-nav">
       <BottomNav
         activeTab={bottomNavTab}
         onTabChange={(tab) => {
@@ -1015,7 +1037,8 @@ function MenuContent() {
         activeOrderData={activeOrderData}
         menuConfig={{ ...menuConfig, enable_landing: landingEnabled }}
         tenantSlug={tenant.slug}
-      />
+      /> 
+      </div>
     </div>
   );
 }
