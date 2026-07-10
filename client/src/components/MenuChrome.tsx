@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Clock3, Menu as MenuIcon, ShoppingBag, Tag, UserRound } from 'lucide-react';
+import { Clock3, ShoppingCart, Tag, UserRound, Utensils } from 'lucide-react';
 import SmartImage from './SmartImage';
 import type { BottomNavTab } from './BottomNav';
 
@@ -14,9 +14,9 @@ interface MenuChromeProps {
   languageControl: ReactNode;
 }
 
-const navItems: Array<{ key: BottomNavTab; label: string; icon: typeof MenuIcon }> = [
-  { key: 'menu', label: 'Menú', icon: MenuIcon },
-  { key: 'order', label: 'Pedido', icon: ShoppingBag },
+const navItems: Array<{ key: BottomNavTab; label: string; icon: typeof Utensils }> = [
+  { key: 'menu', label: 'Menú', icon: Utensils },
+  { key: 'order', label: 'Pedido', icon: ShoppingCart },
   { key: 'promos', label: 'Promos', icon: Tag },
   { key: 'history', label: 'Historial', icon: Clock3 },
   { key: 'profile', label: 'Perfil', icon: UserRound },
@@ -60,7 +60,7 @@ export default function MenuChrome({
               data-active={activeTab === key}
               onClick={() => key === 'order' ? onCartOpen() : onTabChange(key)}
             >
-              <Icon size={21} aria-hidden="true" />
+              <Icon size={23} aria-hidden="true" strokeWidth={1.85} />
               <span>{label}</span>
             </button>
           ))}
@@ -73,11 +73,11 @@ export default function MenuChrome({
         <div className="menu-chrome__utilities">
           {languageControl}
           <button type="button" onClick={() => onTabChange('profile')} className="menu-chrome__utility">
-            <UserRound size={20} />
+            <UserRound size={22} strokeWidth={1.8} />
             <span>Mi cuenta</span>
           </button>
           <button type="button" onClick={onCartOpen} className="menu-chrome__utility menu-chrome__cart">
-            <ShoppingBag size={21} />
+            <ShoppingCart size={23} strokeWidth={1.8} />
             <span>Pedido</span>
           </button>
         </div>
@@ -89,7 +89,7 @@ export default function MenuChrome({
           {searchControl}
           {languageControl}
           <button type="button" onClick={onCartOpen} className="menu-chrome__mobile-action" aria-label="Abrir pedido">
-            <ShoppingBag size={21} />
+            <ShoppingCart size={21} />
           </button>
         </div>
       </header>
