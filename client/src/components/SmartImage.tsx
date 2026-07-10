@@ -8,6 +8,7 @@ interface SmartImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src
   fallbackLabel?: string;
 }
 
+// Centralized fallback prevents native broken-image indicators across the menu.
 function isUsableSource(src?: string | null): src is string {
   if (!src) return false;
   const value = src.trim();
