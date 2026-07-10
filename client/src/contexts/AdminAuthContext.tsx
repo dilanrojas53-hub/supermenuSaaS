@@ -10,6 +10,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { supabase } from '@/lib/supabase';
 
 interface AdminAuth {
+  isLoading: boolean;
   isAuthenticated: boolean;
   role: 'admin' | 'superadmin' | null;
   tenantSlug: string | null;
@@ -32,24 +33,65 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<'admin' | 'superadmin' | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('smartmenu_admin_session');
-    if (stored) {
+    let mounted = true;
+
+    const restoreSession = async () => {
+      const stored = localStorage.getItem('smartmenu_admin_session');
+      if (!stored) {
+        if (mounted) setIsLoading(false);
+        return;
+      }
+
       try {
-        const session = JSON.parse(stored);
-        setIsAuthenticated(true);
-        setRole(session.role);
-        setTenantSlug(session.tenantSlug);
-        setUserEmail(session.userEmail);
+        const saved = JSON.parse(stored) as {
+          role?: 'admin' | 'superadmin';
+          tenantSlug?: string | null;
+          userEmail?: string | null;
+        };
+        const { data, error } = await supabase.auth.getSession();
+        const user = data.session?.user;
+
+        if (error || !user || !saved.role || user.email?.toLowerCase() !== saved.userEmail?.toLowerCase()) {
+          throw new Error('invalid-session');
+        }
+
+        if (saved.role === 'superadmin') {
+          if (user.email?.toLowerCase() !== SUPER_ADMIN_EMAIL) throw new Error('invalid-role');
+        } else {
+          if (!saved.tenantSlug) throw new Error('missing-tenant');
+          const { data: tenant, error: tenantError } = await supabase
+            .from('tenants')
+            .select('admin_id, admin_email')
+            .eq('slug', saved.tenantSlug)
+            .maybeSingle();
+          const ownsTenant = tenant?.admin_id === user.id
+            || (!tenant?.admin_id && tenant?.admin_email?.toLowerCase() === user.email?.toLowerCase());
+          if (tenantError || !ownsTenant) throw new Error('invalid-tenant-access');
+        }
+
+        if (mounted) {
+          setIsAuthenticated(true);
+          setRole(saved.role);
+          setTenantSlug(saved.tenantSlug || null);
+          setUserEmail(user.email || null);
+        }
       } catch {
         localStorage.removeItem('smartmenu_admin_session');
+        await supabase.auth.signOut().catch(() => {});
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-    }
+    };
+
+    restoreSession();
+    return () => { mounted = false; };
   }, []);
 
   const login = useCallback(async (
@@ -139,7 +181,23 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: authError?.message || 'No se pudo iniciar sesión. Intenta de nuevo.' };
       }
 
-      // PASO 3: Verificación extra para super admin
+      // PASO 3: Confirmar que el usuario autenticado pertenece al tenant.
+      // La sesión local nunca es suficiente para conceder acceso.
+      if (targetRole === 'admin' && slug) {
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('admin_id, admin_email')
+          .eq('slug', slug)
+          .maybeSingle();
+        const ownsTenant = tenant?.admin_id === authData.user.id
+          || (!tenant?.admin_id && tenant?.admin_email?.toLowerCase() === authData.user.email?.toLowerCase());
+        if (tenantError || !ownsTenant) {
+          await supabase.auth.signOut().catch(() => {});
+          return { success: false, error: 'Este usuario no tiene acceso a este restaurante.' };
+        }
+      }
+
+      // PASO 4: Verificación extra para super admin
       if (targetRole === 'superadmin') {
         if (email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
           supabase.auth.signOut().catch(() => {});
@@ -147,7 +205,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // PASO 4: Persistir sesión
+      // PASO 5: Persistir sesión
       const session = { role: targetRole, tenantSlug: slug || null, userEmail: email };
       localStorage.setItem('smartmenu_admin_session', JSON.stringify(session));
       setIsAuthenticated(true);
@@ -172,7 +230,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AdminAuthContext.Provider value={{ isAuthenticated, role, tenantSlug, userEmail, login, logout }}>
+    <AdminAuthContext.Provider value={{ isLoading, isAuthenticated, role, tenantSlug, userEmail, login, logout }}>
       {children}
     </AdminAuthContext.Provider>
   );

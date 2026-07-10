@@ -216,13 +216,28 @@ function MenuContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--menu-bg)' }}>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-        >
-          <Loader2 size={32} style={{ color: 'var(--menu-accent)' }} />
-        </motion.div>
+      <div
+        className="min-h-screen flex items-center justify-center px-5"
+        style={{ backgroundColor: 'var(--menu-bg)', color: 'var(--menu-text)' }}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="w-full max-w-sm text-center">
+          <motion.div
+            className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--menu-surface)', border: '1px solid var(--menu-border, rgba(255,255,255,0.1))' }}
+            animate={{ scale: [1, 1.04, 1] }}
+            transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+          >
+            <Loader2 size={25} className="animate-spin" style={{ color: 'var(--menu-accent)' }} />
+          </motion.div>
+          <p className="mt-5 text-base font-bold">Preparando el menú</p>
+          <p className="mt-1 text-xs opacity-55">Cargando productos, categorías y disponibilidad…</p>
+          <div className="mt-7 space-y-3" aria-hidden="true">
+            <div className="h-3 w-2/3 mx-auto rounded-full animate-pulse" style={{ background: 'var(--menu-surface)' }} />
+            <div className="h-20 w-full rounded-2xl animate-pulse" style={{ background: 'var(--menu-surface)', opacity: 0.7 }} />
+          </div>
+        </div>
       </div>
     );
   }

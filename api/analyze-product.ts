@@ -15,6 +15,7 @@
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requireTenantAdmin } from "./_lib/authorization";
 
 const supabaseUrl = "https://zddytyncmnivfbvehrth.supabase.co";
 const supabaseAnonKey =
@@ -219,6 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "item_id and tenant_id are required" });
   }
 
+  if (!(await requireTenantAdmin(req, res, tenant_id))) return;
+
   try {
     // 1. Verificar si ya existe y es reciente (< 7 días)
     if (!force_refresh) {
@@ -297,17 +300,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: upsertError.message });
     }
 
-    // 7. Disparar recomputación de pares para este producto (fire and forget)
-    // No esperamos la respuesta para no bloquear
-    fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/compute-upsell-pairs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item_id, tenant_id }),
-    }).catch(() => {}); // fire and forget
-
     return res.json({
       status: enrichedByGPT ? "enriched_by_gpt" : "enriched_deterministic",
       item_id,
+      requires_recompute: true,
       product_role: finalAttrs.product_role,
       enriched_by_gpt: enrichedByGPT,
     });

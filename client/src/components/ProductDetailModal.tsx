@@ -7,6 +7,7 @@
  * - Feedback (accepted/rejected/ignored) para aprendizaje continuo
  */
 import { useState, useEffect, useCallback } from 'react';
+import SmartImage from './SmartImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, Sparkles, Loader2, Check, ShoppingBag } from 'lucide-react';
 import type { MenuItem, ThemeSettings, Tenant, SelectedModifier } from '@/lib/types';
@@ -302,7 +303,7 @@ export default function ProductDetailModal({
               {/* Hero image — altura fija con object-cover centrado, sin zoom */}
               {item.image_url ? (
                 <div className="w-full relative overflow-hidden flex-shrink-0" style={{ height: '220px', maxHeight: '220px' }}>
-                  <img
+                  <SmartImage
                     src={getOptimizedImageUrl(item.image_url, IMAGE_SIZES.detail.width, IMAGE_SIZES.detail.quality, 440)}
                     alt={item.name}
                     className="w-full h-full"
@@ -443,7 +444,7 @@ export default function ProductDetailModal({
                             >
                               {/* Thumbnail */}
                               {suggestion.image_url ? (
-                                <img
+                                <SmartImage
                                   src={getOptimizedImageUrl(suggestion.image_url, IMAGE_SIZES.thumbnail.width, IMAGE_SIZES.thumbnail.quality, IMAGE_SIZES.thumbnail.height)}
                                   alt={suggestion.name}
                                   className="w-16 h-16 rounded-xl object-cover shrink-0"

@@ -9,6 +9,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requireSuperAdmin } from "../_lib/authorization";
 
 const supabaseUrl = process.env.VITE_FRONTEND_FORGE_API_URL || "https://zddytyncmnivfbvehrth.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,9 +19,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Verificación básica de seguridad
+  if (!(await requireSuperAdmin(req, res))) return;
+
+  // Segunda barrera para operaciones de migración manuales.
   const adminSecret = req.headers["x-admin-secret"];
-  const expectedSecret = process.env.ADMIN_MIGRATION_SECRET || "supermenu-migration-2026";
+  const expectedSecret = process.env.ADMIN_MIGRATION_SECRET;
+  if (!expectedSecret) {
+    return res.status(503).json({ error: "Migration endpoint is disabled" });
+  }
   if (adminSecret !== expectedSecret) {
     return res.status(401).json({ error: "Unauthorized" });
   }

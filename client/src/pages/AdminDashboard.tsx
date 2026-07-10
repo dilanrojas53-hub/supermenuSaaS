@@ -5378,7 +5378,7 @@ type TabKey = 'menu' | 'categories' | 'modifiers' | 'settings' | 'theme' | 'orde
 export default function AdminDashboard() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const { isAuthenticated, role, logout } = useAdminAuth();
+  const { isLoading: authLoading, isAuthenticated, role, logout } = useAdminAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>('orders');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -5390,13 +5390,13 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [helpCenterOpen, setHelpCenterOpen] = useState(false);
   useEffect(() => {
-    if (!isAuthenticated || (role !== 'admin' && role !== 'superadmin')) {
+    if (!authLoading && (!isAuthenticated || (role !== 'admin' && role !== 'superadmin'))) {
       navigate(`/admin/${slug}/login`);
     }
-  }, [isAuthenticated, role, navigate, slug]);
+  }, [authLoading, isAuthenticated, role, navigate, slug]);
 
   const fetchData = useCallback(async () => {
-    if (!slug) return;
+    if (!slug || authLoading || !isAuthenticated || (role !== 'admin' && role !== 'superadmin')) return;
     setLoading(true);
     const { data: t } = await supabase.from('tenants').select('*').eq('slug', slug).single();
     if (!t) { setLoading(false); return; }
@@ -5412,11 +5412,17 @@ export default function AdminDashboard() {
     setItems(itemsRes.data || []);
     setOrders((ordersRes.data as Order[]) || []);
     setLoading(false);
-  }, [slug]);
+  }, [authLoading, isAuthenticated, role, slug]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (!isAuthenticated) return null;
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-page)' }}>
+        <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
