@@ -6,6 +6,7 @@
  * v1.0 — SuperMenu SaaS
  */
 import { useState, useEffect } from 'react';
+import SmartImage from '@/components/SmartImage';
 import { useParams, useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import {
@@ -97,7 +98,7 @@ function GalleryCarousel({ images, accent }: { images: GalleryImage[]; accent: s
         <div className={`grid gap-2 ${active.length === 1 ? 'grid-cols-1' : active.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
           {active.map((img, i) => (
             <div key={img.id} className="relative aspect-square overflow-hidden rounded-2xl">
-              <img src={img.image_url} alt={img.alt_text || img.title || ''} className="w-full h-full object-cover" />
+              <SmartImage src={img.image_url} alt={img.alt_text || img.title || ''} className="w-full h-full object-cover" />
               {img.title && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
                   <p className="text-white text-xs truncate">{img.title}</p>
@@ -108,7 +109,7 @@ function GalleryCarousel({ images, accent }: { images: GalleryImage[]; accent: s
         </div>
       ) : (
         <div className="relative overflow-hidden rounded-2xl aspect-[4/3]">
-          <img src={active[idx].image_url} alt={active[idx].alt_text || active[idx].title || ''} className="w-full h-full object-cover transition-all duration-300" />
+          <SmartImage src={active[idx].image_url} alt={active[idx].alt_text || active[idx].title || ''} className="w-full h-full object-cover transition-all duration-300" />
           {active[idx].title && (
             <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-4 py-2">
               <p className="text-white text-sm">{active[idx].title}</p>
@@ -244,12 +245,12 @@ export default function RestaurantLanding() {
             {/* Imagen hero */}
             {heroImg && (
               <div className="relative w-full aspect-[16/9] overflow-hidden rounded-3xl">
-                <img src={heroImg} alt={heroTitle} className="w-full h-full object-cover" />
+                <SmartImage src={heroImg} alt={heroTitle} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 {/* Logo + nombre sobre la imagen */}
                 <div className="absolute bottom-0 left-0 right-0 p-5 flex items-end gap-3">
                   {tenant?.logo_url && (
-                    <img src={tenant.logo_url} alt={tenant.name} className="w-14 h-14 object-cover rounded-2xl border-2 border-white/20 flex-shrink-0" />
+                    <SmartImage src={tenant.logo_url} alt={tenant.name} className="w-14 h-14 object-cover rounded-2xl border-2 border-white/20 flex-shrink-0" />
                   )}
                   <div>
                     <h1 className="text-2xl font-black text-white leading-tight">{heroTitle}</h1>
@@ -263,7 +264,7 @@ export default function RestaurantLanding() {
             {!heroImg && (
               <div className="text-center py-8 space-y-3">
                 {tenant?.logo_url && (
-                  <img src={tenant.logo_url} alt={tenant.name} className="w-20 h-20 object-cover rounded-2xl mx-auto" />
+                  <SmartImage src={tenant.logo_url} alt={tenant.name} className="w-20 h-20 object-cover rounded-2xl mx-auto" />
                 )}
                 <h1 className="text-3xl font-black" style={{ color: textColor }}>{heroTitle}</h1>
                 {heroSubtitle && <p className="text-base opacity-70">{heroSubtitle}</p>}
