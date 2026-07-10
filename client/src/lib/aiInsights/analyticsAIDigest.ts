@@ -16,6 +16,7 @@ import type {
   InsightPeriod,
 } from './types';
 import { CACHE_TTL } from './types';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 // ─── Clave de caché en localStorage ───────────────────────────────────────
 function cacheKey(restaurantSlug: string, period: InsightPeriod): string {
@@ -151,7 +152,7 @@ export async function generateAIInsightDigest(
   }
 
   // 3. Llamar al endpoint del servidor (la API key nunca se expone al cliente)
-  const response = await fetch('/api/ai-insights', {
+  const response = await authenticatedFetch('/api/ai-insights', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ context: ctx }),
