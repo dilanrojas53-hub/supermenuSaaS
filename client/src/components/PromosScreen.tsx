@@ -4,6 +4,7 @@
  * v5: tarjetas limpias con foto de comida, sin elementos superpuestos.
  */
 import { useState, useEffect, useCallback } from 'react';
+import SmartImage from './SmartImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Clock, ShoppingBag, ChevronRight, Loader2,
@@ -297,7 +298,7 @@ export default function PromosScreen({
                         <div className="grid grid-cols-[112px_1fr] sm:grid-cols-[150px_1fr]">
                           <div className="relative min-h-[132px] overflow-hidden" style={{ background: `${textColor}08` }}>
                             {promoImage ? (
-                              <img
+                              <SmartImage
                                 src={promoImage}
                                 alt={promo.name}
                                 className="absolute inset-0 w-full h-full object-cover"
@@ -427,7 +428,7 @@ export default function PromosScreen({
                                           className="flex items-center gap-3 rounded-2xl p-2.5"
                                           style={{ background: `${textColor}06`, border: `1px solid ${textColor}08` }}>
                                           {itemImage && (
-                                            <img src={itemImage} alt={item.name}
+                                            <SmartImage src={itemImage} alt={item.name}
                                               className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                                           )}
                                           <div className="flex-1 min-w-0">
@@ -526,7 +527,7 @@ export default function PromosScreen({
                           style={{ background: `${textColor}06`, border: `1px solid ${textColor}10` }}>
                           <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: `${textColor}08` }}>
                             {promoImage ? (
-                              <img src={promoImage} alt={promo.name} className="w-full h-full object-cover" />
+                              <SmartImage src={promoImage} alt={promo.name} className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-xl">{cfg.icon}</span>
                             )}
