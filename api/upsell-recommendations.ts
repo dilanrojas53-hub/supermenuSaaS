@@ -295,7 +295,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .not("id", "in", `(${excludeIds.join(",")})`)
         .limit(60);
 
-      const fallbackIds = (allItems || []).map((item) => item.id);
+      const fallbackItems = (allItems || []) as MenuItemServing[];
+      const fallbackIds = fallbackItems.map((item) => item.id);
       const fallbackAttrs = fallbackIds.length ? await safeQuery<ProductAttrServing[]>(() => supabase.from("product_attributes").select(ATTR_SELECT).in("item_id", fallbackIds)) : null;
       const fallbackAttrMap = new Map<string, ProductAttrServing>((fallbackAttrs || []).map((attr) => [attr.item_id, attr]));
       const usedIds = new Set<string>(recommendations.map((item) => item.id));
@@ -330,8 +331,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         usedCategories.add(item.category_id);
       };
 
-      for (const item of allItems || []) tryAdd(item, true);
-      for (const item of allItems || []) tryAdd(item, false);
+      for (const item of fallbackItems) tryAdd(item, true);
+      for (const item of fallbackItems) tryAdd(item, false);
     }
 
     const elapsed = Date.now() - startTime;
