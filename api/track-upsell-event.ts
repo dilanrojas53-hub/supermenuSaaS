@@ -2,7 +2,9 @@
  * POST /api/track-upsell-event
  *
  * Registra eventos de recomendación de upsell para análisis y mejora del motor.
- * Fire-and-forget desde el cliente — responde 204 inmediatamente.
+ * El cliente puede enviarlo sin bloquear la UI, pero la función confirma la
+ * escritura antes de responder. Responder antes permite que Vercel congele la
+ * ejecución y pierda el evento.
  *
  * Robustez anti-contaminación:
  *   - Validación estricta de tenant_id y item IDs (UUID)
@@ -37,11 +39,17 @@
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const supabaseUrl = "https://zddytyncmnivfbvehrth.supabase.co";
-const supabaseAnonKey =
+const supabaseUrl = process.env.SUPABASE_URL || "https://zddytyncmnivfbvehrth.supabase.co";
+const supabasePublicKey =
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkZHl0eW5jbW5pdmZidmVocnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MTY1NDMsImV4cCI6MjA4NzQ5MjU0M30.aNQBiSsV-RXHze7D6LF4WGBwEdHyov-umuTh0t-Patk";
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(
+  supabaseUrl,
+  supabasePublicKey,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
 
 // ─── Constantes de validación ─────────────────────────────────────────────────
 
@@ -76,9 +84,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Responder inmediatamente — fire-and-forget
-  res.status(204).end();
-
   const body = req.body || {};
 
   // ── Validaciones de entrada ───────────────────────────────────────────────
@@ -105,17 +110,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } = body;
 
   // Campos requeridos
-  if (!tenant_id || !event_type || !suggested_item_id) return;
+  if (!tenant_id || !event_type || !suggested_item_id) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
 
   // Validar UUIDs
-  if (!UUID_REGEX.test(tenant_id)) return;
-  if (trigger_item_id && !UUID_REGEX.test(trigger_item_id)) return;
-  if (!UUID_REGEX.test(suggested_item_id)) return;
+  if (!UUID_REGEX.test(tenant_id)) return res.status(400).json({ error: "Invalid tenant_id" });
+  if (trigger_item_id && !UUID_REGEX.test(trigger_item_id)) {
+    return res.status(400).json({ error: "Invalid trigger_item_id" });
+  }
+  if (!UUID_REGEX.test(suggested_item_id)) {
+    return res.status(400).json({ error: "Invalid suggested_item_id" });
+  }
 
   // Validar event_type
   if (!VALID_EVENT_TYPES.has(event_type)) {
     console.warn(`[track-upsell-event] Invalid event_type: ${event_type}`);
-    return;
+    return res.status(400).json({ error: "Invalid event_type" });
   }
 
   // Validar surface
@@ -175,7 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (insertError) {
       console.error("[track-upsell-event] Insert error:", insertError.message);
-      return;
+      return res.status(502).json({ error: "Unable to persist analytics event" });
     }
 
     // ── 2. Actualizar contadores en upsell_pairs ──────────────────────────
@@ -258,7 +269,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    return res.status(204).end();
+
   } catch (err: any) {
     console.error("[track-upsell-event] Unexpected error:", err.message);
+    return res.status(500).json({ error: "Unexpected analytics error" });
   }
 }
