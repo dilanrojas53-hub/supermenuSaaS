@@ -1,0 +1,196 @@
+/* Responsive menu evolution: layout stays neutral; restaurant theme supplies all color tokens. */
+.menu-evolution {
+  --menu-shell-border: color-mix(in srgb, var(--menu-text) 10%, transparent);
+  --menu-shell-muted: color-mix(in srgb, var(--menu-text) 62%, transparent);
+  --menu-shell-soft: color-mix(in srgb, var(--menu-accent) 10%, var(--menu-surface));
+  min-height: 100vh;
+}
+
+.menu-chrome__sidebar,
+.menu-chrome__desktop-header { display: none; }
+
+.menu-chrome__mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 48;
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--menu-bg) 94%, transparent);
+  border-bottom: 1px solid var(--menu-shell-border);
+  backdrop-filter: blur(18px);
+}
+
+.menu-chrome__identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.menu-chrome__logo {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 13px;
+  object-fit: cover;
+  background: var(--menu-shell-soft);
+  border: 1px solid var(--menu-shell-border);
+}
+.menu-chrome__identity-copy { display: flex; min-width: 0; flex-direction: column; }
+.menu-chrome__identity-copy strong {
+  overflow: hidden;
+  color: var(--menu-text);
+  font-family: 'Lora', serif;
+  font-size: 17px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-chrome__identity-copy span {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--menu-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.menu-chrome__mobile-actions { display: flex; align-items: center; gap: 7px; }
+.menu-chrome__mobile-actions > div,
+.menu-chrome__mobile-actions > button,
+.menu-chrome__mobile-action {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--menu-shell-border);
+  border-radius: 50%;
+  color: var(--menu-text);
+  background: var(--menu-surface);
+}
+
+.menu-evolution__legacy-hero { display: none; }
+
+.menu-evolution__categories {
+  top: 72px !important;
+  background: color-mix(in srgb, var(--menu-bg) 96%, transparent) !important;
+  backdrop-filter: blur(16px);
+}
+.menu-evolution__categories .menu-evolution__category-track {
+  gap: 8px;
+  padding: 10px 16px;
+}
+.menu-evolution__categories button { min-height: 42px; }
+
+.menu-evolution__featured,
+.menu-evolution__content {
+  width: min(100%, 1440px);
+  margin-inline: auto;
+}
+.menu-evolution__content { padding-inline: 16px !important; }
+.menu-evolution__category-header { align-items: center !important; margin-bottom: 14px !important; }
+.menu-evolution__category-header h2 { font-size: clamp(22px, 3vw, 30px) !important; }
+.menu-evolution__category-divider { display: none; }
+
+.menu-evolution__mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.menu-evolution__mobile-list > div { width: 100%; }
+
+@media (min-width: 640px) {
+  .menu-evolution__content { padding-inline: 24px !important; }
+}
+
+@media (min-width: 1024px) {
+  .menu-evolution { padding-left: 248px; padding-bottom: 0 !important; }
+  .menu-chrome__mobile-header { display: none; }
+  .menu-evolution__bottom-nav { display: none; }
+
+  .menu-chrome__sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    display: flex;
+    width: 248px;
+    flex-direction: column;
+    padding: 22px 14px;
+    background: color-mix(in srgb, var(--menu-bg) 97%, var(--menu-accent));
+    border-right: 1px solid var(--menu-shell-border);
+  }
+  .menu-chrome__sidebar .menu-chrome__identity { padding: 0 10px 26px; }
+  .menu-chrome__sidebar .menu-chrome__logo { width: 54px; height: 54px; flex-basis: 54px; }
+  .menu-chrome__sidebar .menu-chrome__identity-copy strong { font-size: 22px; }
+  .menu-chrome__nav { display: flex; flex-direction: column; gap: 8px; }
+  .menu-chrome__nav-item {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    gap: 13px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 15px;
+    color: var(--menu-shell-muted);
+    font-size: 14px;
+    font-weight: 700;
+    transition: 160ms ease;
+  }
+  .menu-chrome__nav-item:hover { color: var(--menu-text); background: color-mix(in srgb, var(--menu-text) 5%, transparent); }
+  .menu-chrome__nav-item[data-active='true'] {
+    color: var(--menu-text);
+    background: var(--menu-shell-soft);
+    border-color: color-mix(in srgb, var(--menu-accent) 18%, transparent);
+  }
+  .menu-chrome__nav-item[data-active='true'] svg { color: var(--menu-accent); }
+  .menu-chrome__brand-mark {
+    width: 150px;
+    height: 150px;
+    margin: auto auto 0;
+    opacity: .08;
+    background: radial-gradient(circle, var(--menu-accent), transparent 68%);
+  }
+
+  .menu-chrome__desktop-header {
+    position: sticky;
+    top: 0;
+    z-index: 48;
+    display: flex;
+    min-height: 84px;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 28px;
+    background: color-mix(in srgb, var(--menu-bg) 95%, transparent);
+    border-bottom: 1px solid var(--menu-shell-border);
+    backdrop-filter: blur(18px);
+  }
+  .menu-chrome__search { width: min(480px, 42vw); }
+  .menu-chrome__utilities { position: absolute; right: 28px; display: flex; align-items: center; gap: 10px; }
+  .menu-chrome__utility {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 13px;
+    border: 1px solid var(--menu-shell-border);
+    border-radius: 13px;
+    color: var(--menu-text);
+    background: var(--menu-surface);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .menu-evolution__categories { top: 84px !important; }
+  .menu-evolution__categories .menu-evolution__category-track {
+    justify-content: center;
+    padding-inline: 28px;
+  }
+  .menu-evolution__featured { padding: 6px 24px 0; }
+  .menu-evolution__content { padding: 12px 24px 32px !important; }
+  .menu-evolution__content > div { margin-bottom: 46px; }
+}
+
+@media (min-width: 1280px) {
+  .menu-evolution__content,
+  .menu-evolution__featured { padding-inline: 28px !important; }
+}
