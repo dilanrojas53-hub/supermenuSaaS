@@ -1,5 +1,16 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+
+type AuthUser = {
+  id: string;
+  email?: string | null;
+  app_metadata?: Record<string, unknown>;
+};
+
+type AuthResult = {
+  data: { user: AuthUser | null };
+  error: { message?: string } | null;
+};
 
 const supabaseUrl =
   process.env.SUPABASE_URL ||
@@ -23,7 +34,7 @@ function bearerToken(req: VercelRequest): string | null {
   return token || null;
 }
 
-function isSuperAdmin(user: User): boolean {
+function isSuperAdmin(user: AuthUser): boolean {
   return (
     user.app_metadata?.role === "superadmin" ||
     user.email?.toLowerCase() === superAdminEmail
@@ -33,7 +44,7 @@ function isSuperAdmin(user: User): boolean {
 async function authenticatedUser(
   req: VercelRequest,
   res: VercelResponse,
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   const token = bearerToken(req);
   if (!token) {
     res.status(401).json({ error: "Authentication required" });
@@ -49,7 +60,12 @@ async function authenticatedUser(
   const authClient = createClient(supabaseUrl, supabasePublicKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await authClient.auth.getUser(token);
+  // The deployed Supabase client types do not expose getUser(jwt), although
+  // supabase-js v2 supports it at runtime. Keep the compatibility cast local.
+  const auth = authClient.auth as unknown as {
+    getUser(jwt: string): Promise<AuthResult>;
+  };
+  const { data, error } = await auth.getUser(token);
 
   if (error || !data.user) {
     res.status(401).json({ error: "Invalid or expired session" });
@@ -62,7 +78,7 @@ async function authenticatedUser(
 export async function requireSuperAdmin(
   req: VercelRequest,
   res: VercelResponse,
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   const user = await authenticatedUser(req, res);
   if (!user) return null;
 
@@ -77,7 +93,7 @@ export async function requireSuperAdmin(
 export async function requireAdmin(
   req: VercelRequest,
   res: VercelResponse,
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   const user = await authenticatedUser(req, res);
   if (!user) return null;
   if (isSuperAdmin(user)) return user;
@@ -123,7 +139,7 @@ export async function requireTenantAdmin(
   req: VercelRequest,
   res: VercelResponse,
   tenantId: unknown,
-): Promise<User | null> {
+): Promise<AuthUser | null> {
   const user = await authenticatedUser(req, res);
   if (!user) return null;
   if (isSuperAdmin(user)) return user;
