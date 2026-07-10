@@ -8,10 +8,11 @@
  * Requiere el header X-Admin-Secret para autenticación básica.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requireSuperAdmin } from "../_lib/authorization";
 
 const SUPABASE_URL = process.env.VITE_FRONTEND_FORGE_API_URL || "https://zddytyncmnivfbvehrth.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const ADMIN_SECRET = process.env.ADMIN_MIGRATION_SECRET || "supermenu-migration-2026";
+const ADMIN_SECRET = process.env.ADMIN_MIGRATION_SECRET;
 const PROJECT_REF = "zddytyncmnivfbvehrth";
 
 const migrations = [
@@ -113,10 +114,16 @@ END $$;`,
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  if (!(await requireSuperAdmin(req, res))) return;
+  if (!ADMIN_SECRET) return res.status(503).json({ error: "Migration endpoint is disabled" });
+
   const secret = req.headers["x-admin-secret"] || req.body?.secret;
   if (secret !== ADMIN_SECRET) return res.status(401).json({ error: "Unauthorized" });
 
   const mgmtToken = process.env.SUPABASE_MANAGEMENT_TOKEN;
+  if (!mgmtToken && !SERVICE_KEY) {
+    return res.status(503).json({ error: "Migration service is not configured" });
+  }
   const results: { name: string; success: boolean; error?: string }[] = [];
 
   for (const m of migrations) {
