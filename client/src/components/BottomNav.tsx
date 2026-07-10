@@ -1,7 +1,7 @@
 /**
  * BottomNav — Barra de navegación inferior móvil
  * Feature-aware: oculta tabs según menu_config del restaurante.
- * Tabs: Menú (siempre) / Pedido (siempre) / Promos (si enable_promotions) / Historial (si enable_history) / Perfil (si enable_profiles) / Restaurante (si enable_landing)
+ * Tabs: Menú / Pedido / Promos / Historial / Perfil
  */
 import { ShoppingCart, UtensilsCrossed, Tag, Clock, User, ChefHat, Globe } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
@@ -50,14 +50,16 @@ export default function BottomNav({
     pendiente: '⏳', pago_en_revision: '⏳', en_cocina: '🔥', listo: '✅', entregado: '📦',
   };
 
-  // Feature flags — si no hay menuConfig, mostrar todo (comportamiento legacy)
-  const showPromos      = !menuConfig || menuConfig.enable_promotions !== false;
-  const showHistory     = !menuConfig || menuConfig.enable_history !== false;
-  const showProfile     = !menuConfig || menuConfig.enable_profiles !== false;
-  const showRestaurante = !!menuConfig?.enable_landing;
+  const showPromos  = !menuConfig || menuConfig.enable_promotions !== false;
+  const showHistory = !menuConfig || menuConfig.enable_history !== false;
+  const showProfile = !menuConfig || menuConfig.enable_profiles !== false;
+
+  // La landing sigue accesible desde otros puntos, pero no ocupa una sexta
+  // posición en la navegación principal del menú móvil.
+  const showRestaurante = false;
 
   const allTabs = [
-    { key: 'menu' as const,        label: 'Menú',        Icon: UtensilsCrossed, visible: true },
+    { key: 'menu' as const, label: 'Menú', Icon: UtensilsCrossed, visible: true },
     {
       key: 'order' as const,
       label: 'Pedido',
@@ -67,9 +69,9 @@ export default function BottomNav({
       activeEmoji: activeOrderData ? (statusEmoji[activeOrderData.status] || '🍳') : undefined,
       visible: true,
     },
-    { key: 'promos' as const,      label: 'Promos',      Icon: Tag,   visible: showPromos },
-    { key: 'history' as const,     label: 'Historial',   Icon: Clock, visible: showHistory },
-    { key: 'profile' as const,     label: 'Perfil',      Icon: User,  dot: !!profile, visible: showProfile },
+    { key: 'promos' as const, label: 'Promos', Icon: Tag, visible: showPromos },
+    { key: 'history' as const, label: 'Historial', Icon: Clock, visible: showHistory },
+    { key: 'profile' as const, label: 'Perfil', Icon: User, dot: !!profile, visible: showProfile },
     { key: 'restaurante' as const, label: 'Restaurante', Icon: Globe, visible: showRestaurante },
   ];
   const tabs = allTabs.filter(t => t.visible);
@@ -97,7 +99,6 @@ export default function BottomNav({
             }
             onTabChange('order');
           } else if (key === 'restaurante' && tenantSlug) {
-            // Navegar a la landing pública del restaurante
             navigate(`/${tenantSlug}/restaurante`);
             onTabChange('restaurante');
           } else {
