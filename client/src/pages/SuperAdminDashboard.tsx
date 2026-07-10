@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { formatPrice } from '@/lib/types';
 import type { Tenant, ThemeSettings, Order } from '@/lib/types';
@@ -31,7 +32,7 @@ function slugify(text: string): string {
 type TabKey = 'dashboard' | 'tenants';
 
 export default function SuperAdminDashboard() {
-  const { isAuthenticated, role, logout } = useAdminAuth();
+  const { isLoading: authLoading, isAuthenticated, role, logout } = useAdminAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [tenants, setTenants] = useState<(Tenant & { theme?: ThemeSettings; itemCount?: number })[]>([]);
@@ -50,12 +51,13 @@ export default function SuperAdminDashboard() {
   });
 
   useEffect(() => {
-    if (!isAuthenticated || role !== 'superadmin') {
+    if (!authLoading && (!isAuthenticated || role !== 'superadmin')) {
       navigate('/super-admin/login');
     }
-  }, [isAuthenticated, role, navigate]);
+  }, [authLoading, isAuthenticated, role, navigate]);
 
   const fetchData = useCallback(async () => {
+    if (authLoading || !isAuthenticated || role !== 'superadmin') return;
     setLoading(true);
     const [tenantsRes, ordersRes] = await Promise.all([
       supabase.from('tenants').select('*').order('created_at', { ascending: false }),
@@ -74,7 +76,7 @@ export default function SuperAdminDashboard() {
     setTenants(enriched);
     setAllOrders((ordersRes.data as Order[]) || []);
     setLoading(false);
-  }, []);
+  }, [authLoading, isAuthenticated, role]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -137,7 +139,7 @@ export default function SuperAdminDashboard() {
 
     setIsCreating(true);
     try {
-      const response = await fetch('/api/admin/create-tenant', {
+      const response = await authenticatedFetch('/api/admin/create-tenant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +202,13 @@ export default function SuperAdminDashboard() {
     t.slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (!isAuthenticated || role !== 'superadmin') return null;
+  if (authLoading || !isAuthenticated || role !== 'superadmin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{backgroundColor:'#0b1220',color:'#e6eef8'}}>
