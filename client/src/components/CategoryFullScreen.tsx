@@ -5,7 +5,6 @@
  * NO reemplaza el flujo existente — es aditivo.
  */
 import { useState, useMemo } from 'react';
-import SmartImage from './SmartImage';
 import { ArrowLeft, Search, X, Grid2X2, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { MenuItem, Category, ThemeSettings } from '@/lib/types';
