@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Zap, DollarSign, RefreshCw, BarChart3, Loader2, ChevronUp, ChevronDown, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { formatPrice } from '@/lib/types';
 import type { Tenant } from '@/lib/types';
 
@@ -159,12 +160,13 @@ export default function UpsellAnalyticsPanel({ tenant }: UpsellAnalyticsPanelPro
     setComputing(true);
     setComputeMsg('');
     try {
-      const res = await fetch('/api/compute-upsell-pairs', {
+      const res = await authenticatedFetch('/api/compute-upsell-pairs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_id: tenant.id, recompute_all: true }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudieron calcular los pares');
       setComputeMsg(`✓ ${data.pairs_computed || 0} pares calculados para ${data.processed_triggers || 0} productos`);
       await loadData();
     } catch (err: any) {
@@ -192,17 +194,25 @@ export default function UpsellAnalyticsPanel({ tenant }: UpsellAnalyticsPanelPro
       }
 
       let analyzed = 0;
+      let failed = 0;
       for (const item of items) {
-        await fetch('/api/analyze-product', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item_id: item.id, tenant_id: tenant.id }),
-        }).catch(() => {});
-        analyzed++;
+        try {
+          const response = await authenticatedFetch('/api/analyze-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: item.id, tenant_id: tenant.id }),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          analyzed++;
+        } catch {
+          failed++;
+        }
         // Small delay to avoid overwhelming the API
         await new Promise(r => setTimeout(r, 200));
       }
-      setComputeMsg(`✓ ${analyzed} productos analizados con IA`);
+      setComputeMsg(failed > 0
+        ? `Analizados: ${analyzed} · Fallidos: ${failed}`
+        : `✓ ${analyzed} productos analizados con IA`);
     } catch (err: any) {
       setComputeMsg(`Error: ${err.message}`);
     } finally {
