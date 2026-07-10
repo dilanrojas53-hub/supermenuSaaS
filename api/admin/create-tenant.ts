@@ -30,6 +30,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requireSuperAdmin } from "../_lib/authorization";
 
 // Initialize Supabase Admin client (server-side only)
 const supabaseUrl = process.env.VITE_FRONTEND_FORGE_API_URL || "https://zddytyncmnivfbvehrth.supabase.co";
@@ -49,9 +50,9 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey!, {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.APP_ORIGIN || "https://atlas-smartmenu.com");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -60,6 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  if (!(await requireSuperAdmin(req, res))) return;
 
   try {
     // Check if service role key is available
