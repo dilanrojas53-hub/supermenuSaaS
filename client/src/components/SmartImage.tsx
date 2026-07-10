@@ -1,5 +1,5 @@
 import { useEffect, useState, type ImgHTMLAttributes, type ReactNode } from 'react';
-import { ImageOff } from 'lucide-react';
+import { Image } from 'lucide-react';
 
 interface SmartImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string | null;
@@ -33,11 +33,11 @@ export default function SmartImage({
   if (failed) {
     return (
       <div
-        className={`flex items-center justify-center bg-black/5 text-current/40 ${fallbackClassName}`}
+        className={`flex items-center justify-center bg-black/5 text-current/40 ${props.className ?? ''} ${fallbackClassName}`}
         role={alt ? 'img' : undefined}
         aria-label={alt ? `${alt}. ${fallbackLabel}` : undefined}
       >
-        {fallback ?? <ImageOff size={24} strokeWidth={1.6} aria-hidden="true" />}
+        {fallback ?? <Image size={24} strokeWidth={1.6} aria-hidden="true" />}
       </div>
     );
   }
