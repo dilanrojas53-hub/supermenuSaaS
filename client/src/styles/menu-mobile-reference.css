@@ -1,0 +1,520 @@
+/* Mobile refinement based on the supplied Flor & Sal reference.
+   Keeps the premium desktop pass intact and simplifies the phone experience. */
+
+@media (max-width: 1023px) {
+  .menu-evolution {
+    background:
+      radial-gradient(circle at 15% 0%, rgba(31, 209, 143, .08), transparent 22rem),
+      #020f0c !important;
+    padding-bottom: 96px !important;
+  }
+
+  /* ── Header: one clean row ───────────────────────────────────────────── */
+  .menu-chrome__mobile-header {
+    min-height: 88px !important;
+    padding: 13px 18px !important;
+    gap: 12px !important;
+    background: rgba(2, 15, 12, .94) !important;
+    border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    backdrop-filter: blur(22px) saturate(1.12) !important;
+  }
+
+  .menu-chrome__mobile-header .menu-chrome__identity {
+    min-width: 0;
+    gap: 12px !important;
+    flex: 1 1 auto;
+  }
+
+  .menu-chrome__mobile-header .menu-chrome__logo {
+    width: 56px !important;
+    height: 56px !important;
+    flex: 0 0 56px !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(31,209,143,.20) !important;
+    box-shadow: 0 18px 38px -30px rgba(31,209,143,.7) !important;
+  }
+
+  .menu-chrome__mobile-header .menu-chrome__identity-copy strong {
+    color: #fffaf1 !important;
+    font-family: 'Lora', serif !important;
+    font-size: 23px !important;
+    line-height: 1.02 !important;
+    letter-spacing: -.035em !important;
+  }
+
+  .menu-chrome__mobile-header .menu-chrome__identity-copy span {
+    max-width: 190px !important;
+    margin-top: 5px !important;
+    color: #1fd18f !important;
+    font-size: 9px !important;
+    letter-spacing: .13em !important;
+  }
+
+  .menu-chrome__mobile-actions {
+    flex: 0 0 auto;
+    gap: 8px !important;
+  }
+
+  .menu-chrome__mobile-actions > button {
+    height: 48px !important;
+    min-height: 48px !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    background: rgba(255,255,255,.045) !important;
+    color: #f7f3ea !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
+  }
+
+  .menu-chrome__mobile-actions > button:nth-of-type(1),
+  .menu-chrome__mobile-actions > button:nth-of-type(3) {
+    width: 48px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+  }
+
+  .menu-chrome__mobile-actions > button:nth-of-type(2) {
+    width: 72px !important;
+    border-radius: 999px !important;
+    padding: 0 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
+  .menu-chrome__mobile-actions > button:nth-of-type(2) span {
+    display: inline !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+  }
+
+  @media (max-width: 430px) {
+    .menu-chrome__mobile-header {
+      padding-inline: 14px !important;
+    }
+    .menu-chrome__mobile-header .menu-chrome__logo {
+      width: 52px !important;
+      height: 52px !important;
+      flex-basis: 52px !important;
+    }
+    .menu-chrome__mobile-header .menu-chrome__identity-copy strong {
+      font-size: 21px !important;
+    }
+    .menu-chrome__mobile-header .menu-chrome__identity-copy span {
+      max-width: 150px !important;
+    }
+    .menu-chrome__mobile-actions > button:nth-of-type(2) {
+      width: 62px !important;
+    }
+  }
+
+  /* Hide the schedule strip and Comidas/Bebidas macro switch on phones.
+     They were useful on desktop but made the mobile top feel crowded. */
+  .menu-evolution__legacy-hero + div:not(.menu-evolution__categories),
+  .menu-evolution__legacy-hero + div:not(.menu-evolution__categories) + div:not(.menu-evolution__categories) {
+    display: none !important;
+  }
+
+  /* ── Categories immediately under the header ────────────────────────── */
+  .menu-evolution__categories {
+    top: 88px !important;
+    min-height: 68px !important;
+    background: rgba(2,15,12,.96) !important;
+    border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(20px) !important;
+  }
+
+  .menu-evolution__categories > div:last-child {
+    display: none !important;
+  }
+
+  .menu-evolution__categories .menu-evolution__category-track {
+    gap: 9px !important;
+    padding: 10px 18px 12px !important;
+  }
+
+  .menu-evolution__categories button {
+    min-height: 46px !important;
+    padding: 0 18px !important;
+    border-radius: 999px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+  }
+
+  /* ── Featured product: compact horizontal composition ───────────────── */
+  .menu-evolution__featured {
+    padding: 0 !important;
+    margin: 18px 16px 26px !important;
+  }
+
+  .menu-evolution__featured > div {
+    margin: 0 !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    box-shadow: 0 24px 60px -44px rgba(0,0,0,.95) !important;
+    background: linear-gradient(145deg, rgba(7,31,24,.98), rgba(3,20,16,.98)) !important;
+  }
+
+  .menu-evolution__featured > div > .absolute.inset-0 {
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .menu-evolution__featured > div > .relative.z-10 {
+    padding: 16px !important;
+  }
+
+  .menu-evolution__featured > div > .relative.z-10 > .mb-4 {
+    position: absolute !important;
+    z-index: 5 !important;
+    top: 16px !important;
+    left: 166px !important;
+    right: 16px !important;
+    margin: 0 !important;
+  }
+
+  .menu-evolution__featured > div > .relative.z-10 > .mb-4 > div {
+    display: none !important;
+  }
+
+  .menu-evolution__featured > div > .relative.z-10 > .mb-4 > span {
+    max-width: 100% !important;
+    padding: 7px 11px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .menu-evolution__featured > div > .relative.z-10 > .flex.gap-4 {
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+
+  .menu-evolution__featured .w-28.h-28 {
+    width: 134px !important;
+    height: 154px !important;
+    border-radius: 18px !important;
+    box-shadow: none !important;
+  }
+
+  .menu-evolution__featured .flex-1.min-w-0 {
+    min-height: 154px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding-top: 38px !important;
+  }
+
+  .menu-evolution__featured h3 {
+    margin-bottom: 7px !important;
+    color: #fffaf1 !important;
+    font-family: 'Lora', serif !important;
+    font-size: 21px !important;
+    font-weight: 800 !important;
+    line-height: 1.08 !important;
+    letter-spacing: -.025em !important;
+  }
+
+  .menu-evolution__featured h3 + p {
+    display: -webkit-box !important;
+    margin-bottom: auto !important;
+    color: rgba(245,241,232,.68) !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .menu-evolution__featured .text-\[11px\] {
+    display: none !important;
+  }
+
+  .menu-evolution__featured .flex.items-center.justify-between {
+    margin-top: 10px !important;
+    align-items: center !important;
+  }
+
+  .menu-evolution__featured .text-xl {
+    color: #1fd18f !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+  }
+
+  .menu-evolution__featured button {
+    width: 52px !important;
+    min-width: 52px !important;
+    height: 52px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    box-shadow: 0 16px 34px -20px rgba(31,209,143,.75) !important;
+  }
+
+  .menu-evolution__featured button span span {
+    display: none !important;
+  }
+
+  @media (max-width: 390px) {
+    .menu-evolution__featured .w-28.h-28 {
+      width: 122px !important;
+      height: 148px !important;
+    }
+    .menu-evolution__featured > div > .relative.z-10 > .mb-4 {
+      left: 154px !important;
+    }
+    .menu-evolution__featured h3 {
+      font-size: 19px !important;
+    }
+  }
+
+  /* ── Category heading: title, description and link on one visual line ── */
+  .menu-evolution__content {
+    margin-top: 0 !important;
+    padding: 0 16px 20px !important;
+  }
+
+  .menu-evolution__content > div {
+    margin-bottom: 28px !important;
+  }
+
+  .menu-evolution__category-header {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto !important;
+    align-items: end !important;
+    gap: 10px !important;
+    margin: 0 0 14px !important;
+  }
+
+  .menu-evolution__category-header > div:first-child {
+    display: contents !important;
+  }
+
+  .menu-evolution__category-header h2 {
+    color: #fffaf1 !important;
+    font-family: 'Lora', serif !important;
+    font-size: 27px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: -.035em !important;
+    white-space: nowrap !important;
+  }
+
+  .menu-evolution__category-header h2 + p {
+    min-width: 0 !important;
+    margin: 0 0 2px !important;
+    color: rgba(245,241,232,.58) !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .menu-evolution__category-header > button {
+    margin: 0 0 0 auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #1fd18f !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+  }
+
+  /* ── Product rows: image, copy and circular add button ───────────────── */
+  .menu-evolution__mobile-list {
+    gap: 12px !important;
+  }
+
+  .menu-evolution__mobile-list > div > div {
+    min-height: 154px !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    background: linear-gradient(145deg, rgba(8,34,27,.98), rgba(4,24,19,.98)) !important;
+    box-shadow: none !important;
+  }
+
+  .menu-evolution__mobile-list > div > div > .absolute.left-0 {
+    display: none !important;
+  }
+
+  .menu-evolution__mobile-list > div > div > .flex.gap-0 {
+    min-height: 154px !important;
+    padding: 8px !important;
+    gap: 0 !important;
+  }
+
+  .menu-evolution__mobile-list .relative.flex-shrink-0 {
+    width: 136px !important;
+    height: 136px !important;
+    padding: 0 !important;
+  }
+
+  .menu-evolution__mobile-list .relative.flex-shrink-0 img,
+  .menu-evolution__mobile-list .relative.flex-shrink-0 > div:first-child {
+    border-radius: 16px !important;
+  }
+
+  .menu-evolution__mobile-list .relative.flex-shrink-0 > div.absolute {
+    top: 10px !important;
+    left: calc(100% + 14px) !important;
+    width: max-content !important;
+    max-width: 154px !important;
+  }
+
+  .menu-evolution__mobile-list .relative.flex-shrink-0 > div.absolute > * {
+    max-width: 154px !important;
+    border-radius: 999px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .menu-evolution__mobile-list .flex-1.min-w-0.flex.flex-col {
+    padding: 12px 12px 10px 14px !important;
+  }
+
+  .menu-evolution__mobile-list > div > div:has(.relative.flex-shrink-0 > div.absolute) h3 {
+    margin-top: 35px !important;
+  }
+
+  .menu-evolution__mobile-list h3 {
+    color: #fffaf1 !important;
+    font-family: 'Lora', serif !important;
+    font-size: 19px !important;
+    font-weight: 800 !important;
+    line-height: 1.12 !important;
+    letter-spacing: -.025em !important;
+  }
+
+  .menu-evolution__mobile-list h3 + p {
+    display: -webkit-box !important;
+    margin-top: 6px !important;
+    color: rgba(245,241,232,.60) !important;
+    font-size: 13px !important;
+    line-height: 1.48 !important;
+    -webkit-line-clamp: 3 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .menu-evolution__mobile-list .flex.items-center.justify-between {
+    margin-top: auto !important;
+  }
+
+  .menu-evolution__mobile-list .flex.items-center.justify-between > span {
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #1fd18f !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
+  }
+
+  .menu-evolution__mobile-list .flex.items-center.justify-between > button {
+    width: 50px !important;
+    min-width: 50px !important;
+    height: 50px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    background: #1fd18f !important;
+    color: #02100c !important;
+    box-shadow: 0 16px 34px -20px rgba(31,209,143,.75) !important;
+  }
+
+  .menu-evolution__mobile-list .flex.items-center.justify-between > button span span {
+    display: none !important;
+  }
+
+  @media (max-width: 390px) {
+    .menu-evolution__mobile-list .relative.flex-shrink-0 {
+      width: 124px !important;
+      height: 132px !important;
+    }
+    .menu-evolution__mobile-list > div > div,
+    .menu-evolution__mobile-list > div > div > .flex.gap-0 {
+      min-height: 148px !important;
+    }
+    .menu-evolution__mobile-list h3 {
+      font-size: 17px !important;
+    }
+  }
+
+  /* ── Floating cart becomes the horizontal summary bar from the reference ─ */
+  .menu-evolution > .fixed.bottom-20.right-4 {
+    left: 16px !important;
+    right: 16px !important;
+    bottom: 78px !important;
+    width: auto !important;
+    align-items: stretch !important;
+  }
+
+  .menu-evolution > .fixed.bottom-20.right-4 > button {
+    width: 100% !important;
+    min-height: 64px !important;
+    padding: 10px 16px !important;
+    border-radius: 19px !important;
+    justify-content: space-between !important;
+    background: rgba(6,31,25,.96) !important;
+    color: #fffaf1 !important;
+    border: 1px solid rgba(255,255,255,.11) !important;
+    box-shadow: 0 18px 50px -28px rgba(0,0,0,.95) !important;
+    backdrop-filter: blur(18px) !important;
+  }
+
+  .menu-evolution > .fixed.bottom-20.right-4 > button > div:first-child {
+    width: 42px !important;
+    height: 42px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 50% !important;
+    background: rgba(31,209,143,.16) !important;
+    color: #1fd18f !important;
+  }
+
+  .menu-evolution > .fixed.bottom-20.right-4 > button > div:nth-child(2) {
+    flex: 1 1 auto !important;
+    justify-content: space-between !important;
+    padding-inline: 10px !important;
+  }
+
+  .menu-evolution > .fixed.bottom-20.right-4 > button > div:nth-child(2) span:first-child {
+    color: rgba(245,241,232,.82) !important;
+    font-size: 13px !important;
+  }
+
+  .menu-evolution > .fixed.bottom-20.right-4 > button > div:nth-child(2) span:last-child {
+    color: #1fd18f !important;
+    font-size: 18px !important;
+  }
+
+  /* ── Bottom navigation: five evenly spaced actions ───────────────────── */
+  .menu-evolution__bottom-nav nav {
+    min-height: 72px !important;
+    background: rgba(2,15,12,.97) !important;
+    border-color: rgba(255,255,255,.08) !important;
+    box-shadow: 0 -16px 42px -30px rgba(0,0,0,.95) !important;
+    backdrop-filter: blur(20px) !important;
+  }
+
+  .menu-evolution__bottom-nav nav button {
+    min-width: 0 !important;
+    padding: 9px 2px 8px !important;
+  }
+
+  .menu-evolution__bottom-nav nav button svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .menu-evolution__bottom-nav nav button > span:last-of-type {
+    margin-top: 4px !important;
+    font-size: 10px !important;
+  }
+}
