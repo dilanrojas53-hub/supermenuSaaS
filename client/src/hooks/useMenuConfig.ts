@@ -36,21 +36,41 @@ const DEFAULT_CONFIG: MenuConfig = {
   show_product_description: true,
 };
 
+/**
+ * La interfaz pública usa una composición editorial por categoría:
+ * los primeros productos se muestran como cards protagonistas y el resto
+ * como cards compactas. Para que ningún producto desaparezca ni se repita,
+ * la vista previa debe recibir todos los productos y no renderizar "Ver todo".
+ */
+function normalizePublicMenuConfig(source?: Partial<MenuConfig> | null): MenuConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    ...(source || {}),
+    category_preview_count: 1000,
+    category_preview_horizontal: true,
+    show_view_all_cta: false,
+  };
+}
+
 export function useMenuConfig(tenantId: string | undefined) {
-  const [config, setConfig] = useState<MenuConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<MenuConfig>(() => normalizePublicMenuConfig());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) {
+      setConfig(normalizePublicMenuConfig());
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     supabase
       .from('menu_config')
       .select('*')
       .eq('tenant_id', tenantId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          setConfig({ ...DEFAULT_CONFIG, ...data });
-        }
+        setConfig(normalizePublicMenuConfig(data));
         setLoading(false);
       });
   }, [tenantId]);
