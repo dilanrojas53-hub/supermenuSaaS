@@ -1,0 +1,242 @@
+/*
+ * Category showcase
+ * - Desktop: first four dishes are large cards; every remaining dish becomes
+ *   a compact two-column row beneath them.
+ * - Mobile: first two dishes are large cards; every remaining dish becomes
+ *   a compact full-width row beneath them.
+ *
+ * MenuPage now receives every category item, so this layout never duplicates
+ * products and does not need a "Ver todo" placeholder.
+ */
+
+/* Never let the mobile copy appear beside the desktop grid. */
+@media (min-width: 1024px) {
+  .menu-evolution__mobile-list {
+    display: none !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 13px !important;
+  }
+
+  /* Remaining items use the lower compact area, two per row. */
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) {
+    grid-column: span 2;
+    min-width: 0;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) > div[class*='cursor-pointer'] {
+    display: grid !important;
+    grid-template-columns: 112px minmax(0, 1fr) auto !important;
+    grid-template-rows: 112px !important;
+    min-height: 112px !important;
+    height: 112px !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) > div[class*='cursor-pointer'] > div:first-child {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 112px !important;
+    height: 112px !important;
+    min-height: 112px !important;
+    aspect-ratio: auto !important;
+    border-radius: 14px 0 0 14px !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) > div[class*='cursor-pointer'] > div:first-child img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) > div[class*='cursor-pointer'] > div:nth-child(2) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    padding: 14px 14px 12px !important;
+    justify-content: center !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) h3 {
+    font-size: 16px !important;
+    line-height: 1.08 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) h3 + p {
+    display: -webkit-box !important;
+    margin-top: 5px !important;
+    font-size: 11px !important;
+    line-height: 1.38 !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    overflow: hidden !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) p.text-\[16px\] {
+    margin-top: 7px !important;
+    font-size: 15px !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) > div[class*='cursor-pointer'] > div:last-child {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 13px 0 0 !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) button.w-full {
+    width: 102px !important;
+    min-width: 102px !important;
+    height: 38px !important;
+    margin: 0 !important;
+    padding: 0 13px !important;
+    border-radius: 999px !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) button.w-full span::after {
+    font-size: 12px !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) button.w-full svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+/* At narrower desktop widths the compact rows use the entire content width. */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .menu-evolution__content .hidden.sm\:grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .menu-evolution__content .hidden.sm\:grid > div:nth-child(n + 5) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1023px) {
+  .menu-evolution__mobile-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 11px !important;
+  }
+
+  /* The first two stay as the visual protagonists. */
+  .menu-evolution__mobile-list > div:nth-child(-n + 2) {
+    min-width: 0;
+  }
+
+  /* Every later dish becomes a compact, full-width row. */
+  .menu-evolution__mobile-list > div:nth-child(n + 3) {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) > div {
+    min-height: 106px !important;
+    height: 106px !important;
+    border-radius: 15px !important;
+    overflow: hidden !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) > div > .flex.gap-0 {
+    display: flex !important;
+    min-height: 106px !important;
+    height: 106px !important;
+    flex-direction: row !important;
+    padding: 0 !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .relative.flex-shrink-0 {
+    width: 106px !important;
+    height: 106px !important;
+    flex: 0 0 106px !important;
+    padding: 0 !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .relative.flex-shrink-0 img,
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .relative.flex-shrink-0 > div:first-child {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .relative.flex-shrink-0 > div.absolute {
+    top: 7px !important;
+    left: 7px !important;
+    right: auto !important;
+    max-width: 92px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .flex-1.min-w-0.flex.flex-col {
+    min-height: 106px !important;
+    padding: 10px 10px 9px 12px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) h3,
+  .menu-evolution__mobile-list > div:nth-child(n + 3):has(.relative.flex-shrink-0 > div.absolute) h3 {
+    margin-top: 0 !important;
+    font-size: 15px !important;
+    line-height: 1.08 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) h3 + p {
+    display: -webkit-box !important;
+    min-height: 0 !important;
+    margin-top: 4px !important;
+    font-size: 10.5px !important;
+    line-height: 1.36 !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    overflow: hidden !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .flex.items-center.justify-between {
+    margin-top: auto !important;
+    padding-top: 5px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .flex.items-center.justify-between > span {
+    font-size: 14px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .flex.items-center.justify-between > button {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .flex.items-center.justify-between > button svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .menu-evolution__mobile-list > div:nth-child(n + 3) > div,
+  .menu-evolution__mobile-list > div:nth-child(n + 3) > div > .flex.gap-0 {
+    min-height: 100px !important;
+    height: 100px !important;
+  }
+
+  .menu-evolution__mobile-list > div:nth-child(n + 3) .relative.flex-shrink-0 {
+    width: 96px !important;
+    height: 100px !important;
+    flex-basis: 96px !important;
+  }
+}
