@@ -19,7 +19,7 @@ interface DrinkCategory {
 const PORTAL_ID = 'atlas-beverage-discovery';
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'));
+  return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea'));
 }
 
 function findProductModalRoot(): HTMLElement | null {
