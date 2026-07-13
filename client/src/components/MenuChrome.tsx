@@ -3,6 +3,7 @@ import { Clock3, ShoppingCart, Tag, UserRound, Utensils } from 'lucide-react';
 import SmartImage from './SmartImage';
 import type { BottomNavTab } from './BottomNav';
 import { useCart } from '@/contexts/CartContext';
+import MenuEnhancements from './MenuEnhancements';
 import '@/styles/menu-mobile-reference.css';
 import '@/styles/menu-premium-reference.css';
 // Loaded last: first dishes stay large and every remaining dish is compact.
@@ -56,6 +57,8 @@ export default function MenuChrome({
 
   return (
     <>
+      <MenuEnhancements />
+
       <aside className="menu-chrome__sidebar" aria-label="Navegación principal">
         {restaurantIdentity}
         <nav className="menu-chrome__nav">

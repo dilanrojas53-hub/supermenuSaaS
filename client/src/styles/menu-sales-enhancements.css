@@ -1,0 +1,435 @@
+/* High-visibility beverage discovery and premium upsell refinements. */
+
+.atlas-featured-clickable {
+  cursor: pointer !important;
+  transition: transform 180ms ease, box-shadow 180ms ease !important;
+}
+
+.atlas-featured-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 42px rgba(0,0,0,0.38) !important;
+}
+
+.atlas-featured-clickable:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--menu-accent) 65%, white);
+  outline-offset: 4px;
+}
+
+.atlas-featured-clickable::after {
+  content: 'Toca para ver detalles y complementos';
+  position: absolute;
+  right: 18px;
+  bottom: 13px;
+  z-index: 20;
+  max-width: 160px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .02em;
+  text-align: center;
+  color: var(--menu-text);
+  background: color-mix(in srgb, var(--menu-bg) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--menu-text) 12%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.atlas-beverage-portal {
+  width: 100%;
+}
+
+.atlas-beverage-section {
+  margin: 8px 16px 26px;
+  padding: 18px;
+  overflow: hidden;
+  border-radius: 26px;
+  color: var(--menu-text);
+  border: 1px solid color-mix(in srgb, var(--menu-accent) 30%, transparent);
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--menu-accent) 20%, transparent), transparent 36%),
+    linear-gradient(145deg, color-mix(in srgb, var(--menu-accent) 10%, var(--menu-surface)) 0%, var(--menu-surface) 72%);
+  box-shadow: 0 16px 42px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.atlas-beverage-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 15px;
+}
+
+.atlas-beverage-heading__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 17px;
+  color: var(--menu-accent-contrast);
+  background: var(--menu-accent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--menu-accent) 28%, transparent);
+}
+
+.atlas-beverage-heading__copy {
+  min-width: 0;
+}
+
+.atlas-beverage-heading__copy > span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  opacity: .58;
+}
+
+.atlas-beverage-heading__copy h2 {
+  margin: 0;
+  font-family: 'Lora', serif;
+  font-size: clamp(20px, 3vw, 27px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -.025em;
+}
+
+.atlas-beverage-heading__copy p {
+  margin: 5px 0 0;
+  max-width: 610px;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: .58;
+}
+
+.atlas-beverage-heading__cta,
+.atlas-beverage-mobile-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 900;
+  color: var(--menu-accent-contrast);
+  background: var(--menu-accent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--menu-accent) 24%, transparent);
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.atlas-beverage-heading__cta {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.atlas-beverage-heading__cta:hover,
+.atlas-beverage-mobile-cta:hover {
+  filter: brightness(1.08);
+}
+
+.atlas-beverage-heading__cta:active,
+.atlas-beverage-mobile-cta:active {
+  transform: scale(.97);
+}
+
+.atlas-beverage-filters {
+  display: flex;
+  gap: 8px;
+  padding: 1px 0 11px;
+  margin-bottom: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.atlas-beverage-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.atlas-beverage-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--menu-text) 11%, transparent);
+  color: var(--menu-text);
+  background: color-mix(in srgb, var(--menu-text) 6%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.atlas-beverage-filters button[data-active='true'] {
+  color: var(--menu-accent-contrast);
+  background: var(--menu-accent);
+  border-color: transparent;
+  box-shadow: 0 7px 17px color-mix(in srgb, var(--menu-accent) 22%, transparent);
+}
+
+.atlas-beverage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.atlas-beverage-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--menu-text) 10%, transparent);
+  color: var(--menu-text);
+  background: color-mix(in srgb, var(--menu-bg) 78%, transparent);
+  box-shadow: 0 9px 22px rgba(0,0,0,.12);
+  transition: transform 170ms ease, box-shadow 170ms ease, border-color 170ms ease;
+}
+
+.atlas-beverage-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--menu-accent) 42%, transparent);
+  box-shadow: 0 13px 28px rgba(0,0,0,.19);
+}
+
+.atlas-beverage-card:active {
+  transform: scale(.98);
+}
+
+.atlas-beverage-card__media {
+  position: relative;
+  height: 116px;
+  overflow: hidden;
+}
+
+.atlas-beverage-card__media > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.atlas-beverage-card:hover .atlas-beverage-card__media > img {
+  transform: scale(1.04);
+}
+
+.atlas-beverage-card__fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--menu-accent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--menu-accent) 23%, transparent), color-mix(in srgb, var(--menu-accent) 5%, transparent));
+}
+
+.atlas-beverage-card__plus {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0,0,0,.58);
+  border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(8px);
+}
+
+.atlas-beverage-card__body {
+  padding: 11px 12px 13px;
+}
+
+.atlas-beverage-card__body strong {
+  display: -webkit-box;
+  min-height: 31px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.18;
+  font-weight: 900;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.atlas-beverage-card__body span {
+  display: block;
+  margin-top: 5px;
+  color: var(--menu-accent);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.atlas-beverage-skeleton {
+  height: 166px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--menu-text) 8%, transparent);
+  animation: atlasPulse 1.25s ease-in-out infinite alternate;
+}
+
+.atlas-beverage-empty {
+  margin: 6px 0 0;
+  padding: 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  text-align: center;
+  opacity: .62;
+  background: color-mix(in srgb, var(--menu-text) 5%, transparent);
+}
+
+.atlas-beverage-mobile-cta {
+  display: none;
+  width: 100%;
+  margin-top: 13px;
+  padding: 13px 15px;
+  font-size: 13px;
+}
+
+/* Improve the existing product detail and its upsell block without changing logic. */
+.atlas-product-detail-modal {
+  border-radius: 30px 30px 0 0 !important;
+  box-shadow: 0 -18px 64px rgba(0,0,0,.48) !important;
+  border-top: 1px solid color-mix(in srgb, var(--menu-text) 12%, transparent) !important;
+}
+
+.atlas-product-detail-modal::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 30;
+  width: 46px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--menu-text) 26%, transparent);
+}
+
+.atlas-upsell-panel {
+  position: relative;
+  padding: 14px !important;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--menu-accent) 30%, transparent);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--menu-accent) 18%, transparent), transparent 38%),
+    linear-gradient(145deg, color-mix(in srgb, var(--menu-accent) 10%, transparent), color-mix(in srgb, var(--menu-text) 4%, transparent));
+  box-shadow: 0 14px 30px rgba(0,0,0,.13), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.atlas-upsell-panel::before {
+  content: 'Completa tu pedido';
+  display: block;
+  margin-bottom: 9px;
+  color: var(--menu-accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.atlas-upsell-panel > div:first-child {
+  margin-bottom: 11px !important;
+}
+
+.atlas-upsell-card {
+  padding: 12px !important;
+  border-radius: 18px !important;
+  background: color-mix(in srgb, var(--menu-bg) 82%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--menu-text) 10%, transparent) !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,.11);
+}
+
+.atlas-upsell-card img {
+  width: 68px !important;
+  height: 68px !important;
+  border-radius: 15px !important;
+}
+
+.atlas-upsell-card button {
+  transition: transform 150ms ease, filter 150ms ease;
+}
+
+.atlas-upsell-card button:active {
+  transform: scale(.94);
+}
+
+@keyframes atlasPulse {
+  from { opacity: .46; }
+  to { opacity: .9; }
+}
+
+@media (max-width: 639px) {
+  .atlas-featured-clickable::after {
+    right: 13px;
+    bottom: 10px;
+    max-width: 126px;
+    font-size: 8px;
+  }
+
+  .atlas-beverage-section {
+    margin: 7px 14px 24px;
+    padding: 15px;
+    border-radius: 23px;
+  }
+
+  .atlas-beverage-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .atlas-beverage-heading__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+  }
+
+  .atlas-beverage-heading__copy h2 {
+    font-size: 20px;
+  }
+
+  .atlas-beverage-heading__copy p {
+    display: none;
+  }
+
+  .atlas-beverage-heading__cta {
+    display: none;
+  }
+
+  .atlas-beverage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .atlas-beverage-card__media {
+    height: 102px;
+  }
+
+  .atlas-beverage-card__body {
+    padding: 10px 10px 12px;
+  }
+
+  .atlas-beverage-mobile-cta {
+    display: inline-flex;
+  }
+
+  .atlas-upsell-panel {
+    padding: 12px !important;
+    border-radius: 21px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .atlas-beverage-section {
+    margin-left: 28px;
+    margin-right: 28px;
+    padding: 21px;
+  }
+
+  .atlas-beverage-card__media {
+    height: 132px;
+  }
+}
