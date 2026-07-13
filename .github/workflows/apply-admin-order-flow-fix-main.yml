@@ -1,0 +1,51 @@
+name: Apply verified admin order flow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-admin-order-flow-fix-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Apply verified order-flow patch
+        run: python3 scripts/apply-admin-order-flow-fix.py
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check and build
+        run: |
+          pnpm check
+          pnpm build
+
+      - name: Commit generated source and remove one-time files
+        shell: bash
+        run: |
+          rm scripts/apply-admin-order-flow-fix.py
+          rm .github/workflows/apply-admin-order-flow-fix-main.yml
+          git config user.name "Digital Atlas Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add client/src/pages/AdminDashboard.tsx scripts/apply-admin-order-flow-fix.py .github/workflows/apply-admin-order-flow-fix-main.yml
+          git commit -m "Fix verified admin order transitions"
+          git push origin HEAD:main

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams } from 'wouter';
-import { ArrowRight, Coffee, GlassWater, Plus, Sparkles, Wine } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Coffee, GlassWater, Plus, Sparkles, Wine } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MenuItem, Tenant, ThemeSettings } from '@/lib/types';
 import { formatPrice } from '@/lib/types';
@@ -17,6 +17,7 @@ interface DrinkCategory {
 }
 
 const PORTAL_ID = 'atlas-beverage-discovery';
+const BACK_PORTAL_ID = 'atlas-beverage-back';
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea'));
@@ -56,6 +57,12 @@ function decorateUpsellPanel(): void {
   cards.forEach(card => card.classList.add('atlas-upsell-card'));
 }
 
+function findMasterButton(label: 'Comidas' | '🍹 Bebidas'): HTMLButtonElement | null {
+  return Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+    button => button.textContent?.trim() === label
+  ) || null;
+}
+
 export default function MenuEnhancements() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
@@ -69,6 +76,8 @@ export default function MenuEnhancements() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+  const [backPortalNode, setBackPortalNode] = useState<HTMLElement | null>(null);
+  const [drinkModeActive, setDrinkModeActive] = useState(false);
   const featuredNodeRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -212,6 +221,55 @@ export default function MenuEnhancements() {
   }, []);
 
   useEffect(() => {
+    const attached: Array<{ node: HTMLButtonElement; handler: () => void }> = [];
+
+    const ensureBackNavigation = () => {
+      const categoriesBar = document.querySelector<HTMLElement>('.menu-evolution__categories');
+      if (categoriesBar) {
+        let node = document.getElementById(BACK_PORTAL_ID);
+        if (!node) {
+          node = document.createElement('div');
+          node.id = BACK_PORTAL_ID;
+          node.style.flexShrink = '0';
+          node.style.paddingLeft = '12px';
+          categoriesBar.prepend(node);
+        }
+        setBackPortalNode(node);
+      }
+
+      const foodButton = findMasterButton('Comidas');
+      const drinksButton = findMasterButton('🍹 Bebidas');
+
+      if (foodButton && foodButton.dataset.atlasModeListener !== 'true') {
+        const handler = () => setDrinkModeActive(false);
+        foodButton.dataset.atlasModeListener = 'true';
+        foodButton.addEventListener('click', handler);
+        attached.push({ node: foodButton, handler });
+      }
+
+      if (drinksButton && drinksButton.dataset.atlasModeListener !== 'true') {
+        const handler = () => setDrinkModeActive(true);
+        drinksButton.dataset.atlasModeListener = 'true';
+        drinksButton.addEventListener('click', handler);
+        attached.push({ node: drinksButton, handler });
+      }
+    };
+
+    ensureBackNavigation();
+    const observer = new MutationObserver(ensureBackNavigation);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      attached.forEach(({ node, handler }) => {
+        node.removeEventListener('click', handler);
+        delete node.dataset.atlasModeListener;
+      });
+      document.getElementById(BACK_PORTAL_ID)?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     const observer = new MutationObserver(decorateUpsellPanel);
     observer.observe(document.body, { childList: true, subtree: true });
     decorateUpsellPanel();
@@ -226,10 +284,16 @@ export default function MenuEnhancements() {
   }, [activeDrinkCategory, drinkItems]);
 
   const showAllDrinks = useCallback(() => {
-    const masterDrinkButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(button =>
-      button.textContent?.trim() === '🍹 Bebidas'
-    );
-    masterDrinkButton?.click();
+    setDrinkModeActive(true);
+    findMasterButton('🍹 Bebidas')?.click();
+    window.setTimeout(() => {
+      document.querySelector('.menu-evolution__categories')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }, []);
+
+  const returnToFood = useCallback(() => {
+    setDrinkModeActive(false);
+    findMasterButton('Comidas')?.click();
     window.setTimeout(() => {
       document.querySelector('.menu-evolution__categories')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 120);
@@ -329,6 +393,22 @@ export default function MenuEnhancements() {
   return (
     <>
       {beverageSection}
+      {backPortalNode && drinkModeActive && createPortal(
+        <button
+          type="button"
+          onClick={returnToFood}
+          aria-label="Volver a comidas"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all active:scale-95"
+          style={{
+            backgroundColor: 'var(--menu-accent)',
+            color: 'var(--menu-accent-contrast, #000)',
+            boxShadow: '0 5px 16px color-mix(in srgb, var(--menu-accent) 28%, transparent)',
+          }}
+        >
+          <ArrowLeft size={15} /> Comidas
+        </button>,
+        backPortalNode
+      )}
       {tenant && theme && (
         <ProductDetailModal
           item={selectedItem}
