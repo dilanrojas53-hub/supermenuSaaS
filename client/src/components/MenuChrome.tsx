@@ -4,7 +4,6 @@ import SmartImage from './SmartImage';
 import type { BottomNavTab } from './BottomNav';
 import { useCart } from '@/contexts/CartContext';
 import MenuEnhancements from './MenuEnhancements';
-import '@/styles/menu-mobile-reference.css';
 import '@/styles/menu-premium-reference.css';
 // Loaded last: first dishes stay large and every remaining dish is compact.
 import '@/styles/menu-category-showcase.css';
