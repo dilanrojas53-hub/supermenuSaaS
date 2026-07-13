@@ -4,11 +4,15 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "predev": "python3 scripts/apply-admin-order-flow-fix.py",
     "dev": "vite --host",
+    "prebuild": "python3 scripts/apply-admin-order-flow-fix.py",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "prebuild:client": "python3 scripts/apply-admin-order-flow-fix.py",
     "build:client": "vite build",
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
+    "precheck": "python3 scripts/apply-admin-order-flow-fix.py",
     "check": "tsc --noEmit",
     "format": "prettier --write ."
   },
@@ -86,6 +90,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.3",
     "esbuild": "^0.25.0",
     "pnpm": "^10.15.1",
     "postcss": "^8.4.47",
