@@ -5,6 +5,7 @@ import type { BottomNavTab } from './BottomNav';
 import { useCart } from '@/contexts/CartContext';
 import '@/styles/menu-mobile-reference.css';
 import '@/styles/menu-premium-reference.css';
+// Loaded last: first dishes stay large and every remaining dish is compact.
 import '@/styles/menu-category-showcase.css';
 
 interface MenuChromeProps {
