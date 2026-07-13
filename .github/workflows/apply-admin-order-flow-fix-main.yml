@@ -49,3 +49,5 @@ jobs:
           git add client/src/pages/AdminDashboard.tsx scripts/apply-admin-order-flow-fix.py .github/workflows/apply-admin-order-flow-fix-main.yml
           git commit -m "Fix verified admin order transitions"
           git push origin HEAD:main
+
+# Triggered after the workflow became available on the default branch.
